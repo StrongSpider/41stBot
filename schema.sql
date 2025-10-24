@@ -1,0 +1,108 @@
+-- Run on PostgreSQL 13+.
+
+BEGIN;
+
+-- UUID generator used by createWeeklyEvent()
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- 1) Event types (cached by the app)
+CREATE TABLE IF NOT EXISTS event_types (
+  type text PRIMARY KEY,
+  -- mirror your assertSafeEventType checks
+  CONSTRAINT event_types_type_check_len CHECK (char_length(type) > 0 AND char_length(type) <= 64),
+  CONSTRAINT event_types_type_check_ascii CHECK (type ~ '^[\x20-\x7E]+$'),
+  CONSTRAINT event_types_type_check_allowlist CHECK (type ~ '^[A-Za-z0-9._\- ]+$')
+);
+
+-- 2) Roblox <-> Discord mapping
+-- App upserts ON CONFLICT (discordid)
+CREATE TABLE IF NOT EXISTS roblox_ids (
+  discordid text PRIMARY KEY,
+  robloxid  bigint UNIQUE NOT NULL
+);
+
+-- 3) Inactivity table (keyed by Discord ID)
+CREATE TABLE IF NOT EXISTS inactivity (
+  discordid text PRIMARY KEY,
+  -- store epoch milliseconds (Number in code)
+  date      bigint NOT NULL,
+  reason    text   NOT NULL
+);
+
+-- 4) Weekly events
+CREATE TABLE IF NOT EXISTS weekly_events (
+  eventid    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  attendees  bigint[] NOT NULL,
+  host       bigint   NOT NULL REFERENCES roblox_ids(robloxid) ON UPDATE CASCADE ON DELETE RESTRICT,
+  supervisor bigint   NOT NULL REFERENCES roblox_ids(robloxid) ON UPDATE CASCADE ON DELETE RESTRICT,
+  "timestamp" timestamptz NOT NULL,
+  type       text REFERENCES event_types(type) ON UPDATE CASCADE ON DELETE SET NULL,
+  message    text
+);
+
+-- Unique lookup by message URL, if present
+CREATE UNIQUE INDEX IF NOT EXISTS weekly_events_message_uq
+  ON weekly_events ((message))
+  WHERE message IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS weekly_events_host_idx       ON weekly_events (host);
+CREATE INDEX IF NOT EXISTS weekly_events_supervisor_idx ON weekly_events (supervisor);
+CREATE INDEX IF NOT EXISTS weekly_events_timestamp_idx  ON weekly_events ("timestamp");
+CREATE INDEX IF NOT EXISTS weekly_events_type_idx       ON weekly_events (type);
+
+-- 5) All-time events (mirror of weekly)
+CREATE TABLE IF NOT EXISTS all_time_events (
+  eventid    uuid PRIMARY KEY,
+  attendees  bigint[] NOT NULL,
+  host       bigint   NOT NULL REFERENCES roblox_ids(robloxid) ON UPDATE CASCADE ON DELETE RESTRICT,
+  supervisor bigint   NOT NULL REFERENCES roblox_ids(robloxid) ON UPDATE CASCADE ON DELETE RESTRICT,
+  "timestamp" timestamptz NOT NULL,
+  type       text REFERENCES event_types(type) ON UPDATE CASCADE ON DELETE SET NULL,
+  message    text
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS all_time_events_message_uq
+  ON all_time_events ((message))
+  WHERE message IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS all_time_events_host_idx       ON all_time_events (host);
+CREATE INDEX IF NOT EXISTS all_time_events_supervisor_idx ON all_time_events (supervisor);
+CREATE INDEX IF NOT EXISTS all_time_events_timestamp_idx  ON all_time_events ("timestamp");
+CREATE INDEX IF NOT EXISTS all_time_events_type_idx       ON all_time_events (type);
+
+-- 6) Weekly events index per user (array of event IDs)
+CREATE TABLE IF NOT EXISTS weekly_events_index (
+  robloxid bigint PRIMARY KEY REFERENCES roblox_ids(robloxid) ON UPDATE CASCADE ON DELETE CASCADE,
+  events   uuid[] NOT NULL DEFAULT '{}'
+);
+
+-- 7) All-time events index per user (array of event IDs)
+CREATE TABLE IF NOT EXISTS all_time_events_index (
+  robloxid bigint PRIMARY KEY REFERENCES roblox_ids(robloxid) ON UPDATE CASCADE ON DELETE CASCADE,
+  events   uuid[] NOT NULL DEFAULT '{}'
+);
+
+-- 8) Current event points
+-- App upserts ON CONFLICT (robloxid) and increments
+CREATE TABLE IF NOT EXISTS event_points (
+  robloxid    bigint PRIMARY KEY REFERENCES roblox_ids(robloxid) ON UPDATE CASCADE ON DELETE CASCADE,
+  eventpoints integer NOT NULL DEFAULT 0
+);
+
+-- 9) All-time event points
+CREATE TABLE IF NOT EXISTS all_time_event_points (
+  robloxid    bigint PRIMARY KEY REFERENCES roblox_ids(robloxid) ON UPDATE CASCADE ON DELETE CASCADE,
+  eventpoints integer NOT NULL DEFAULT 0
+);
+
+-- 10) Role quotas
+CREATE TABLE IF NOT EXISTS role_quotas (
+  roleid     text PRIMARY KEY,
+  quotaep    integer NOT NULL DEFAULT 0,
+  eventcaps  jsonb   NOT NULL DEFAULT '[]'::jsonb, -- array of {alias,type,count}
+  overwrites text    NOT NULL DEFAULT '',
+  exclusive  text    NOT NULL DEFAULT '',
+  purges     boolean NOT NULL DEFAULT false
+);
+
+COMMIT;

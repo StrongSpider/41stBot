@@ -1,0 +1,143 @@
+'use strict'
+
+const { Client, Collection, GatewayIntentBits, Partials } = require('discord.js')
+const path = require('path')
+const fs = require('fs')
+
+const { BOT_TOKEN } = require('../../config.json')
+
+/**
+ * Bot bootstrap
+ *
+ * Loads slash command modules and event handlers from the filesystem,
+ * registers them on a Discord client, then logs the bot in.
+ *
+ * Behavior
+ *  - Validates BOT_TOKEN before starting
+ *  - Discovers commands in ./commands and stores them on client.commands
+ *  - Discovers event handler files under ./events/<eventName>/*.js and
+ *    registers a single listener per event that fans out to all handlers
+ *  - Wraps all dynamic requires and handler calls in try blocks so a bad
+ *    file does not crash the process
+ *
+ * Notes
+ *  - Plain ASCII only and no semicolons
+ */
+
+if (!BOT_TOKEN || typeof BOT_TOKEN !== 'string' || BOT_TOKEN.trim().length === 0) {
+  console.error('BOT_TOKEN is missing in config.json')
+  process.exit(1)
+}
+
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildIntegrations,
+    GatewayIntentBits.DirectMessages
+  ],
+  partials: [
+    Partials.Message,
+    Partials.Channel,
+    Partials.GuildMember,
+    Partials.User
+  ]
+})
+
+// Commands collection exposed to handlers
+client.commands = new Collection()
+
+/**
+ * Load all command modules from ./commands
+ * Expects each file to export { data: SlashCommandBuilder, execute: Function }
+ */
+function loadCommands() {
+  const commandsDir = path.join(__dirname, 'commands')
+  let count = 0
+  try {
+    const files = fs.readdirSync(commandsDir).filter(f => f.endsWith('.js'))
+    for (const file of files) {
+      const filePath = path.join(commandsDir, file)
+      try {
+        const mod = require(filePath)
+        if (mod && mod.data && typeof mod.data.name === 'string' && typeof mod.execute === 'function') {
+          client.commands.set(mod.data.name, mod)
+          count++
+        } else {
+          console.warn('[WARN] Command file missing data or execute:', filePath)
+        }
+      } catch (e) {
+        const msg = e && e.message ? e.message : String(e)
+        console.error('[ERROR] Failed to load command', filePath, '-', msg)
+      }
+    }
+  } catch (e) {
+    const msg = e && e.message ? e.message : String(e)
+    console.error('[ERROR] Failed to scan commands directory:', msg)
+  }
+  console.log('Loaded commands:', count)
+}
+
+/**
+ * Load all event handlers from ./events/<eventName>/*.js
+ * Registers one listener per event that calls each handler in order.
+ */
+function loadEventHandlers() {
+  const eventsRoot = path.join(__dirname, 'events')
+  let totalEvents = 0
+  try {
+    const entries = fs.readdirSync(eventsRoot, { withFileTypes: true })
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue
+      const eventName = entry.name
+      const folderPath = path.join(eventsRoot, eventName)
+
+      let handlers = []
+      try {
+        const files = fs.readdirSync(folderPath).filter(f => f.endsWith('.js'))
+        handlers = files.map(file => {
+          const filePath = path.join(folderPath, file)
+          try {
+            const fn = require(filePath)
+            if (typeof fn === 'function') return fn
+            console.warn('[WARN] Event file does not export a function:', filePath)
+            return null
+          } catch (e) {
+            const msg = e && e.message ? e.message : String(e)
+            console.error('[ERROR] Failed to load event file', filePath, '-', msg)
+            return null
+          }
+        }).filter(Boolean)
+      } catch (e) {
+        const msg = e && e.message ? e.message : String(e)
+        console.error('[ERROR] Failed to read event folder', folderPath, '-', msg)
+        handlers = []
+      }
+
+      if (handlers.length === 0) continue
+
+      client.on(eventName, async (...args) => {
+        for (const handler of handlers) {
+          try { await handler(...args) } catch (e) {
+            const msg = e && e.message ? e.message : String(e)
+            console.error('[ERROR] Event handler for', eventName, 'threw:', msg)
+          }
+        }
+      })
+
+      totalEvents += handlers.length
+    }
+  } catch (e) {
+    const msg = e && e.message ? e.message : String(e)
+    console.error('[ERROR] Failed to scan events directory:', msg)
+  }
+  console.log('Loaded event handlers:', totalEvents)
+}
+
+// Bootstrap
+loadCommands()
+loadEventHandlers()
+
+client.login(BOT_TOKEN)

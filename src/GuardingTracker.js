@@ -1,0 +1,210 @@
+'use strict'
+
+const { WebhookClient, EmbedBuilder } = require('discord.js')
+const noblox = require('noblox.js')
+
+const { ROBLOX_GROUP_ID, ROBLOX_GROUP_GUARDING_RANKS, ROBLOX_COOKIE, ROBLOX_PLACE_ID, GUARDING_TRACKER_WEBHOOK_URL } = require('../config.json')
+
+/**
+ * GuardingTracker
+ *
+ * Monitors Roblox presences for a set of VIP users and sends webhook
+ * messages when a VIP joins or leaves the target place.
+ *
+ * Behavior
+ *  - Loads VIPs from a Roblox group and a list of allowed ranks
+ *  - Polls user presences at a fixed interval
+ *  - Tracks last known in-place state per user to emit only transitions
+ *  - Sends concise ASCII embeds to a Discord webhook
+ *
+ * Notes
+ *  - Plain ASCII only, no semicolons
+ *  - Uses best-effort API calls with try/catch around network operations
+ */
+
+// Minutes between presence checks
+const MINUTES_BETWEEN_CHECKS = 1
+
+// Loaded once from the group, objects like { userid, username, rank }
+const VIP_USERS = []
+
+// Map of userId -> boolean (true when currently in the place)
+const VIP_STATUS = {}
+
+// Webhook client (optional). If URL is missing or invalid, we log and no-op.
+let webhook = null
+try {
+  if (GUARDING_TRACKER_WEBHOOK_URL && typeof GUARDING_TRACKER_WEBHOOK_URL === 'string') {
+    webhook = new WebhookClient({ url: GUARDING_TRACKER_WEBHOOK_URL })
+  } else {
+    console.warn('GuardingTracker: GUARDING_TRACKER_WEBHOOK_URL is not set')
+  }
+} catch (e) {
+  console.error('GuardingTracker: failed to init webhook client:', e && e.message ? e.message : String(e))
+}
+
+// Simple sleep helper
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+
+/**
+ * Fetch a Roblox headshot URL for a user
+ * @param {number} userid
+ * @returns {Promise<string|undefined>}
+ */
+async function getHeadshotUrl(userid) {
+  try {
+    const thumbs = await noblox.getPlayerThumbnail(userid, 420, 'png', false, 'headshot')
+    const first = Array.isArray(thumbs) ? thumbs[0] : null
+    return first && first.imageUrl ? first.imageUrl : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Send a VIP presence transition message
+ * @param {{ userId: number }} presence
+ * @param {'join'|'leave'} action
+ */
+async function sendVipMessage(presence, action) {
+  if (!webhook) return
+
+  const userid = presence.userId
+  const user = VIP_USERS.find(u => u.userid === userid)
+  const imageUrl = await getHeadshotUrl(userid)
+
+  const embed = new EmbedBuilder()
+    .setTimestamp()
+    .setTitle(action === 'join' ? 'A VIP has joined Coruscant' : 'A VIP has left Coruscant')
+    .setColor(action === 'join' ? 'Green' : 'Red')
+    .addFields(
+      { name: 'Rank:', value: user?.rank ?? 'Unknown', inline: true },
+      { name: 'Profile:', value: `[${user?.username ?? 'User'}](https://www.roblox.com/users/${userid}/profile)`, inline: true }
+    )
+
+  if (imageUrl) embed.setThumbnail(imageUrl)
+
+  try { await webhook.send({ embeds: [embed] }) } catch (e) {
+    console.error('GuardingTracker: webhook send failed:', e && e.message ? e.message : String(e))
+  }
+}
+
+/**
+ * Fetch all members of a Roblox group with pagination
+ * Returns array of { userid, username, rank }
+ */
+async function fetchGroupMembers(groupId) {
+  let cursor = ''
+  const members = []
+
+  while (true) {
+    try {
+      const apiRequest = await fetch(`https://groups.roblox.com/v1/groups/${groupId}/users?limit=100&sortOrder=Asc&cursor=${cursor}`)
+      if (!apiRequest.ok) break
+      const data = await apiRequest.json()
+
+      cursor = data.nextPageCursor || ''
+      const items = Array.isArray(data.data) ? data.data : []
+      for (const entry of items) {
+        members.push({
+          userid: entry?.user?.userId,
+          username: entry?.user?.username,
+          rank: entry?.role?.name
+        })
+      }
+
+      if (!cursor) break
+    } catch {
+      break
+    }
+  }
+
+  // Filter out any partial rows
+  return members.filter(m => typeof m.userid === 'number' && m.username && m.rank)
+}
+
+/**
+ * Populate VIP_USERS from the configured group and allowed ranks
+ */
+async function preloadVIPs() {
+  const allowed = new Set(Array.isArray(ROBLOX_GROUP_GUARDING_RANKS) ? ROBLOX_GROUP_GUARDING_RANKS : [])
+  const groupMembers = await fetchGroupMembers(ROBLOX_GROUP_ID)
+  const vipMembers = groupMembers.filter(m => allowed.has(m.rank))
+
+  VIP_USERS.length = 0
+  for (const m of vipMembers) VIP_USERS.push(m)
+
+  console.log('GuardingTracker: loaded VIPs', VIP_USERS.length)
+}
+
+/**
+ * Poll presences and emit join or leave messages on transitions
+ */
+async function runChecks() {
+  if (VIP_USERS.length === 0) return
+
+  const userIds = VIP_USERS.map(u => u.userid)
+  let presences
+  try {
+    presences = await noblox.getPresences(userIds)
+  } catch (e) {
+    console.error('GuardingTracker: getPresences failed:', e && e.message ? e.message : String(e))
+    return
+  }
+
+  const list = presences && Array.isArray(presences.userPresences) ? presences.userPresences : []
+  const targetPlaceId = Number(ROBLOX_PLACE_ID)
+
+  for (const presence of list) {
+    const uid = presence?.userId
+    if (!uid) continue
+
+    const inTarget = Number(presence.placeId) === targetPlaceId
+
+    // First sighting: initialize without emitting
+    if (typeof VIP_STATUS[uid] === 'undefined') {
+      VIP_STATUS[uid] = inTarget
+      continue
+    }
+
+    // Transition detection
+    const wasIn = Boolean(VIP_STATUS[uid])
+    if (inTarget && !wasIn) {
+      VIP_STATUS[uid] = true
+      await sendVipMessage(presence, 'join')
+    } else if (!inTarget && wasIn) {
+      VIP_STATUS[uid] = false
+      await sendVipMessage(presence, 'leave')
+    }
+  }
+
+  console.log('GuardingTracker: status snapshot', JSON.stringify(VIP_STATUS))
+}
+
+/**
+ * Program entry point
+ *  - Authenticates to Roblox
+ *  - Loads VIP list
+ *  - Enters polling loop
+ */
+async function main() {
+  await noblox.setCookie(ROBLOX_COOKIE)
+
+  try {
+    await preloadVIPs()
+
+    while (true) {
+      try { await runChecks() } catch (e) {
+        console.error('GuardingTracker: runChecks error:', e && e.message ? e.message : String(e))
+      }
+
+      console.log('GuardingTracker: waiting', MINUTES_BETWEEN_CHECKS, 'minute before next check')
+      await sleep(MINUTES_BETWEEN_CHECKS * 60 * 1000)
+    }
+  } catch (err) {
+    console.error('GuardingTracker: fatal error:', err && err.message ? err.message : String(err))
+    process.exit(1)
+  }
+}
+
+main()

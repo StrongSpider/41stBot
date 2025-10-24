@@ -1,0 +1,44 @@
+{
+  "name": "41stbot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "",
+  "scripts": {
+    "deploy": "node src/bot/deploy.js",
+
+    "bot": "node src/bot/index.js",
+    "server": "node src/server/index.js",
+
+    "tracker": "node src/GuardingTracker.js",
+    "updater": "node src/RobloxUpdater.js",
+
+    "dev": "NODE_ENV=development node server.js",
+    "build": "cd website && npm run build",
+    "start": "NODE_ENV=production node server.js",
+    "test": "npm run build && node server.js"
+  },
+  "author": "spiider.dev",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.9.0",
+    "cors": "^2.8.5",
+    "discord.js": "^14.21.0",
+    "express": "^5.1.0",
+    "express-session": "^1.18.1",
+    "firebase": "^11.6.0",
+    "firebase-admin": "^13.3.0",
+    "noblox.js": "^6.1.1",
+    "pg": "^8.16.0",
+    "querystring": "^0.2.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.6",
+    "@vitejs/plugin-react": "^4.4.1",
+    "autoprefixer": "^10.4.21",
+    "concurrently": "^9.1.2",
+    "postcss": "^8.5.3",
+    "shadcn-ui": "^0.9.5",
+    "tailwindcss": "^4.1.6",
+    "vite": "^6.3.5"
+  }
+}
