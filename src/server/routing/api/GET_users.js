@@ -4,7 +4,7 @@ const ensureAuth = require('../util/ensureAuth.js');
 const database = require('../../../api/database.js');
 const roblox = require('../../../api/roblox.js');
 
-const { COMPANY_DISCORD_ROLES, BOT_TOKEN, BOT_GUILD_ID, RANK_DISCORD_ROLES } = require('../../config.json');
+const { COMPANY_DISCORD_ROLES, BOT_TOKEN, BOT_GUILD_ID, RANK_DISCORD_ROLES } = require('../../../../config.json');
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
 const getMembers = require('../util/getMembers.js');
 
