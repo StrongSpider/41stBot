@@ -16,7 +16,6 @@ const { BOT_GUILD_ID } = require('../../../../config.json')
  *
  * Notes
  *  - Plain ASCII only
- *  - No semicolons
  *
  * @param {Client} client
  */

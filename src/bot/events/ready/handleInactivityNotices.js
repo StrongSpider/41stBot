@@ -20,7 +20,6 @@ const { getInactivity, deleteInactivity } = require('../../../api/database.js')
  *
  * Notes
  *  - Plain ASCII only
- *  - No semicolons
  *
  * @param {Client} client
  */

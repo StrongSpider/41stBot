@@ -18,7 +18,6 @@ const database = require('./database.js')
  *  - `EventEnded-<robloxId>` when the challenge window expires
  *
  * Notes
- *  - Plain ASCII only, no semicolons
  *  - Uses a shared EventEmitter so callers can subscribe once per flow
  */
 

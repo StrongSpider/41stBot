@@ -12,9 +12,6 @@
  *  - Skips commands that do not implement an autocomplete handler
  *  - Logs concise errors without throwing
  *
- * Notes
- *  - Plain ASCII, no semicolons
- *
  * @param {import('discord.js').BaseInteraction} interaction
  */
 module.exports = async function autocompleteHandler(interaction) {

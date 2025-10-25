@@ -18,7 +18,6 @@ const { ROBLOX_GROUP_ID, ROBLOX_GROUP_GUARDING_RANKS, ROBLOX_COOKIE, ROBLOX_PLAC
  *  - Sends concise ASCII embeds to a Discord webhook
  *
  * Notes
- *  - Plain ASCII only, no semicolons
  *  - Uses best-effort API calls with try/catch around network operations
  */
 

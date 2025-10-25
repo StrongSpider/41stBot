@@ -19,9 +19,6 @@ const { BOT_TOKEN } = require('../../config.json')
  *    registers a single listener per event that fans out to all handlers
  *  - Wraps all dynamic requires and handler calls in try blocks so a bad
  *    file does not crash the process
- *
- * Notes
- *  - Plain ASCII only and no semicolons
  */
 
 if (!BOT_TOKEN || typeof BOT_TOKEN !== 'string' || BOT_TOKEN.trim().length === 0) {
