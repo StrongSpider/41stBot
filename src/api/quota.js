@@ -187,11 +187,65 @@ async function checkQuota(member) {
     }
   }
 
-  // Resolve overwrites
-  const overwriteAll = results.find(q => q.overwrites === 'all');
-  const effectiveQuotas = overwriteAll
-    ? [overwriteAll]
-    : results.filter(q => !results.some(other => other.overwrites === q.roleId));
+  // Resolve overwrites (including overlaps). If multiple overwrite candidates conflict,
+  // keep the one with the lowest quotaEP.
+  let effectiveQuotas;
+  const overwriteAlls = results.filter(q => q.overwrites === 'all');
+  if (overwriteAlls.length > 0) {
+    // If there are multiple 'all' overwrites, choose the least EP one.
+    const pick = overwriteAlls.reduce((min, q) => (q.quotaEP < min.quotaEP ? q : min));
+    effectiveQuotas = [pick];
+  } else {
+    // Build map for easy lookup
+    const byRoleId = new Map(results.map(q => [q.roleId, q]));
+    const keep = new Set(results.map(q => q.roleId));
+
+    // 1) For each target role, if multiple roles overwrite it, keep the least EP overwriter and drop the rest.
+    const byTarget = new Map(); // targetRoleId -> overwriter entries
+    for (const q of results) {
+      if (q.overwrites && q.overwrites !== 'all' && byRoleId.has(String(q.overwrites))) {
+        const t = String(q.overwrites);
+        const list = byTarget.get(t) || [];
+        list.push(q);
+        byTarget.set(t, list);
+      }
+    }
+
+    for (const [targetId, list] of byTarget) {
+      // pick least EP overwriter
+      const chosen = list.reduce((min, q) => (q.quotaEP < min.quotaEP ? q : min));
+      for (const q of list) {
+        if (q.roleId !== chosen.roleId) keep.delete(q.roleId);
+      }
+      // The target is overwritten by at least one role; drop the target itself
+      keep.delete(targetId);
+    }
+
+    // 2) Handle mutual overwrite cycles (A overwrites B and B overwrites A) by keeping the least EP
+    for (const roleId of Array.from(keep)) {
+      const a = byRoleId.get(roleId);
+      if (!a || !a.overwrites || a.overwrites === 'all') continue;
+      const b = byRoleId.get(String(a.overwrites));
+      if (!b) continue;
+      if (b.overwrites === a.roleId && keep.has(b.roleId) && keep.has(a.roleId)) {
+        if (a.quotaEP <= b.quotaEP) {
+          keep.delete(b.roleId);
+        } else {
+          keep.delete(a.roleId);
+        }
+      }
+    }
+
+    // 3) Ensure any remaining overwriter drops its target
+    for (const roleId of Array.from(keep)) {
+      const e = byRoleId.get(roleId);
+      if (e && e.overwrites && e.overwrites !== 'all') {
+        keep.delete(String(e.overwrites));
+      }
+    }
+
+    effectiveQuotas = Array.from(keep).map(id => byRoleId.get(id));
+  }
 
   const purgeEligible = effectiveQuotas.filter(q => q.purges);
   const metPurgeQuotas = purgeEligible.length === 0 ? true : purgeEligible.every(r => r.passed);

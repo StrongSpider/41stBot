@@ -176,7 +176,7 @@ module.exports = {
 
             const GROUP_NAME = config.GROUP_NAME || '41st'
             const TROOPER_LABEL = config.TROOPER_RANK_LABEL || 'Trooper (10)'
-            const EXEMPT_ROLE_IDS = [config.EXEMPT_DISCORD_ROLE_ID].filter(Boolean)
+            const EXEMPT_ROLE_IDS = [config.EXEMPT_DISCORD_ROLE_ID]
             const PURGE_DEFCON_ROLE_ID = config.DISCORD_PURGE_DEFCON_ROLE_ID
             const SL_PLUS_ROLE_IDS = config.RANK_DISCORD_ROLES ? Object.keys(config.RANK_DISCORD_ROLES).filter(id => id !== '704881591272472596') : []
             const GAR_BOT_USER_ID = config.GAR_BOT_USER_ID || null

@@ -46,8 +46,7 @@ module.exports = {
      */
     async execute(interaction) {
         try {
-            // Keep this private by default
-            await interaction.deferReply({ flags: MessageFlags.Ephemeral })
+            await interaction.deferReply()
 
             const discordUser = interaction.options.getUser('user') || interaction.user
             if (discordUser.bot) {
@@ -105,7 +104,7 @@ module.exports = {
                 .setTitle(`${quotaReport.username}'s Quota`)
                 .setColor(EMBED_COLOR)
                 .setTimestamp()
-                .addFields([{ name: 'Passed All Quotas', value: passedAll ? 'YES' : 'NO' }])
+                .addFields([{ name: 'Passed All Quotas', value: passedAll ? '✅' : '❌' }])
 
             if (quotaReport.purge) embed.addFields({ name: 'Purge DEFCON', value: '<:warning:1297618648810393630>' })
 
@@ -127,7 +126,7 @@ module.exports = {
                 }
 
                 embed.addFields({
-                    name: roleName + (q.passed ? ' [PASS]' : ' [FAIL]'),
+                    name: roleName + (q.passed ? ' ✅' : ' ❌'),
                     value: `Event points: \`Needs ${q.quotaEP ?? 0} (has ${q.actualEP ?? 0})\`\n` + events,
                     inline: true
                 })
