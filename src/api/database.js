@@ -413,6 +413,18 @@ async function upsertRobloxId(discordId, robloxId) {
   );
 }
 
+/**
+ * Deletes a row entry from a Discord ID.
+ * @param {DiscordId|number} discordId
+ * @returns {Promise<void>}
+ */
+async function deleteDiscordId(discordId) {
+  await pool.query(
+    `DELETE FROM ${ROBLOX_IDS_TABLE} WHERE discordid = $1`,
+    [toId(discordId)]
+  );
+}
+
 // ======================================================================
 // Inactivity
 // ======================================================================
@@ -1266,7 +1278,8 @@ module.exports = {
   getRobloxIdByDiscord,
   getDiscordIdByRoblox,
   upsertRobloxId,
-
+  deleteDiscordId,
+  
   getInactivity,
   setInactivity,
   deleteInactivity,
