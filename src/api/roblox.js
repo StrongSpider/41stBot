@@ -22,7 +22,7 @@ const userIdCache = new Map()
  */
 const CACHE_DIR = path.join(__dirname, '../cache')
 const USERNAMES_FILE = path.join(CACHE_DIR, 'usernames.json')
-const USERIDS_FILE = path.join(CACHE_DIR, 'userIds.json')
+const USER_IDS_FILE = path.join(CACHE_DIR, 'userIds.json')
 
 let diskLoaded = false
 let diskUsernames = []
@@ -39,7 +39,7 @@ function ensureDiskCacheLoaded() {
 
   try {
     const a = fs.existsSync(USERNAMES_FILE) ? fs.readFileSync(USERNAMES_FILE, 'utf8') : '[]'
-    const b = fs.existsSync(USERIDS_FILE) ? fs.readFileSync(USERIDS_FILE, 'utf8') : '[]'
+    const b = fs.existsSync(USER_IDS_FILE) ? fs.readFileSync(USER_IDS_FILE, 'utf8') : '[]'
     const parsedNames = JSON.parse(a)
     const parsedIds = JSON.parse(b)
 
@@ -75,7 +75,7 @@ function persistDiskCache() {
   try { fs.writeFileSync(USERNAMES_FILE, JSON.stringify(diskUsernames, null, 2), 'utf8') } catch (e) {
     console.error('roblox.js persist error (usernames):', e && e.message ? e.message : String(e))
   }
-  try { fs.writeFileSync(USERIDS_FILE, JSON.stringify(diskUserIds, null, 2), 'utf8') } catch (e) {
+  try { fs.writeFileSync(USER_IDS_FILE, JSON.stringify(diskUserIds, null, 2), 'utf8') } catch (e) {
     console.error('roblox.js persist error (userIds):', e && e.message ? e.message : String(e))
   }
 }
