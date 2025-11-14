@@ -108,6 +108,16 @@ function createMinorActionButtons() {
     return new ActionRowBuilder().addComponents(confirm, deny)
 }
 
+/**
+ * Debug timing helper for diagnostics
+ * @param {string} label
+ * @param {number} startTime
+ */
+function debugTiming(label, startTime) {
+    const elapsed = Date.now() - startTime
+    console.log(`[event-log] ${label} +${elapsed}ms`)
+}
+
 module.exports = {
     permission: 'MINOR_OFFICER',
     data: new SlashCommandBuilder()
@@ -341,9 +351,14 @@ module.exports = {
             }
 
             if (btn.customId === 'confirm') {
+                const timingStart = Date.now()
+                console.log(`[event-log] confirm start event="${eventName}" user=${interaction.user.id}`)
+
                 locked = true
                 await btn.deferUpdate()
                 userActioned = true
+
+                await interaction.editReply({ content: `<a:loading:1439026179993767946> Logging your event in the 41st database...`, components: [] })
 
                 if (hasMinor && !hasOfficer) {
                     // Minor officer path. Send to review channel with confirm deny row
@@ -351,6 +366,8 @@ module.exports = {
                         content: `${currentSummaryText}`,
                         components: [createMinorActionButtons()]
                     })
+
+                    // debugTiming('minor: review message sent', timingStart)
 
                     await interaction.editReply({ content: `Event sent for review to <#${minorChannelId}>.`, components: [] })
 
@@ -366,6 +383,8 @@ module.exports = {
                         message: msg.url
                     })
 
+                    // debugTiming(`minor: createWeeklyEvent complete (eventId=${createdId})`, timingStart)
+
                     await sendEventCreateWebhook({
                         eventid: createdId,
                         type: eventName,
@@ -375,6 +394,8 @@ module.exports = {
                         message: msg.url,
                         timestamp: new Date().toISOString()
                     })
+
+                    // debugTiming('minor: webhook sent and logging complete', timingStart)
                     return
                 }
 
@@ -396,11 +417,14 @@ module.exports = {
                     await database.incrementCurrentEventPoints(u.robloxId, 1)
                 }
 
+                // debugTiming('officer: EP increments complete', timingStart)
+
                 const supervisorId = currentResolvedSupervisor ? currentResolvedSupervisor.robloxId : -1
 
                 let officerMsg = null
                 if (hasOfficer && targetChannel) {
                     officerMsg = await targetChannel.send({ content: `${currentSummaryText}` })
+                    // debugTiming('officer: officer channel message sent', timingStart)
                 }
 
                 const createdId = await database.createWeeklyEvent({
@@ -412,6 +436,8 @@ module.exports = {
                     message: officerMsg ? officerMsg.url : undefined
                 })
 
+                // debugTiming(`officer: createWeeklyEvent complete (eventId=${createdId})`, timingStart)
+
                 await sendEventCreateWebhook({
                     eventid: createdId,
                     type: eventName,
@@ -421,6 +447,8 @@ module.exports = {
                     message: officerMsg ? officerMsg.url : undefined,
                     timestamp: new Date().toISOString()
                 })
+
+                // debugTiming('officer: webhook sent and logging complete', timingStart)
 
                 await interaction.editReply({ content: `Event confirmed & published! Event ID:\n\`\`\`${createdId}\`\`\``, components: [] })
                 return
