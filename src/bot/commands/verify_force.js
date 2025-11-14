@@ -6,24 +6,6 @@ const { getIdFromUsername } = require('noblox.js')
 const database = require('../../api/database.js')
 
 /**
- * /verify-force command
- *
- * Force link a Discord user to a Roblox account.
- *
- * Behavior
- *  - Only officers may run it, with a developer override in config
- *  - Replies are private by default using MessageFlags.Ephemeral
- *  - Checks for existing links to avoid cross-linking conflicts
- *  - Enforces role hierarchy: you cannot verify someone above your highest role
- *
- * Notes
- *  - All output kept plain ASCII
- *  - Uses best-effort Roblox lookups and database calls wrapped in try/catch
- *
- * @file verify_force.js
- */
-
-/**
  * Resolve the target guild member from the slash option
  * @param {import('discord.js').ChatInputCommandInteraction} interaction
  */
@@ -51,7 +33,6 @@ module.exports = {
                 .setRequired(true)
         ),
     /**
-     * Execute the command
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */
     async execute(interaction) {
@@ -92,7 +73,6 @@ module.exports = {
                 return interaction.editReply({ content: '<:warning:1297618648810393630> `That Roblox account is already linked to another Discord user.`' })
             }
 
-            // Upsert the mapping
             await database.upsertRobloxId(member.user.id, userid)
 
             const action = existingForDiscord && existingForDiscord !== userid ? 'Updated link' : 'Linked'

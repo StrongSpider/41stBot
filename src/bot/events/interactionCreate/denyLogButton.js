@@ -6,28 +6,6 @@ const { DISCORD_OFFICER_ROLE_ID, DISCORD_FFCNC_ROLE_ID, DISCORD_ERT_OFFICER_ROLE
 const database = require('../../../api/database.js')
 const webhook = require('../../../api/webhook.js')
 
-/**
- * denyLogButton handler
- *
- * Denies a minor event log when the deny button is clicked and removes
- * the event from storage and the channel.
- *
- * Behavior
- *  - Only handles the `deny_minor` button
- *  - Validates the event exists based on the message URL
- *  - Enforces permissions:
- *      * Non Counter Raid => OFFICER or Developer
- *      * Counter Raid => ERT Officer OR FFCNC OR Developer
- *  - Deletes the event record, deletes the log message, and posts a webhook
- *  - Notifies the host via DM when possible
- *  - Replies with a private summary using MessageFlags.Ephemeral
- *
- * Notes
- *  - Keep all output plain ASCII
- *  - Use best effort around lookups and network actions
- *
- * @param {import('discord.js').BaseInteraction} interaction
- */
 module.exports = async function denyLogButton(interaction) {
     try {
         if (!interaction?.isButton?.()) return

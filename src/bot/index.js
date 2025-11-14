@@ -6,21 +6,6 @@ const fs = require('fs')
 
 const { BOT_TOKEN } = require('../../config.json')
 
-/**
- * Bot bootstrap
- *
- * Loads slash command modules and event handlers from the filesystem,
- * registers them on a Discord client, then logs the bot in.
- *
- * Behavior
- *  - Validates BOT_TOKEN before starting
- *  - Discovers commands in ./commands and stores them on client.commands
- *  - Discovers event handler files under ./events/<eventName>/*.js and
- *    registers a single listener per event that fans out to all handlers
- *  - Wraps all dynamic requires and handler calls in try blocks so a bad
- *    file does not crash the process
- */
-
 if (!BOT_TOKEN || typeof BOT_TOKEN !== 'string' || BOT_TOKEN.trim().length === 0) {
   console.error('BOT_TOKEN is missing in config.json')
   process.exit(1)

@@ -4,25 +4,7 @@ const { SlashCommandBuilder, MessageFlags } = require('discord.js')
 const database = require('../../api/database.js')
 
 /**
- * /event-type-remove command
- *
- * Remove an event type string from the autocomplete list.
- *
- * Behavior
- *  - Normalizes whitespace and validates the name
- *  - Public success reply, private error fallbacks using MessageFlags.Ephemeral
- *
- * Validation rules
- *  - Printable ASCII only
- *  - Allowed chars: letters, numbers, space, dot, underscore, hyphen
- *  - Length 1 to 64 after trimming
- *
- * @file event_type_remove.js
- */
-
-/**
  * Check if the provided name is a valid event type
- * Keep rules in sync with event_type_add.js
  * @param {unknown} v
  * @returns {boolean}
  */
@@ -55,7 +37,6 @@ module.exports = {
                 .setRequired(true)
         ),
     /**
-     * Handle the command
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */
     async execute(interaction) {
@@ -69,7 +50,6 @@ module.exports = {
                 return
             }
 
-            // Remove from DB. Implementation may be idempotent. We do not leak existence details.
             await database.removeEventType(name)
 
             return interaction.reply({ content: `Event \`${name}\` removed` })

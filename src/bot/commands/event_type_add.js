@@ -4,23 +4,6 @@ const { SlashCommandBuilder, MessageFlags } = require('discord.js')
 const database = require('../../api/database.js')
 
 /**
- * /event-type-add command
- *
- * Add a new event type string to the autocomplete list.
- *
- * Behavior
- *  - Normalizes whitespace and validates the name
- *  - Public success reply, private error fallbacks using MessageFlags.Ephemeral
- *
- * Validation rules
- *  - Printable ASCII only
- *  - Allowed chars: letters, numbers, space, dot, underscore, hyphen
- *  - Length 1 to 64 after trimming
- *
- * @file event_type_add.js
- */
-
-/**
  * Check if the provided name is a valid event type
  * @param {unknown} v
  * @returns {boolean}
@@ -54,7 +37,6 @@ module.exports = {
                 .setRequired(true)
         ),
     /**
-     * Handle the command
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */
     async execute(interaction) {

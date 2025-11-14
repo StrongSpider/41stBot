@@ -5,29 +5,10 @@ const { randomInt } = require('crypto')
 
 const database = require('./database.js')
 
-/**
- * Authenticator
- *
- * Starts and confirms short-lived verification challenges used to link a
- * Discord user to a Roblox account. The user places a generated phrase in
- * their Roblox bio, then we scan the bio and confirm when it contains the
- * phrase.
- *
- * Events emitted on the shared emitter:
- *  - `UserAuthenticated-<robloxId>` when the bio check passes
- *  - `EventEnded-<robloxId>` when the challenge window expires
- *
- * Notes
- *  - Uses a shared EventEmitter so callers can subscribe once per flow
- */
-
-// ----------------------------------------
-// Constants
-// ----------------------------------------
 const AUTH_WINDOW_MS = 120000 // 2 minutes
 const TOKEN_WORDS = 7
 
-// Keep the word list simple and memorable
+// List of words used in authentication string
 const WORD_LIST = [
     'luke', 'leia', 'han', 'chewie', 'yoda', 'obiwan', 'vader', 'darth',
     'jedi', 'sith', 'force', 'lightsaber', 'droid', 'clone', 'galaxy', 'tatooine'
@@ -95,7 +76,7 @@ async function StartAuthentication(discord_id, roblox_id) {
  * Confirm an authentication by checking whether the token is present
  * in the provided text (the Roblox bio)
  * @param {string|number} roblox_id Roblox user id
- * @param {string} activationString Text to search, usually the Roblox bio
+ * @param {string} activationString Text to search
  */
 async function ConfirmAuthentication(roblox_id, activationString) {
     const key = keyOf(roblox_id)

@@ -5,26 +5,6 @@ const { getUsernameFromId } = require('../../api/roblox.js')
 const { EMBED_COLOR } = require('../../../config.json');
 const database = require('../../api/database.js')
 
-/**
- * /ep-get command
- *
- * Gets a user's current Event Points (EP) and weekly event count by resolving
- * their verified Roblox account from a Discord user.
- *
- * Behavior
- *  - If no user option is provided, defaults to the invoking user
- *  - Requires the user to be verified in the DB (Discord -> Roblox mapping)
- *  - Replies publicly by default
- *  - Uses MessageFlags.Ephemeral only for rare non-deferred error fallbacks
- *
- * Exports
- *  - permission: permission tag used by your command loader
- *  - data: Slash command definition for registration
- *  - execute: handler for ChatInputCommandInteraction
- *
- * @file ep_get.js
- */
-
 module.exports = {
     permission: 'ALL',
     data: new SlashCommandBuilder()
@@ -36,7 +16,6 @@ module.exports = {
                 .setDescription('User to check (defaults to you)')
         ),
     /**
-     * Execute the command
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */
     async execute(interaction) {

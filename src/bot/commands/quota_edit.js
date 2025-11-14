@@ -2,15 +2,9 @@ const { SlashCommandBuilder, CommandInteraction, ContainerBuilder, ComponentType
 const database = require('../../api/database.js');
 const customization = require('../../../config.json');
 
-// ----------------------------------------
-// Constants
-// ----------------------------------------
 const DISCORD_TIMEOUT = 300000; // 5 minutes
 const ITEMS_PER_PAGE = 9;
 
-// ----------------------------------------
-// Helpers
-// ----------------------------------------
 /**
  * Coerces listRoleQuotas() items into a normalized quota object.
  * Supports either an object with fields or a plain roleId string.
@@ -83,9 +77,6 @@ async function fetchSortedQuotas() {
     return quotas;
 }
 
-// ----------------------------------------
-// UI Generators
-// ----------------------------------------
 /**
  * Generates the list page for quotas.
  * @param {number} pageIdx
@@ -275,9 +266,6 @@ function generateConfigActionRow(roleId) {
     );
 }
 
-// ----------------------------------------
-// Command
-// ----------------------------------------
 module.exports = {
     permission: 'HICOM',
     data: new SlashCommandBuilder()

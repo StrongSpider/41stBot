@@ -5,22 +5,6 @@ const { Client } = require('discord.js')
 const { getInactivity, deleteInactivity } = require('../../../api/database.js')
 
 /**
- * ready handler: schedule and run daily inactivity cleanups
- *
- * Scans the guild for members with an active inactivity notice. When the
- * notice end date has passed, it removes the inactivity role and, if the
- * new week window is active, grants the weekly exempt role. Sends a DM to
- * the user with the result.
- *
- * Behavior
- *  - Runs once on startup, then at local midnight every day
- *  - Fetches members up front to avoid stale role caches
- *  - Skips bots and members without an inactivity record
- *  - Uses best effort role updates and DMs, never throws
- *
- * Notes
- *  - Plain ASCII only
- *
  * @param {Client} client
  */
 module.exports = async function handleInactivityNotices(client) {

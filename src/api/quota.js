@@ -14,7 +14,7 @@ const { getRoleQuota, getCurrentEventPoints, getWeeklyEventIdsForUser, getWeekly
  * @property {number} quotaEP
  * @property {EventCap[]} eventCaps
  * @property {string} [exclusive] - If set, this quota only applies when the member also has this role id.
- * @property {('all'|string)} [overwrites] - If 'all', it overrides all other quotas. If a role id, it overrides that role's quota.
+ * @property {('all'|string)} [overwrites] - If 'all', it overrides all other quotas. If a role id, it overrides that role's quota; when multiple quotas share the same target role id, all overwriting quotas apply and the target role's quota is excluded.
  * @property {boolean} [purges] - If true (default), this quota counts toward purge compliance.
  */
 
@@ -187,8 +187,9 @@ async function checkQuota(member) {
     }
   }
 
-  // Resolve overwrites (including overlaps). If multiple overwrite candidates conflict,
-  // keep the one with the lowest quotaEP.
+  // Resolve overwrites.
+  // Rule: for a specific target (overwrites is a roleId), keep all overwriting quotas and drop the target itself.
+  // For 'all', pick the least EP one to avoid duplicates. Mutual cycles are still collapsed to the least EP.
   let effectiveQuotas;
   const overwriteAlls = results.filter(q => q.overwrites === 'all');
   if (overwriteAlls.length > 0) {
@@ -196,11 +197,10 @@ async function checkQuota(member) {
     const pick = overwriteAlls.reduce((min, q) => (q.quotaEP < min.quotaEP ? q : min));
     effectiveQuotas = [pick];
   } else {
-    // Build map for easy lookup
     const byRoleId = new Map(results.map(q => [q.roleId, q]));
     const keep = new Set(results.map(q => q.roleId));
 
-    // 1) For each target role, if multiple roles overwrite it, keep the least EP overwriter and drop the rest.
+    // For each target role, if one or more roles overwrite it, keep ALL overwriters and drop the target itself.
     const byTarget = new Map(); // targetRoleId -> overwriter entries
     for (const q of results) {
       if (q.overwrites && q.overwrites !== 'all' && byRoleId.has(String(q.overwrites))) {
@@ -211,17 +211,13 @@ async function checkQuota(member) {
       }
     }
 
-    for (const [targetId, list] of byTarget) {
-      // pick least EP overwriter
-      const chosen = list.reduce((min, q) => (q.quotaEP < min.quotaEP ? q : min));
-      for (const q of list) {
-        if (q.roleId !== chosen.roleId) keep.delete(q.roleId);
-      }
+    for (const [targetId, _list] of byTarget) {
+      // Keep all overwriters; do not delete any based on quotaEP here
       // The target is overwritten by at least one role; drop the target itself
       keep.delete(targetId);
     }
 
-    // 2) Handle mutual overwrite cycles (A overwrites B and B overwrites A) by keeping the least EP
+    // Handle mutual overwrite cycles (A overwrites B and B overwrites A) by keeping the least EP
     for (const roleId of Array.from(keep)) {
       const a = byRoleId.get(roleId);
       if (!a || !a.overwrites || a.overwrites === 'all') continue;
@@ -236,7 +232,7 @@ async function checkQuota(member) {
       }
     }
 
-    // 3) Ensure any remaining overwriter drops its target
+    // Ensure any remaining overwriter drops its target (covers single-overwriter cases not in byTarget)
     for (const roleId of Array.from(keep)) {
       const e = byRoleId.get(roleId);
       if (e && e.overwrites && e.overwrites !== 'all') {
@@ -250,7 +246,7 @@ async function checkQuota(member) {
   const purgeEligible = effectiveQuotas.filter(q => q.purges);
   const metPurgeQuotas = purgeEligible.length === 0 ? true : purgeEligible.every(r => r.passed);
 
-  // Hard-coded bypass for a single user id
+  // Hard-coded bypass for myname
   if (userId === '530196357823201280') {
     return { userId, username, met: true, metPurgeQuotas: true, quotas: [], purge: false };
   }

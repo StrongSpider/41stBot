@@ -1,19 +1,5 @@
 'use strict'
 
-/**
- * interactionCreate autocomplete handler
- *
- * Delegates Discord autocomplete interactions to the matching command's
- * optional `autocomplete(interaction)` method.
- *
- * Behavior
- *  - Ignores non-autocomplete interactions
- *  - Ignores DMs by requiring a guild context
- *  - Skips commands that do not implement an autocomplete handler
- *  - Logs concise errors without throwing
- *
- * @param {import('discord.js').BaseInteraction} interaction
- */
 module.exports = async function autocompleteHandler(interaction) {
     try {
         if (!interaction || typeof interaction.isAutocomplete !== 'function') return

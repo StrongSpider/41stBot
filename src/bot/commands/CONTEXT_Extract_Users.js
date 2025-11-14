@@ -5,26 +5,6 @@ const database = require('../../api/database.js')
 const roblox = require('../../api/roblox.js')
 
 /**
- * Context menu: Extract Users
- *
- * From a message, collect mentioned Discord users, map them to verified Roblox usernames
- * using our database and the Roblox API, then reply with a space separated list wrapped
- * in a code block. The ßreply is ephemeral using MessageFlags.Ephemeral.
- *
- * Behavior
- *  - Only includes users that are verified in our DB and whose Roblox username resolves
- *  - Skips unverified users silently
- *  - De-duplicates usernames while preserving first-seen order
- *
- * Exports
- *  - permission: consumed by the command loader
- *  - data: Context menu command definition
- *  - execute: handler for MessageContextMenuCommandInteraction
- *
- * @file CONTEXT_Extract_Users.js
- */
-
-/**
  * Resolve Roblox usernames from a message's user mentions
  * @param {import('discord.js').Collection<string, import('discord.js').User>} mentions
  * @returns {Promise<string[]>}

@@ -7,21 +7,6 @@ const database = require('../../api/database.js')
 const roblox = require('../../api/roblox.js')
 
 /**
- * /quota-get command
- *
- * Check a user's weekly quota. Defaults to the invoker when no user is given.
- * Replies privately using MessageFlags.Ephemeral to avoid leaking status.
- *
- * Behavior
- *  - Resolves Roblox username from the bound Discord id when available
- *  - Falls back to a cleaned Discord nickname/username
- *  - Includes an "Administrator" sentinel role id for admin users
- *  - Shows per-role quota details and a purge flag if applicable
- *
- * @file quota_get.js
- */
-
-/**
  * Remove IN tag and spaces from a display name for cleaner quota checks
  * @param {string} s
  */
@@ -41,7 +26,6 @@ module.exports = {
                 .setDescription('User to check (defaults to you)')
         ),
     /**
-     * Execute the command
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */
     async execute(interaction) {
@@ -77,13 +61,13 @@ module.exports = {
                 }
             } catch { }
 
-            // Gather role ids. Tag admins with a pseudo-role id so quota logic can exempt them consistently.
+            // Gather role ids
             const roles = member.roles.cache.map(role => role.id)
             if (member.permissions.has(PermissionsBitField.Flags.Administrator)) roles.push('admin')
 
             const quotaData = { id: discordUser.id, username: name, roles }
 
-            // Main quota check. This can throw on external API failures, so keep it wrapped.
+            // Main quota check
             const quotaReport = await quota.checkQuota(quotaData)
 
             if (quotaReport.status === 'EXEMPT') {

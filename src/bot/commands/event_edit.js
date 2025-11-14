@@ -7,23 +7,7 @@ const { sendEventUpdateWebhook } = require('../../api/webhook.js')
 const database = require('../../api/database.js')
 
 /**
- * /event-edit command
- *
- * Let authorized users edit a previously logged weekly event via a modal.
- * Prefills current values. On submit, validates, writes to DB, and updates
- * the original summary message when available.
- *
- * Auth
- *  - Allowed if the user is event Host or Supervisor, or HICOM/Developer
- *
- * Visibility
- *  - All interaction replies are ephemeral via MessageFlags.Ephemeral
- */
-
-/**
- * Build the human summary used in the original event message.
- * Removes host from attendees to avoid duplication and splits
- * attendees into Officers vs Attendees on a live role check.
+ * Build the summary used in the original event message.
  * @param {{eventName:string, note:string, baseEpPoints:number, attendees:Array<{discordId:string}>, extraRecipients:Array<{discordId:string}>, supervisor:{discordId:string}|null, host:{discordId:string}}} data
  * @param {import('discord.js').Guild} guild
  */
@@ -166,14 +150,13 @@ module.exports = {
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */
     async execute(interaction) {
-        // Fetch event first so we can fail privately if missing
         const eventId = interaction.options.getString('event-id')
         const event = await database.getWeeklyEvent(eventId).catch(() => null)
         if (!event) return interaction.reply({ content: '<:warning:1297618648810393630> `Event not found.`', flags: MessageFlags.Ephemeral })
 
         const discordUserId = interaction.user.id
 
-        // Authorization: host or supervisor or HICOM/Developer
+        // Authorization: host or supervisor or HICOM/Developer only can edit
         const userRobloxId = await database.getRobloxIdByDiscord(discordUserId)
         const isHicom = interaction.member.roles.cache.has(DISCORD_HICOM_ROLE_ID) || interaction.user.id === DEVELOPER_DISCORD_USER_ID
         const isHost = event.host == userRobloxId
@@ -230,7 +213,6 @@ module.exports = {
         })
 
         collector.on('collect', async i => {
-            // Build and show the modal with prefilled values
             const modal = new ModalBuilder()
                 .setCustomId(`edit_event_modal_${eventId}`)
                 .setTitle('Edit Event')
@@ -273,7 +255,6 @@ module.exports = {
             await i.showModal(modal)
 
             try {
-                // Wait for the matching modal submit from the same user
                 const submission = await i.awaitModalSubmit({
                     filter: m => m.customId === `edit_event_modal_${eventId}` && m.user.id === discordUserId,
                     time: 60000
@@ -283,7 +264,6 @@ module.exports = {
 
                 await submission.deferUpdate()
 
-                // Parse modal values
                 const newType = submission.fields.getTextInputValue('type_input')
                 const newHostUsername = submission.fields.getTextInputValue('host_input')
                 const newSupervisorUsername = submission.fields.getTextInputValue('supervisor_input')
@@ -301,7 +281,7 @@ module.exports = {
                     if (rid !== null) newSupervisorId = rid
                 }
 
-                // Resolve attendees with dedupe, keep input order
+                // Resolve attendees with dedupe and keeping input order
                 const attendeeIds = []
                 const seen = new Set()
                 for (const uname of newAttendeeUsernames) {
@@ -325,14 +305,14 @@ module.exports = {
                     return
                 }
 
-                // Human-readable change notes
+                // Change notes
                 const changedUsers = []
                 if (event.host !== newHostId) changedUsers.push(`Host changed from ${hostStr || 'none'} to ${newHostUsername}`)
                 const prevSupStr = supervisorStr || 'none'
                 const nextSupStr = newSupervisorUsername || 'none'
                 if ((event.supervisor ?? -1) !== (newSupervisorId ?? -1)) changedUsers.push(`Supervisor changed from ${prevSupStr} to ${nextSupStr}`)
 
-                // Compare attendees by usernames for clarity
+                // Compare attendees by usernames
                 const oldSet = new Set((event.attendees || []).filter(rid => rid !== event.host && rid !== event.supervisor))
                 const oldNames = await usernamesForIds([...oldSet])
                 const newNameSet = new Set(newAttendeeUsernames)
@@ -356,7 +336,6 @@ module.exports = {
                 // Persist changes first
                 await database.updateWeeklyEventPartial(eventId, { type: newType, host: newHostId, supervisor: newSupervisorId, attendees: finalAttendees })
 
-                // Update local event for the next steps
                 event.type = newType
                 event.host = newHostId
                 event.supervisor = newSupervisorId
@@ -441,7 +420,6 @@ module.exports = {
                 await submission.followUp({ content: followUpMessage, flags: MessageFlags.Ephemeral })
                 await interaction.editReply({ components: [] })
             } catch {
-                // Modal submission timeout or error. Clean up button state.
                 await interaction.editReply({ components: [] })
             }
         })

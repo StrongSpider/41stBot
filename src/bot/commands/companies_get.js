@@ -4,28 +4,7 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const { EMBED_COLOR, ROBLOX_GROUP_ID } = require('../../../config.json')
 const axios = require('axios')
 
-/**
- * /companies-get command
- *
- * Fetch Roblox group roles and display member counts for specific 41st companies.
- * Excludes CE and CC by whitelisting defined company names.
- *
- * Network
- *  - Endpoint: https://groups.roblox.com/v1/groups/{groupId}/roles
- *  - Axios timeout to avoid hanging replies
- *
- * Config
- *  - ROBLOX_GROUP_ID from config.json
- *  - EMBED_COLOR from config.json
- *
- * Expected export shape
- *  - permission: permission tag used by the command loader
- *  - data: Slash command definition for registration
- *  - execute: handler for CommandInteraction
- *
- * @file companies_get.js
- */
-
+// Hardcoded company role names to check for
 const COMPANIES = Object.freeze([
   'Trooper',
   'Sarlacc Battalion',
@@ -70,7 +49,6 @@ module.exports = {
     .setName('companies-get')
     .setDescription('Gets current companies user count excluding CE and CC'),
   /**
-   * Get current member counts for key companies from the Roblox group and show them in an embed
    * @param {import('discord.js').CommandInteraction} interaction
    */
   async execute(interaction) {

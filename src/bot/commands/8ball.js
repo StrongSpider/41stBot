@@ -3,20 +3,7 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { randomInt } = require('node:crypto');
 
-/**
- * Magic 8-ball command
- *
- * Picks a pseudorandom answer from a fixed set and replies to the user.
- * The "question" option is required, so the bot can echo it back.
- *
- * Expected export shape:
- * - permission: string permission tag consumed by your command loader
- * - data: Slash command definition for registration
- * - execute: handler for ChatInputCommandInteraction
- *
- * @file 8ball.js
- */
-
+// 8ball answers
 const ANSWERS = Object.freeze([
   "It is decidedly so",
   "Without a doubt",
@@ -35,7 +22,6 @@ const ANSWERS = Object.freeze([
 
 /**
  * Choose a random answer from ANSWERS.
- * Uses crypto.randomInt for even distribution.
  * @returns {string}
  */
 function pickAnswer() {
@@ -53,7 +39,6 @@ module.exports = {
         .setDescription('The yes or no question to ask')
     ),
   /**
-   * Execute the command.
    * @param {import('discord.js').ChatInputCommandInteraction} interaction
    */
   async execute(interaction) {
@@ -61,7 +46,6 @@ module.exports = {
       const answer = pickAnswer();
       await interaction.reply(`🎱 ${answer}`);
     } catch (err) {
-      // Fallback reply if something goes wrong
       const msg = err instanceof Error ? err.message : 'Unknown error';
       await interaction.reply({ content: '8ball failed to respond. ' + msg, flags: MessageFlags.Ephemeral }).catch(() => { });
     }

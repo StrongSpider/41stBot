@@ -6,35 +6,11 @@ const { DISCORD_OFFICER_ROLE_ID, DISCORD_FFCNC_ROLE_ID, DISCORD_ERT_OFFICER_ROLE
 const database = require('../../../api/database.js')
 const webhook = require('../../../api/webhook.js')
 
-/**
- * confirmLogButton handler
- *
- * Approves a minor event log when the confirm button is clicked and
- * increments Event Points (EP) for attendees and any extra recipients.
- *
- * Behavior
- *  - Only handles the `confirm_minor` button
- *  - Validates the event exists based on the message URL
- *  - Enforces permissions:
- *      * Non Counter Raid => OFFICER or Developer
- *      * Counter Raid => ERT Officer OR FFCNC OR Developer
- *  - Parses the message content for attendees, officers, host, supervisor,
- *    an Extra EP list, and a numeric modifier
- *  - Increments EP accordingly and removes the buttons from the log message
- *  - Replies with a private summary using MessageFlags.Ephemeral
- *
- * Notes
- *  - Keep all output plain ASCII
- *  - Parsing is tolerant to case and spacing
- *
- * @param {import('discord.js').BaseInteraction} interaction
- */
 module.exports = async function confirmLogButton(interaction) {
     try {
         if (!interaction?.isButton?.()) return
         if (interaction.customId !== 'confirm_minor') return
 
-        // Always reply privately for moderation actions
         await interaction.deferReply({ flags: MessageFlags.Ephemeral })
 
         // Look up the logged event by the source message URL
@@ -71,9 +47,6 @@ module.exports = async function confirmLogButton(interaction) {
             }
         }
 
-        // -----------------------------
-        // Message parsing helpers
-        // -----------------------------
         /** Extract all user ids from a mention list on a single line */
         const parseMentions = line => {
             if (!line || typeof line !== 'string') return []
@@ -93,9 +66,6 @@ module.exports = async function confirmLogButton(interaction) {
         /** Ensure ids are unique and valid length */
         const uniqueIds = ids => Array.from(new Set((ids || []).filter(id => /^(?:[0-9]{17,20})$/.test(String(id)))))
 
-        // -----------------------------
-        // Parse the original log message
-        // -----------------------------
         const raw = String(interaction.message?.content || '')
         const lines = raw.split('\n')
 
@@ -127,9 +97,6 @@ module.exports = async function confirmLogButton(interaction) {
         const baseEP = 1
         const effectiveEP = baseEP * parseModifier(modifierLine)
 
-        // -----------------------------
-        // Apply EP updates
-        // -----------------------------
         // Increment EP for attendees
         for (const uid of attendeeIds) {
             try {

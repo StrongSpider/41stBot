@@ -5,22 +5,6 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const database = require('../../api/database.js')
 
 /**
- * /inactivity-remove command
- *
- * Remove a member's inactivity notice (IN), clean up their roles, and optionally
- * add the weekly exempt role based on day-of-week.
- *
- * Behavior
- *  - Private replies using MessageFlags.Ephemeral
- *  - Only users with the Inactivity Management role or the developer override may run it
- *  - If the member had an IN role, we try to remove it. If today is Sunday or Thu-Sat
- *    we add the exempt role. Failures are reported in the embed description but do not
- *    abort the command.
- *
- * @file inactivity_remove.js
- */
-
-/**
  * Determine if a user should receive the exempt role today
  * Returns true on Sunday (0) and Thursday-Saturday (4-6)
  * @param {Date} [d]
@@ -41,12 +25,11 @@ module.exports = {
                 .setRequired(true)
         ),
     /**
-     * Execute the command
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */
     async execute(interaction) {
         try {
-            // Permission gate: Inactivity Managers or developer override only
+            // Either has the management role or is the developer
             if (!interaction.member?.roles?.cache?.has(INACTIVITY_MANAGEMENT_ROLE_ID) && interaction.user.id !== DEVELOPER_DISCORD_USER_ID) {
                 return interaction.reply({ content: '<:warning:1297618648810393630> `You do not have permission to use this command!`', flags: MessageFlags.Ephemeral })
             }
@@ -108,7 +91,6 @@ module.exports = {
 
             await interaction.editReply({ embeds: [embed] })
 
-            // Best-effort DM to the user
             try {
                 await member.send(`Your inactivity notice has been removed. You are now ${giveExempt ? 'exempt from quotas this week' : 'expected to complete your quota this week'}.`)
             } catch { }

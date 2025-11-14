@@ -6,21 +6,6 @@ const { getUsernameFromId } = require('../../api/roblox.js')
 const database = require('../../api/database.js')
 
 /**
- * /events-list command
- *
- * List a user's events for the current week with optional filters:
- *  - as-host: only include events the user hosted
- *  - event: exact name or single trailing * wildcard for prefix match
- *
- * Behavior
- *  - Results are public by default
- *  - Errors fall back to private replies using MessageFlags.Ephemeral when possible
- *  - Paginates results with Prev/Next buttons limited to the invoker
- *
- * @file events_list.js
- */
-
-/**
  * Validate an event pattern allowing a single trailing * for prefix matches
  * @param {unknown} str
  * @returns {boolean}
@@ -71,7 +56,6 @@ module.exports = {
         ),
 
     /**
-     * Provide event-type autocomplete from DB
      * @param {import('discord.js').AutocompleteInteraction} interaction
      */
     async autocomplete(interaction) {
@@ -97,7 +81,6 @@ module.exports = {
     },
 
     /**
-     * Execute the command
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */
     async execute(interaction) {
@@ -168,7 +151,6 @@ module.exports = {
 
             /**
              * Build a page embed
-             * Keeps field values under the 1024 char limit and uses only ASCII
              * @param {number} page
              */
             const buildEmbed = async page => {

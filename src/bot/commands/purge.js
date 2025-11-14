@@ -7,25 +7,13 @@ const config = require('../../../config.json');
 const database = require('../../api/database.js')
 const roblox = require('../../api/roblox.js')
 
-/**
- * /purge command
- *
+/** 
  * Run the weekly purge flow:
  *  - Scan all members and check quota status
  *  - Clear purge-defcon role from passers and add it to new failures
  *  - Build demotion and kick queues
  *  - Interactively confirm demotions and kicks by watching for GAR bot embeds
  *  - Produce per-company text reports as attachments
- *
- * Visibility
- *  - This command is interactive and posts in-channel
- *  - Errors fall back to an ephemeral reply with MessageFlags.Ephemeral
- *
- * Notes
- *  - Keep messages plain ASCII
- *  - Heavy operations include full member fetch, per-user quota checks, and role edits
- *
- * @file purge.js
  */
 
 /** Sleep helper to rate limit role ops */

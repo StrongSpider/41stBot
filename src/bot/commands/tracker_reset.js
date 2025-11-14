@@ -9,25 +9,6 @@ const path = require('path')
 const fs = require('fs')
 
 /**
- * /tracker-reset command
- *
- * Reset this week's tracker data (weekly events and EP) after backing it up.
- *
- * Behavior
- *  - Builds a snapshot of users with weekly events, their EP, company, and links
- *  - Writes the snapshot to data/backup/YYYY-MM-DD.json
- *  - Clears weekly events and resets EP in the database
- *  - Sends a webhook notification via sendClearWeek
- *  - Replies privately using MessageFlags.Ephemeral
- *
- * Notes
- *  - Uses best effort lookups for Roblox usernames and company roles
- *  - Keeps output plain ASCII
- *
- * @file tracker_reset.js
- */
-
-/**
  * Strip [IN] tag and collapse spaces for cleaner name fallbacks
  * @param {string} s
  */
@@ -47,7 +28,6 @@ module.exports = {
      */
     async execute(interaction) {
         try {
-            // Keep this private by default
             await interaction.deferReply({ flags: MessageFlags.Ephemeral })
 
             const guild = interaction.guild

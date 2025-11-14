@@ -5,23 +5,6 @@ const { EMBED_COLOR, DEVELOPER_DISCORD_USER_ID } = require('../../../config.json
 const { getIdFromUsername } = require('noblox.js')
 const database = require('../../api/database.js')
 
-/**
- * /unverify-force command
- *
- * Force unlink a Discord user from a Roblox account.
- *
- * Behavior
- *  - Only hicom may run it, with a developer override in config
- *  - Replies are private by default using MessageFlags.Ephemeral
- *  - Checks for existing links to avoid cross-linking conflicts
- *  - Enforces role hierarchy: you cannot verify someone above your highest role
- *
- * Notes
- *  - Uses best-effort Roblox lookups and database calls wrapped in try/catch
- *
- * @file unverify_force.js
- */
-
 // Get guild member object
 async function getMember(guild, userid) {
     try { return await guild.members.fetch(userid) } catch { return null }
@@ -53,7 +36,6 @@ module.exports = {
                 .setDescription("Target's Roblox username")
         ),
     /**
-     * Execute the command
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */
     async execute(interaction) {
@@ -69,7 +51,6 @@ module.exports = {
 
             let verifiedMemberId = null
             if (member === null) {
-                // Resolve Roblox user id
                 let userid
                 try { userid = await getIdFromUsername(username) } catch { }
                 if (!userid) {
@@ -95,8 +76,6 @@ module.exports = {
                 }
             }
 
-
-            // Upsert the mapping
             await database.deleteDiscordId(verifiedMemberId)
 
             const action = 'Deleted link'

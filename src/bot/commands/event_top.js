@@ -6,24 +6,6 @@ const { EMBED_COLOR } = require('../../../config.json')
 const database = require('../../api/database.js')
 
 /**
- * /event-top command
- *
- * Show the top users for a given event type. Supports a single trailing `*`
- * wildcard for prefix matches, optional time bounds, and host mode.
- *
- * Behavior
- *  - Defaults to weekly scope unless `all-time` is true
- *  - Date bounds are inclusive: after-date at 00:00, before-date at 23:59:59.999
- *  - In host mode, only counts events where user is the host
- *  - Otherwise counts all events associated with the user (attendee or host)
- *
- * Visibility
- *  - Public by default. Error fallbacks use MessageFlags.Ephemeral
- *
- * @file event_top.js
- */
-
-/**
  * Validate an event pattern allowing a single trailing `*` for prefix matches
  * @param {unknown} str
  * @returns {boolean}
@@ -116,7 +98,6 @@ module.exports = {
     ),
 
   /**
-   * Provide event-type autocomplete from DB
    * @param {import('discord.js').AutocompleteInteraction} interaction
    */
   async autocomplete(interaction) {
@@ -136,7 +117,6 @@ module.exports = {
   },
 
   /**
-   * Execute the command
    * @param {import('discord.js').ChatInputCommandInteraction} interaction
    */
   async execute(interaction) {

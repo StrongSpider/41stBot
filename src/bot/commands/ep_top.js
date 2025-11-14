@@ -6,25 +6,6 @@ const { EMBED_COLOR } = require('../../../config.json');
 const database = require('../../api/database.js');
 
 /**
- * /ep-top command
- *
- * Show the top 5 users by Event Points (EP), either for this week or all time.
- *
- * Behavior
- *  - Defaults to this week unless the `all-time` option is true
- *  - If the invoking user is outside the top 5, their rank line is appended
- *  - Uses Discord mentions when a Discord mapping exists, otherwise falls back to Roblox username
- *  - Public reply by default. Only rare error fallbacks use MessageFlags.Ephemeral
- *
- * Exports
- *  - permission: permission tag used by the command loader
- *  - data: Slash command definition for registration
- *  - execute: handler for ChatInputCommandInteraction
- *
- * @file ep_top.js
- */
-
-/**
  * @typedef {Object} PointsRow
  * @property {string|number} robloxId
  * @property {number} eventPoints
@@ -74,7 +55,6 @@ module.exports = {
                 .setDescription('If true, use all-time EP')
         ),
     /**
-     * Execute the command
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */
     async execute(interaction) {

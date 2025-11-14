@@ -4,19 +4,17 @@ const noblox = require('noblox.js')
 const path = require('path')
 const fs = require('fs')
 
-// ----------------------------------------
 // In-memory caches
-// ----------------------------------------
+
 /** Maps numeric Roblox user id -> username */
 const usernameCache = new Map()
 /** Maps username -> numeric Roblox user id */
 const userIdCache = new Map()
 
-// ----------------------------------------
 // Disk cache
-// ----------------------------------------
+
 /**
- * We maintain two parallel arrays on disk to keep a simple, human-readable
+ * We maintain two parallel arrays on disk to keep a simple
  * cache that survives restarts. Reads happen once per process. Writes are
  * best effort and only occur when we add new entries.
  */
@@ -80,9 +78,8 @@ function persistDiskCache() {
   }
 }
 
-// ----------------------------------------
 // Public API
-// ----------------------------------------
+
 /**
  * Get a Roblox username from a numeric user id
  * Uses in-memory map, then disk cache, then the Roblox API. On a miss, the

@@ -4,27 +4,7 @@ const { SlashCommandBuilder, MessageFlags } = require('discord.js')
 const database = require('../../api/database.js')
 
 /**
- * /event-id-from-message
- *
- * Extract the event id associated with a Discord message URL that points to
- * a previously logged event. The lookup is performed against the canonical
- * jump URL format the bot stores.
- *
- * Behavior
- *  - Normalizes common Discord URL variants to `https://discord.com/...`
- *  - Replies ephemerally for privacy using MessageFlags.Ephemeral
- *  - Provides a clear warning if no event is found
- *
- * @file event_id_from_message.js
- */
-
-/**
  * Normalize a message URL into the canonical jump URL used by Discord
- * Examples handled
- *  - discordapp.com -> discord.com
- *  - ptb.discord.com / canary.discord.com -> discord.com
- *  - trims surrounding angle brackets from chat paste
- *  - strips trailing slashes
  * @param {string} input
  * @returns {string}
  */
@@ -52,7 +32,6 @@ module.exports = {
                 .setRequired(true)
         ),
     /**
-     * Execute the command
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */
     async execute(interaction) {
@@ -62,7 +41,6 @@ module.exports = {
             const raw = interaction.options.getString('message-url', true)
             const messageUrl = normalizeMessageUrl(raw)
 
-            // Optional: sanity check format, but still attempt lookup even if it fails
             const looksLikeJump = /^https?:\/\/discord\.com\/channels\/\d+\/\d+\/\d+$/.test(messageUrl)
 
             const event = await database.findEventByMessage(messageUrl)

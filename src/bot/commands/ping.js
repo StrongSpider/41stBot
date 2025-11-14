@@ -2,30 +2,7 @@
 
 const { SlashCommandBuilder } = require('discord.js')
 
-/**
- * /ping command
- *
- * Quick liveness check. Replies with "Pong!" and a random quip.
- *
- * Notes
- *  - Public reply by default
- *  - Lines pass through an ASCII scrubber to avoid emojis or fancy glyphs
- *
- * @file ping.js
- */
-
-/**
- * Remove any non-ASCII characters so we keep output plain ASCII
- * @param {string} s
- * @returns {string}
- */
-function asciiOnly(s) {
-	return String(s).replace(/[^ -~]/g, '')
-}
-
-/**
- * Quips shown after Pong! Keep these plain ASCII.
- */
+// Funny 41st lines to spice up the command. Ranger leads the way.
 const LINES = [
 	'Ranger Platoon Leads the Way!',
 	'I miss stingrayman21...',
@@ -47,6 +24,6 @@ module.exports = {
 	 */
 	async execute(interaction) {
 		const pick = LINES[Math.floor(Math.random() * LINES.length)]
-		await interaction.reply('Pong! ' + asciiOnly(pick))
+		await interaction.reply('Pong! ' + pick)
 	}
 }

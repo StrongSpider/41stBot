@@ -5,20 +5,6 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const database = require('../../api/database.js')
 
 /**
- * /inactivity-add command
- *
- * Put a member on an inactivity notice (IN) until a given return date, with a reason.
- *
- * Behavior
- *  - Only members with the Inactivity Management role or the developer may use it
- *  - Stores the IN in the DB and attempts to add the `INACTIVITY_NOTICE_ROLE_ID`
- *  - DMs the user and, if they are an officer, appends `[IN]` to their nickname
- *  - Replies ephemerally using MessageFlags.Ephemeral
- *
- * @file inactivity_add.js
- */
-
-/**
  * Validate a date string in MM/DD/YYYY format
  * Accepts only zero-padded numeric input to avoid ambiguous parsing
  * @param {unknown} s
@@ -80,12 +66,11 @@ module.exports = {
                 .setRequired(true)
         ),
     /**
-     * Execute the command
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */
     async execute(interaction) {
         try {
-            // Permission gate: either has the management role or is the developer
+            // Either has the management role or is the developer
             if (!interaction.member?.roles?.cache?.has(INACTIVITY_MANAGEMENT_ROLE_ID) && interaction.user.id !== DEVELOPER_DISCORD_USER_ID) {
                 return interaction.reply({ content: '<:warning:1297618648810393630> `You do not have permission to use this command!`', flags: MessageFlags.Ephemeral })
             }
@@ -113,7 +98,7 @@ module.exports = {
                 return
             }
 
-            // Reason hygiene. Discord embed field limit is 1024, keep it modest.
+            // Discord embed field limit is 1024, keep it modest.
             const reasonString = String(reasonRaw).trim().slice(0, 512)
 
             // Persist to DB first

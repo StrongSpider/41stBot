@@ -8,31 +8,7 @@ const database = require("../../api/database.js");
 const path = require("path");
 const fs = require("fs");
 
-/**
- * /ep-edit command
- *
- * Add, subtract, or set Event Points (EP) for one or more Roblox usernames.
- * Supports autocomplete for a space separated list of usernames using a local cache.
- *
- * Options
- *  - roblox-usernames: string of space separated usernames (required)
- *  - operation: one of "add", "subtract", "set" (required)
- *  - amount: integer amount to apply (required)
- *
- * Behavior
- *  - Looks up Roblox user IDs from usernames
- *  - Reads current EP, applies the operation, clamps at 0, writes back
- *  - Sends a webhook audit for each change
- *  - Summarizes results in embeds split to respect field size limits
- *
- * Notes
- *  - Replies publicly by default. If an early error happens before defer, we fall back to an
- *    ephemeral error using MessageFlags.Ephemeral.
- *
- * @file ep_edit.js
- */
-
-const CACHE_PATH = path.join(__dirname, "..", "cache", "usernames.json");
+const CACHE_PATH = path.join(__dirname, "..", "..", "cache", "usernames.json");
 let usernameEntries = null;
 
 /**
@@ -40,7 +16,7 @@ let usernameEntries = null;
  * Structure: [{ name, lc }]
  */
 function loadUsernames() {
-    if (usernameEntries !== null) return;
+    //if (usernameEntries !== null) return;
     try {
         const raw = fs.readFileSync(CACHE_PATH, "utf-8");
         const list = JSON.parse(raw);
@@ -101,8 +77,6 @@ module.exports = {
         ),
 
     /**
-     * Autocomplete handler for roblox-usernames
-     * Accepts a space separated list and completes the last token
      * @param {import('discord.js').AutocompleteInteraction} interaction
      */
     async autocomplete(interaction) {
@@ -138,7 +112,6 @@ module.exports = {
     },
 
     /**
-     * Execute the command
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */
     async execute(interaction) {

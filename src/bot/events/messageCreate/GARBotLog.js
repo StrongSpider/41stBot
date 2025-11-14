@@ -7,23 +7,6 @@ const { DISCORD_CHANNEL_IDS, UNIT_ROLES } = require('../../../../config.json')
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 
 /**
- * GAR bot webhook log parser
- *
- * Listens in the GAR_BOT_LOGS channel for webhook messages that describe
- * group actions like "has set ... to the **Trooper (10)** rank" or
- * "has kicked ..." then syncs Discord state:
- *  - On set: remove company roles that do not match the new rank
- *  - On kick: remove the member from the Discord guild
- *
- * Behavior
- *  - Only acts on webhook messages in DISCORD_CHANNEL_IDS.GAR_BOT_LOGS
- *  - Parses robustly using boundary anchors to avoid mis-reading numbers
- *  - Uses best-effort lookups and never throws in-channel
- *
- * Notes
- *  - Keep output plain ASCII
- *  - No reactions are added to the log message to avoid Unicode in source
- *
  * @param {import('discord.js').Message} message
  */
 module.exports = async function garBotLog(message) {
@@ -36,9 +19,6 @@ module.exports = async function garBotLog(message) {
         const str = String(message.cleanContent || '')
         if (!str) return
 
-        // --------------------------------------------
-        // Regexes (Roblox-safe and conservative)
-        // --------------------------------------------
         // First boundary "(Username, 123456789)" – we only trust what comes after this
         const FIRST_PAIR_RE = /\(\s*[A-Za-z0-9_]{3,20}\s*,\s*(\d{3,})\s*\)/
 
@@ -84,9 +64,6 @@ module.exports = async function garBotLog(message) {
         try { discordMember = await message.guild.members.fetch(discordId) } catch { }
         if (!discordMember) return
 
-        // --------------------------------------------
-        // Apply side effects
-        // --------------------------------------------
         if (actionVerb === 'kicked') {
             // Member was kicked from the Roblox group – remove from Discord guild
             try {

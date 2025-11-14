@@ -5,37 +5,12 @@ const { EMBED_COLOR } = require('../../../config.json')
 const database = require('../../api/database')
 const roblox = require('../../api/roblox')
 
-/**
- * /event-count command
- *
- * Count events with optional filters for time range, event type (exact or prefix*),
- * target user, and host vs attendee. Defaults to weekly scope when no filters are
- * provided. Uses public replies by default and MessageFlags.Ephemeral only for
- * non-deferred error fallbacks.
- *
- * Options
- *  - all-time: boolean, include all events instead of this week
- *  - after-date: string MM/DD/YYYY, inclusive lower bound
- *  - before-date: string MM/DD/YYYY, inclusive upper bound
- *  - user: Discord user to filter by (verified mapping required)
- *  - as-host: boolean, count events hosted by the user instead of attended
- *  - event-type: exact match or single-trailing-* prefix (e.g., Ranger*)
- *
- * Exports
- *  - permission: consumed by the command loader
- *  - data: Slash command definition
- *  - execute: ChatInputCommandInteraction handler
- *
- * @file event_count.js
- */
+
+// WARNING: Regex hell!!! Sorry, I had no other choice...
 
 /**
  * Validate an event-type pattern
  * Allows letters, numbers, space, dot, underscore, hyphen, and an optional single trailing '*'
- * Rationale
- *  - We restrict to printable ASCII and a small safe set so user input cannot build
- *    surprising regexes or inject control characters
- *  - Only one trailing star is allowed to mean a simple prefix match
  * @param {unknown} str
  * @returns {boolean}
  */
@@ -52,10 +27,6 @@ function isValidPrefixPattern(str) {
 
 /**
  * Convert a validated prefix pattern to a case-insensitive regex
- * Notes
- *  - We escape regex metacharacters in the literal prefix so user input cannot
- *    change the meaning of the expression
- *  - If pattern ends with *, we tack on `.*` to implement a prefix match
  * @param {string} pattern
  * @returns {RegExp}
  */
@@ -69,10 +40,6 @@ function prefixPatternToRegex(pattern) {
 
 /**
  * Parse MM/DD/YYYY to UTC ms. End-of-day if isEndOfDay
- * Why UTC
- *  - We normalize to UTC to avoid local timezone drift when comparing timestamps
- * Bounds
- *  - Returns null if the string does not match the expected format or is invalid
  * @param {string|null} input
  * @param {boolean} isEndOfDay
  * @returns {number|null}
@@ -144,14 +111,13 @@ module.exports = {
                 .setDescription('Filter by event type (exact or prefix with *)')
         ),
     /**
-     * Execute the command
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */
     async execute(interaction) {
         try {
             await interaction.deferReply()
 
-            // gather options with sane defaults
+            // Options with defaults
             const allTime = interaction.options.getBoolean('all-time') ?? false
             const afterInput = interaction.options.getString('after-date') ?? null
             const beforeInput = interaction.options.getString('before-date') ?? null
@@ -159,7 +125,7 @@ module.exports = {
             const userInput = interaction.options.getUser('user') ?? null
             const asHostInput = interaction.options.getBoolean('as-host') ?? false
 
-            // validate event type pattern early so we can exit with a helpful message
+            // Validate event type pattern
             const typePattern = eventTypeInput ? eventTypeInput.trim() : null
             if (typePattern && !isValidPrefixPattern(typePattern)) {
                 await interaction.editReply({ content: 'Invalid event-type. Use exact name or a single trailing * (e.g., Ranger*). Only letters, numbers, space, . _ - are allowed.' })
@@ -167,7 +133,7 @@ module.exports = {
             }
             const typeRx = typePattern ? prefixPatternToRegex(typePattern) : null
 
-            // parse dates to UTC bounds. after is start of day, before is end of day
+            // Parse dates to UTC bounds. After is start of day, before is end of day
             const afterMs = parseBound(afterInput, false)
             const beforeMs = parseBound(beforeInput, true)
             if ((afterInput && afterMs === null) || (beforeInput && beforeMs === null)) {
@@ -175,7 +141,7 @@ module.exports = {
                 return
             }
 
-            // optional mapping of a Discord user to a verified robloxId
+            // Mapping of a Discord user to a verified robloxId
             let robloxId = null
             if (userInput) {
                 robloxId = await database.getRobloxIdByDiscord(userInput.id)
@@ -186,7 +152,7 @@ module.exports = {
             }
 
             // If any filter is present we need the event list to apply filters.
-            // Otherwise we can use a simple weekly count that is much cheaper.
+            // Otherwise we can use a simple weekly count which is much cheaper.
             const wantFilters = Boolean(
                 allTime || afterMs !== null || beforeMs !== null || typeRx || robloxId !== null || asHostInput
             )
@@ -194,15 +160,14 @@ module.exports = {
             let count = 0
             try {
                 if (!wantFilters) {
-                    // fast path: weekly total from IDs
+                    // Fast path: weekly total from IDs
                     count = (await database.getWeeklyEventIds()).length
                 } else {
-                    // slow path: fetch events for the chosen scope then filter in memory
+                    // Slow path: fetch events for the chosen scope then filter in memory
                     const events = allTime
                         ? await database.listAllTimeEvents()
                         : await database.listWeeklyEvents()
 
-                    // apply each filter in a single pass for clarity
                     const filtered = events.filter(ev => {
                         const t = ev.timestamp ? Date.parse(ev.timestamp) : NaN
                         // time window checks
@@ -224,12 +189,10 @@ module.exports = {
                     count = filtered.length
                 }
             } catch (err) {
-                // DB or data shape issue. Report a safe summary back to the user
                 await interaction.editReply({ content: 'Error while counting events: ' + (err?.message || 'unknown error') })
                 return
             }
 
-            // Build a descriptive title that mirrors the active filters
             const titleBits = []
             if (allTime) titleBits.push('All Time')
             if (afterMs !== null && beforeMs !== null) titleBits.push(`${fmtDate(afterInput)} to ${fmtDate(beforeInput)}`)
@@ -250,7 +213,6 @@ module.exports = {
             }
             if (!titleBits.length) titleBits.push('This Week')
 
-            // final embed with a one line count and a footer for provenance
             const embed = new EmbedBuilder()
                 .setColor(EMBED_COLOR)
                 .setTitle('Event Count - ' + titleBits.join(' - '))

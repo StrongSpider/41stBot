@@ -5,22 +5,6 @@ const { EMBED_COLOR } = require('../../../config.json');
 const database = require('../../api/database.js')
 
 /**
- * /inactivity-get command
- *
- * Show a member's current inactivity notice details.
- *
- * Behavior
- *  - Looks up the user's IN by Discord id
- *  - Replies ephemerally for privacy using MessageFlags.Ephemeral
- *  - Uses a compact Discord time tag for the return date
- *
- * Permissions
- *  - Loader-gated to OFFICER
- *
- * @file inactivity_get.js
- */
-
-/**
  * Convert a millisecond timestamp or Date into a Discord time tag
  * We use the short date formatter `:d` for a concise display
  * @param {number|Date|string} v
@@ -43,12 +27,10 @@ module.exports = {
                 .setRequired(true)
         ),
     /**
-     * Execute the command
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */
     async execute(interaction) {
         try {
-            // Keep this private by default
             await interaction.deferReply({ flags: MessageFlags.Ephemeral })
 
             const member = interaction.options.getMember('user')
@@ -64,7 +46,7 @@ module.exports = {
                 return
             }
 
-            // Reason hygiene and safe fallback
+            // Reason fallback
             const reason = String(inactivityData.reason || 'None provided').slice(0, 512)
 
             const embed = new EmbedBuilder()

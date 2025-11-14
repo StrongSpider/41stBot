@@ -21,7 +21,6 @@ module.exports = {
    */
   async execute(interaction) {
     try {
-      // If already linked, short circuit with a private notice
       let existing = null
       try { existing = await getRobloxIdByDiscord(interaction.user.id) } catch { }
       if (existing) {

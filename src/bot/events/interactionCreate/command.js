@@ -4,30 +4,11 @@ const { DISCORD_FFCNC_ROLE_ID, DISCORD_HICOM_ROLE_ID, DISCORD_OFFICER_ROLE_ID, D
 const { sendCommandReceived } = require('../../../api/webhook.js')
 const { MessageFlags } = require('discord.js')
 
-/**
- * interactionCreate command handler
- *
- * Routes chat input and context menu commands to their command module
- * and enforces simple role-based permissions.
- *
- * Behavior
- *  - Rejects DM usage with an ephemeral notice
- *  - Looks up the command by name from client.commands
- *  - Applies role-gated permissions with a developer override
- *  - Executes the command and reports errors privately
- *
- * Notes
- *  - Keep output plain ASCII
- *  - Use MessageFlags.Ephemeral instead of the ephemeral property
- *
- * @param {import('discord.js').BaseInteraction} interaction
- */
 module.exports = async function commandHandler(interaction) {
     try {
-        // Only handle application commands
         if (!interaction || !(interaction.isChatInputCommand?.() || interaction.isContextMenuCommand?.())) return
 
-        // Block DMs early. Some interactions have no channel object, so prefer inGuild()
+        // Block DMs. Some interactions have no channel object, so prefer inGuild()
         const inGuild = typeof interaction.inGuild === 'function' ? interaction.inGuild() : Boolean(interaction.guild)
         if (!inGuild) {
             if (interaction.isRepliable?.()) {
@@ -36,7 +17,6 @@ module.exports = async function commandHandler(interaction) {
             return
         }
 
-        // Log and fire webhook (best effort)
         try {
             const uname = interaction.user?.username || 'unknown'
             const uid = interaction.user?.id || 'unknown'
@@ -75,7 +55,6 @@ module.exports = async function commandHandler(interaction) {
         // Execute the command
         await command.execute(interaction)
     } catch (error) {
-        // Private, robust error reporting
         const users = interaction?.client?.users
         const uid = interaction?.user?.id
         const msg = error && error.message ? String(error.message) : 'Unknown error'

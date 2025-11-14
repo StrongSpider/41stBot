@@ -6,18 +6,8 @@ const { getIdFromUsername, getUsernameFromId } = require('../../api/roblox.js')
 const { sendEventCreateWebhook } = require('../../api/webhook.js')
 const database = require('../../api/database.js')
 
-/**
- * /event-log command
- *
- * Records an event with base EP and optional extra EP recipients. Supports editing
- * via a modal before publishing. Minor officers send to a review channel. Officers
- * publish directly and points are applied immediately.
- *
- * Privacy
- *  - All interactions use MessageFlags.Ephemeral so only the invoker sees them
- *
- * @file event_log.js
- */
+
+// Note: Good luck! This command was a hacked together mess. I got AI to do a refactorization of it so hopefully its cleaner but, its AI code so who knows. - spiider
 
 /**
  * Resolve a Roblox username to both IDs and mark an error on failure
@@ -39,9 +29,7 @@ async function resolveUserCredentials(username, errorList) {
 }
 
 /**
- * Build the human summary posted in officer channels and used for previews
- * - Removes host from attendees list so they are not duplicated
- * - Splits attendees into Officers vs Attendees using live role checks
+ * Build the summary posted in officer channels and used for previews
  * @param {{ eventName:string, note:string, baseEpPoints:number, attendees:Array<{discordId:string}>, extraRecipients:Array<{discordId:string}>, supervisor:{discordId:string}|null, host:{discordId:string} }} data
  * @param {import('discord.js').Guild} guild
  */
@@ -125,45 +113,44 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('event-log')
         .setDescription('Record an event and award EP')
-        .addStringOption(opt =>
-            opt
+        .addStringOption(option =>
+            option
                 .setName('event')
                 .setDescription('Event name')
                 .setAutocomplete(true)
                 .setRequired(true)
         )
-        .addStringOption(opt =>
-            opt
+        .addStringOption(option =>
+            option
                 .setName('attendees')
                 .setDescription('Mentions of attendees')
                 .setRequired(true)
         )
-        .addUserOption(opt =>
-            opt
+        .addUserOption(option =>
+            option
                 .setName('host')
                 .setDescription('Host (defaults to you)')
                 .setRequired(false)
         )
-        .addUserOption(opt =>
-            opt
+        .addUserOption(option =>
+            option
                 .setName('supervisor')
                 .setDescription('Supervisor user')
                 .setRequired(false)
         )
-        .addIntegerOption(opt =>
-            opt
+        .addIntegerOption(option =>
+            option
                 .setName('base-ep')
                 .setDescription('Base EP points (1-3)')
                 .setMaxValue(3)
                 .setMinValue(1)
         )
-        .addStringOption(opt =>
-            opt
+        .addStringOption(option =>
+            option
                 .setName('note')
                 .setDescription('Optional note to include')
         ),
     /**
-     * Provide event-type autocomplete from DB
      * @param {import('discord.js').AutocompleteInteraction} interaction
      */
     async autocomplete(interaction) {
@@ -179,7 +166,6 @@ module.exports = {
         await interaction.respond(suggestions)
     },
     /**
-     * Execute the command
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */
     async execute(interaction) {
@@ -225,7 +211,7 @@ module.exports = {
         })
         resolvedAttendees = resolvedAttendees.filter(u => u.robloxId)
 
-        // Step 2: select extra EP recipients or skip
+        // Select extra EP recipients or skip
         const extraMenu = new UserSelectMenuBuilder()
             .setCustomId('select_extra')
             .setPlaceholder('Select extra EP recipients (optional)')
@@ -278,7 +264,7 @@ module.exports = {
             )
         }
 
-        // Step 3: resolve host and supervisor from options
+        // Resolve host and supervisor from options
         const hostUser = interaction.options.getUser('host') || interaction.user
         const hostRobloxId = await database.getRobloxIdByDiscord(hostUser.id)
         if (hostRobloxId == null) {

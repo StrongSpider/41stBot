@@ -5,19 +5,6 @@ const { EMBED_COLOR, INACTIVITY_MANAGEMENT_ROLE_ID, DEVELOPER_DISCORD_USER_ID } 
 const database = require('../../api/database.js')
 
 /**
- * /inactivity-list command
- *
- * List all active inactivity notices with simple pagination.
- *
- * Behavior
- *  - Private by default using MessageFlags.Ephemeral
- *  - Shows return date, reason, and a user mention for each entry
- *  - Paginates with Prev/Next buttons, restricted to the invoker
- *
- * @file inactivity_list.js
- */
-
-/**
  * Convert a ms timestamp to a Discord date tag
  * @param {number|Date|string} v
  * @returns {string}
@@ -37,7 +24,7 @@ module.exports = {
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */
     async execute(interaction) {
-        // Permission gate: Inactivity Managers or developer override only
+        // Either has the management role or is the developer
         if (!interaction.member?.roles?.cache?.has(INACTIVITY_MANAGEMENT_ROLE_ID) && interaction.user.id !== DEVELOPER_DISCORD_USER_ID) {
             return interaction.reply({ content: '<:warning:1297618648810393630> `You do not have permission to use this command!`', flags: MessageFlags.Ephemeral })
         }
@@ -57,7 +44,6 @@ module.exports = {
 
         /**
          * Build a page embed with up to `perPage` entries
-         * Keeps values under field limits and avoids crashing on missing members
          * @param {number} page
          */
         const buildEmbed = async page => {

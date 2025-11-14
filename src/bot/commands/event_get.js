@@ -6,25 +6,6 @@ const { getUsernameFromId } = require('../../api/roblox.js')
 const database = require('../../api/database.js')
 
 /**
- * /event-get command
- *
- * View details for a 41st event by id.
- *
- * Behavior
- *  - Loads the event from the all-time store
- *  - Resolves host, supervisor, and attendees to Roblox usernames
- *  - Truncates the attendee list to stay under Discord field limits
- *  - Public reply by default. Error fallbacks use MessageFlags.Ephemeral
- *
- * Exports
- *  - permission: permission tag used by the loader
- *  - data: Slash command definition
- *  - execute: ChatInputCommandInteraction handler
- *
- * @file event_get.js
- */
-
-/**
  * Resolve a Roblox id to a readable tag
  * Falls back to a code-wrapped id if lookup fails
  * @param {string|number} id
@@ -41,9 +22,6 @@ async function safeUsername(id) {
 
 /**
  * Build an attendees code block, truncating before it exceeds ~1000 chars
- * Notes
- *  - Discord embed field value hard-limit is 1024
- *  - We target 1000 to leave room for backticks and margin
  * @param {Array<string|number>} attendees
  * @returns {Promise<string>} newline-prefixed usernames or empty string
  */

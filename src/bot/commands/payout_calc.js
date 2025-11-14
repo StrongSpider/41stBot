@@ -3,22 +3,6 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js')
 const { getRankInGroup, getUsernameFromId } = require('noblox.js')
 
-/**
- * /payout-calc command
- *
- * Calculate Robux payouts for a given game using predefined weights.
- * Only users who are in BOTH the 41st main group and the Funding group
- * are included in the distribution.
- *
- * Behavior
- *  - Validates the selected game and the amount
- *  - Uses a 70/30 split where 70% is distributed by weight
- *  - Skips users who are no longer in required groups
- *  - Public result by default. Error fallbacks use MessageFlags.Ephemeral
- *
- * @file payout_calc.js
- */
-
 // Roblox group ids
 const GROUP_MAIN_ID = 5810035
 const GROUP_FUNDING_ID = 15078901

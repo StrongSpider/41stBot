@@ -4,9 +4,7 @@ const { WebhookClient, EmbedBuilder } = require('discord.js')
 const { ADMIN_LOGS_WEBHOOK_URL } = require('../../config.json')
 const roblox = require('./roblox.js')
 
-// ----------------------------------------
 // Webhook client
-// ----------------------------------------
 let webhookClient = null
 try {
   webhookClient = ADMIN_LOGS_WEBHOOK_URL ? new WebhookClient({ url: ADMIN_LOGS_WEBHOOK_URL }) : null
@@ -15,9 +13,7 @@ try {
   webhookClient = null
 }
 
-// ----------------------------------------
 // Discord embed limits
-// ----------------------------------------
 const MAX_TITLE_LENGTH = 256
 const MAX_DESCRIPTION_LENGTH = 4096
 const MAX_FIELDS = 25
@@ -47,9 +43,9 @@ function validateEmbed(embed) {
   }
   if (Array.isArray(raw.fields)) {
     for (const f of raw.fields) {
-      const nlen = (f.name || '').length
-      const vlen = (f.value || '').length
-      if (nlen > MAX_FIELD_NAME || vlen > MAX_FIELD_VALUE) {
+      const nLength = (f.name || '').length
+      const vLength = (f.value || '').length
+      if (nLength > MAX_FIELD_NAME || vLength > MAX_FIELD_VALUE) {
         return new EmbedBuilder().setTitle('Too big').setDescription('One of the embed fields exceeds Discord limits.').setColor('Red').setTimestamp()
       }
     }
@@ -75,9 +71,8 @@ async function safeSend(payload) {
   }
 }
 
-// ----------------------------------------
 // Event webhooks
-// ----------------------------------------
+
 /**
  * Send a webhook for event creation
  * @param {{ eventid: string|number, type?: string, host?: number, supervisor?: number, attendees?: number[], message?: string }} entry

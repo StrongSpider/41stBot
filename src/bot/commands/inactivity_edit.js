@@ -5,27 +5,8 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const database = require('../../api/database.js')
 
 /**
- * /inactivity-edit command
- *
- * Edit an existing inactivity notice (IN) for a member. You can update the
- * return date, the reason, or both. The command replies ephemerally for privacy.
- *
- * Permissions
- *  - Requires the Inactivity Management role or the developer override.
- *
- * Behavior
- *  - Validates date in strict MM/DD/YYYY format
- *  - Parses the return date to UTC end-of-day so the user has the full date
- *  - Keeps prior reason if a blank reason is supplied
- *  - Updates the DB and sends a confirmation embed
- *  - Best-effort DM to the affected user
- *
- * @file inactivity_edit.js
- */
-
-/**
  * Validate a date string in MM/DD/YYYY format
- * Accepts only zero-padded numeric input to avoid ambiguous parsing
+ * Accepts only zero-padded numeric input
  * @param {unknown} s
  * @returns {boolean}
  */
@@ -85,12 +66,11 @@ module.exports = {
                 .setRequired(false)
         ),
     /**
-     * Execute the command
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */
     async execute(interaction) {
         try {
-            // Permission gate: either has the management role or is the developer
+            // Either has the management role or is the developer
             if (!interaction.member?.roles?.cache?.has(INACTIVITY_MANAGEMENT_ROLE_ID) && interaction.user.id !== DEVELOPER_DISCORD_USER_ID) {
                 return interaction.reply({ content: '<:warning:1297618648810393630> `You do not have permission to use this command!`', flags: MessageFlags.Ephemeral })
             }
@@ -116,7 +96,7 @@ module.exports = {
             let newDate = new Date(inactivityData.date)
             let newReason = typeof reasonInput === 'string' ? reasonInput.trim() : inactivityData.reason
             if (newReason === '') newReason = inactivityData.reason
-            newReason = String(newReason || '').slice(0, 512) // keep it modest for embeds
+            newReason = String(newReason || '').slice(0, 512) // for embeds
 
             if (dateInput) {
                 // Validate and parse the new date safely

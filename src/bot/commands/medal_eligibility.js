@@ -3,9 +3,8 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js')
 const { DISCORD_MEDAL_ROLES } = require('../../../config.json');
 const database = require('../../api/database.js')
+
 /**
- * /medal-eligibility command
- *
  * Lists users eligible for medal upgrades based on current weekly EP.
  *
  * Policy
@@ -18,12 +17,6 @@ const database = require('../../api/database.js')
  *  - If a user has Silver, they are eligible for Gold
  *  - If a user has Bronze, they are eligible for Silver
  *  - If a user has no medal, they are eligible for Bronze
- *
- * Notes
- *  - Mentions are chunked to stay under Discord limits
- *  - Public reply by default. Errors fall back to a private message using MessageFlags.Ephemeral
- *
- * @file medal_eligibility.js
  */
 
 

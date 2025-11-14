@@ -5,22 +5,18 @@ const { sendEventCreateWebhook } = require('../../../api/webhook.js')
 const database = require('../../../api/database.js')
 const { DISCORD_CHANNEL_IDS, DISCORD_ERT_OFFICER_ROLE_IDS, DISCORD_HICOM_ROLE_ID, DEVELOPER_DISCORD_USER_ID } = require('../../../../config.json')
 
-// ----------------------------------------------------
-// Helpers
-// ----------------------------------------------------
 /**
- * Build the approval buttons used by approvers on the reposted log message
- * Uses plain ASCII labels per project style
+ * Build the approval buttons used by approvers
  */
 function createMinorActionButtons() {
     const confirm = new ButtonBuilder()
         .setCustomId('confirm_minor')
-        .setLabel('Approve')
-        .setStyle(ButtonStyle.Primary)
+        .setEmoji('✅')
+        .setStyle(ButtonStyle.Secondary)
     const deny = new ButtonBuilder()
         .setCustomId('deny_minor')
-        .setLabel('Deny')
-        .setStyle(ButtonStyle.Danger)
+        .setEmoji('❌')
+        .setStyle(ButtonStyle.Secondary)
     return new ActionRowBuilder().addComponents(confirm, deny)
 }
 
@@ -50,24 +46,6 @@ function isImageAttachment(att) {
 }
 
 /**
- * messageCreate handler for Counter Raid logs
- *
- * Accepts member-submitted logs in the configured channel, validates the
- * format, reposts the log with Approve and Deny buttons for approvers,
- * and stores the event in the weekly database.
- *
- * Rules
- *  - Only runs for non-bot messages in DISCORD_CHANNEL_IDS.COUNTER_RAID_LOGS
- *  - Skips messages from ERT officers, HICOM, and the developer account
- *    to avoid processing staff chatter or manual posts
- *  - Requires Attendees: and Host: lines and a single image attachment
- *  - Converts mentioned Discord users to Roblox ids using the bot database
- *  - Includes the Host in attendees if not already listed
- *
- * Notes
- *  - All text kept plain ASCII
- *  - Buttons use customIds: confirm_minor and deny_minor
- *
  * @param {import('discord.js').Message} message
  */
 module.exports = async function counterRaidLog(message) {

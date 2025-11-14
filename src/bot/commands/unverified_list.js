@@ -4,23 +4,6 @@ const { SlashCommandBuilder, PermissionsBitField, MessageFlags } = require('disc
 const database = require('../../api/database.js')
 
 /**
- * /unverified-list command
- *
- * List server members who are not linked to a Roblox account in the bot DB
- *
- * Behavior
- *  - Private by default using MessageFlags.Ephemeral
- *  - Skips bots and users with Administrator permission
- *  - Fetches members to warm cache, then scans and outputs in safe chunks
- *
- * Notes
- *  - Output uses plain ASCII
- *  - Chunk size leaves headroom for mentions
- *
- * @file unverified_list.js
- */
-
-/**
  * Split a long message into Discord safe chunks
  * @param {string} text
  * @param {number} maxLen
@@ -54,7 +37,7 @@ module.exports = {
     if (!guild) return interaction.editReply('This command can only be used in a server.')
 
     // Warm the member cache so we do not miss users
-    await guild.members.fetch().catch(() => {})
+    await guild.members.fetch().catch(() => { })
 
     // Filter to human, non admin members
     const members = guild.members.cache.filter(m => !m.user.bot && !m.permissions.has(PermissionsBitField.Flags.Administrator))
@@ -64,7 +47,7 @@ module.exports = {
       try {
         const robloxId = await database.getRobloxIdByDiscord(member.id)
         if (!robloxId) unverifiedIds.push(member.id)
-      } catch {}
+      } catch { }
     }
 
     if (unverifiedIds.length === 0) {
