@@ -507,6 +507,20 @@ async function getWeeklyEventIdsForUser(robloxId) {
 }
 
 /**
+ * Get alltime event IDs for a user.
+ * @param {RobloxId|number} robloxId
+ * @returns {Promise<string[]>}
+ */
+async function getAllTimeEventIdsForUser(robloxId) {
+  const res = await pool.query(
+    `SELECT events FROM ${ALL_TIME_EVENTS_INDEX_TABLE} WHERE robloxid = $1`,
+    [toId(robloxId)]
+  );
+  return res.rows[0] && Array.isArray(res.rows[0].events) ? res.rows[0].events : [];
+}
+
+
+/**
  * Add an event ID to a user's weekly and all-time index (no duplicates).
  * @param {RobloxId|number} robloxId
  * @param {EventId} eventId
@@ -1298,7 +1312,8 @@ module.exports = {
   incrementAllTimeEventPoints,
   getAllTimeEventPointsBatch,
   getAllUsersAllTimeEventPoints,
-
+  getAllTimeEventIdsForUser,
+  
   createWeeklyEvent,
   getWeeklyEvent,
   findEventByMessage,

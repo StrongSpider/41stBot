@@ -14,6 +14,11 @@ module.exports = {
             option
                 .setName('user')
                 .setDescription('User to check (defaults to you)')
+        )
+        .addBooleanOption(option =>
+            option
+                .setName('all-time')
+                .setDescription('If true, use all-time EP')
         ),
     /**
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
@@ -23,6 +28,8 @@ module.exports = {
             await interaction.deferReply()
 
             const discordUser = interaction.options.getUser('user') || interaction.user
+            const allTime = interaction.options.getBoolean('all-time') ?? false
+
             const robloxId = await database.getRobloxIdByDiscord(discordUser.id)
 
             if (robloxId == null) {
@@ -35,13 +42,13 @@ module.exports = {
             }
 
             const robloxUsername = await getUsernameFromId(robloxId)
-            const ep = await database.getCurrentEventPoints(robloxId) ?? 0
-            const events = await database.getWeeklyEventIdsForUser(robloxId).catch(() => [])
+            const ep = allTime ? (await database.getAllTimeEventPoints(robloxId) ?? 0) : (await database.getCurrentEventPoints(robloxId) ?? 0)
+            const events = allTime ? await database.getAllTimeEventIdsForUser(robloxId).catch(() => []) : await database.getWeeklyEventIdsForUser(robloxId).catch(() => [])
             const eventCount = Array.isArray(events) ? events.length : 0
 
             const embed = new EmbedBuilder()
                 .setFooter({ text: '41ST BOT', iconURL: interaction.guild?.iconURL() ?? undefined })
-                .setTitle(`${robloxUsername}'s Event Points`)
+                .setTitle(`${robloxUsername}'s ${allTime ? "All Time" : "Weekly"} Event Points`)
                 .setColor(EMBED_COLOR)
                 .setTimestamp()
                 .addFields(
