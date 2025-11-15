@@ -53,7 +53,6 @@ module.exports = {
             const embed = new EmbedBuilder()
                 .setColor(EMBED_COLOR)
                 .setTitle('Active Inactivity Notices')
-                .setFooter({ text: `Page ${page + 1}/${totalPages}`, iconURL: interaction.guild?.iconURL() ?? undefined })
 
             for (let i = 0; i < slice.length; i++) {
                 const inactivity = slice[i]
@@ -91,6 +90,11 @@ module.exports = {
                     .setStyle(ButtonStyle.Secondary)
                     .setDisabled(forceDisabled || page === 0),
                 new ButtonBuilder()
+                    .setCustomId('disabled')
+                    .setLabel(`Page ${page + 1}/${totalPages}`)
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(true),
+                new ButtonBuilder()
                     .setCustomId('next')
                     .setLabel('Next')
                     .setStyle(ButtonStyle.Secondary)
@@ -113,10 +117,13 @@ module.exports = {
                 return btn.reply({ content: 'These buttons are not for you.', flags: MessageFlags.Ephemeral })
             }
 
+            await btn.deferUpdate();
+
+
             if (btn.customId === 'next' && currentPage + 1 < totalPages) currentPage++
             else if (btn.customId === 'prev' && currentPage > 0) currentPage--
 
-            await btn.update({
+            await interaction.editReply({
                 embeds: [await buildEmbed(currentPage)],
                 components: [makeRow(currentPage)]
             })

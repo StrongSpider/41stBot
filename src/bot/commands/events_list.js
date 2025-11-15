@@ -160,7 +160,6 @@ module.exports = {
                 const embed = new EmbedBuilder()
                     .setColor(EMBED_COLOR)
                     .setTitle(`${robloxUsername}'s Events${input && input !== '*' ? ` matching \`${input}\`` : ''} (${start + 1}-${Math.min(start + perPage, displayEvents.length)} of ${displayEvents.length})`)
-                    .setFooter({ text: `Page ${page + 1}/${totalPages}`, iconURL: interaction.guild?.iconURL() ?? undefined })
 
                 for (let index = 0; index < slice.length; index++) {
                     const ev = slice[index]
@@ -203,6 +202,11 @@ module.exports = {
                         .setStyle(ButtonStyle.Secondary)
                         .setDisabled(forceDisabled || page === 0),
                     new ButtonBuilder()
+                        .setCustomId('disabled')
+                        .setLabel(`Page ${page + 1}/${totalPages}`)
+                        .setStyle(ButtonStyle.Secondary)
+                        .setDisabled(true),
+                    new ButtonBuilder()
                         .setCustomId('next')
                         .setLabel('Next')
                         .setStyle(ButtonStyle.Secondary)
@@ -225,10 +229,12 @@ module.exports = {
                     return btn.reply({ content: "These buttons aren't for you.", flags: MessageFlags.Ephemeral })
                 }
 
+                await btn.deferUpdate();
+
                 if (btn.customId === 'next' && currentPage + 1 < totalPages) currentPage++
                 else if (btn.customId === 'prev' && currentPage > 0) currentPage--
 
-                await btn.update({
+                await interaction.editReply({
                     embeds: [await buildEmbed(currentPage)],
                     components: [makeRow(currentPage)]
                 })
