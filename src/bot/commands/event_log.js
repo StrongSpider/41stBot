@@ -352,7 +352,7 @@ module.exports = {
 
             if (btn.customId === 'confirm') {
                 const timingStart = Date.now()
-                console.log(`[event-log] confirm start event="${eventName}" user=${interaction.user.id}`)
+                // console.log(`[event-log] confirm start event="${eventName}" user=${interaction.user.id}`)
 
                 locked = true
                 await btn.deferUpdate()
