@@ -115,6 +115,10 @@ const EVENT_TYPES_TABLE = 'event_types';
 const ROLE_QUOTAS_TABLE = 'role_quotas';
 const ROBLOX_IDS_TABLE = 'roblox_ids';
 const INACTIVITY_TABLE = 'inactivity';
+const BADGES_TABLE = 'badges';
+const ASSETS_TABLE = 'assets';
+const ASSET_PRICES_TABLE = 'asset_prices';
+const GROUPS_TABLE = 'groups';
 
 // ----------------------------------------
 // Types (JSDoc)
@@ -167,6 +171,104 @@ const INACTIVITY_TABLE = 'inactivity';
  * @property {DiscordId} discordId
  * @property {number} date
  * @property {string} reason
+ */
+
+/**
+ * @typedef {Object} Badge
+ * @property {number} badgeId
+ * @property {number} placeId
+ * @property {number} awardedDate
+ */
+
+/**
+ * Normalize a JSON-ish value into a clean Badge[].
+ * Coerces fields to numbers and drops invalid items.
+ * @param {any} raw
+ * @returns {Badge[]}
+ */
+function normalizeBadges(raw) {
+  if (!raw) return [];
+  const arr = Array.isArray(raw) ? raw : [];
+  /** @type {Badge[]} */
+  const out = [];
+  for (const b of arr) {
+    if (!b || typeof b !== 'object') continue;
+    const badgeId = Number(b.badgeId);
+    const placeId = Number(b.placeId);
+    const awardedDate = Number(b.awardedDate);
+    if (!Number.isFinite(badgeId) || !Number.isFinite(placeId) || !Number.isFinite(awardedDate)) continue;
+    out.push({ badgeId, placeId, awardedDate });
+  }
+  return out;
+}
+
+/**
+ * @typedef {Object} Asset
+ * @property {string} type
+ * @property {number} assetId
+ * @property {number} price
+ */
+
+/**
+ * @typedef {Object} AssetPrice
+ * @property {number} assetId
+ * @property {number} price
+ */
+
+/**
+ * Normalize a JSON-ish value into a clean Asset[].
+ * Coerces numeric fields to numbers and drops invalid items.
+ * @param {any} raw
+ * @returns {Asset[]}
+ */
+function normalizeAssets(raw) {
+  if (!raw) return [];
+  const arr = Array.isArray(raw) ? raw : [];
+  /** @type {Asset[]} */
+  const out = [];
+  for (const a of arr) {
+    if (!a || typeof a !== 'object') continue;
+    const type = typeof a.type === 'string' ? a.type : '';
+    const assetId = Number(a.assetId);
+    const price = Number(a.price);
+    if (!type || !Number.isFinite(assetId) || !Number.isFinite(price)) continue;
+    out.push({ type, assetId, price });
+  }
+  return out;
+}
+
+/**
+ * @typedef {Object} GroupRole
+ * @property {string} id
+ * @property {number} rank
+ */
+
+/**
+ * Normalize a JSON-ish value into a clean GroupRole[].
+ * Coerces fields and drops invalid items.
+ * @param {any} raw
+ * @returns {GroupRole[]}
+ */
+function normalizeGroupRoles(raw) {
+  if (!raw) return [];
+  const arr = Array.isArray(raw) ? raw : [];
+  /** @type {GroupRole[]} */
+  const out = [];
+  for (const r of arr) {
+    if (!r || typeof r !== 'object') continue;
+    const id = String(r.id);
+    const rank = Number(r.rank);
+    if (!id || !Number.isFinite(rank)) continue;
+    out.push({ id, rank });
+  }
+  return out;
+}
+
+/**
+ * @typedef {Object} Group
+ * @property {string} groupid
+ * @property {GroupRole[]} roles
+ * @property {TimestampISO} expires
  */
 
 /**
@@ -291,7 +393,7 @@ function assertSafeEventType(value) {
   // 2) Hard allow-list of characters you actually need
   // Adjust if you truly need others.
   if (!/^[A-Za-z0-9._\- ]+$/.test(value)) throw new Error('event_type contains disallowed characters');
-  
+
   // 3) Heuristic injection detectors (blacklist, belt-and-suspenders)
   // Metacharacters and SQL comment tokens that should never appear here
   const badFragments = [
@@ -321,7 +423,7 @@ async function getEventTypes(opts) {
   if (!refresh && _eventTypesInFlight) return _eventTypesInFlight;
   _eventTypesInFlight = (async () => {
     const data = await _loadEventTypesFromDb();
-    _eventTypesCache = {data, expiresAt: now + EVENT_TYPES_CACHE_TTL_MS};
+    _eventTypesCache = { data, expiresAt: now + EVENT_TYPES_CACHE_TTL_MS };
     _eventTypesInFlight = null;
     return data;
   })();
@@ -1131,6 +1233,189 @@ async function getAllUsers() {
 }
 
 // ======================================================================
+// Badges (per-user badge JSONB)
+// ======================================================================
+
+/**
+ * Get all badges for a user.
+ * For large arrays this pulls a single JSONB document, which is efficient
+ * as a single row/indexed lookup on (robloxid).
+ * @param {RobloxId|number} robloxId
+ * @returns {Promise<Badge[]>}
+ */
+async function getUserBadges(robloxId) {
+  const res = await pool.query(
+    `SELECT data FROM ${BADGES_TABLE} WHERE robloxid = $1`,
+    [toId(robloxId)]
+  );
+  const row = res.rows[0];
+  return normalizeBadges(row && row.data);
+}
+
+/**
+ * Overwrite a user's badges document (insert-or-update).
+ * Sends the JSON once over the wire and lets Postgres store it as JSONB.
+ * Prefer this when you already have the full badge list in memory.
+ * @param {RobloxId|number} robloxId
+ * @param {Badge[]} badges
+ * @returns {Promise<void>}
+ */
+async function setUserBadges(robloxId, badges) {
+  const cleaned = normalizeBadges(badges);
+  await pool.query(
+    `INSERT INTO ${BADGES_TABLE} (robloxid, data)
+     VALUES ($1, $2)
+     ON CONFLICT (robloxid) DO UPDATE SET data = EXCLUDED.data`,
+    [toId(robloxId), JSON.stringify(cleaned)]
+  );
+}
+
+/**
+ * Append badges to a user's badge array without re-reading it.
+ * Uses JSONB array concatenation so only the delta crosses the wire,
+ * which is preferable when rows can be thousands of elements long.
+ * @param {RobloxId|number} robloxId
+ * @param {Badge[]} badges
+ * @returns {Promise<void>}
+ */
+async function appendUserBadges(robloxId, badges) {
+  const cleaned = normalizeBadges(badges);
+  if (!cleaned.length) return;
+  await pool.query(
+    `INSERT INTO ${BADGES_TABLE} (robloxid, data)
+     VALUES ($1, $2)
+     ON CONFLICT (robloxid) DO UPDATE
+       SET data = ${BADGES_TABLE}.data || EXCLUDED.data`,
+    [toId(robloxId), JSON.stringify(cleaned)]
+  );
+}
+
+// ======================================================================
+// Assets (per-user assets JSONB)
+// ======================================================================
+
+/**
+ * Get all assets for a user.
+ * Stored in a single JSONB document keyed by robloxid.
+ * @param {RobloxId|number} robloxId
+ * @returns {Promise<Asset[]>}
+ */
+async function getUserAssets(robloxId) {
+  const res = await pool.query(
+    `SELECT data FROM ${ASSETS_TABLE} WHERE robloxid = $1`,
+    [toId(robloxId)]
+  );
+  const row = res.rows[0];
+  return normalizeAssets(row && row.data);
+}
+
+/**
+ * Overwrite a user's assets document (insert-or-update).
+ * Prefer this when you already have the full asset list in memory.
+ * @param {RobloxId|number} robloxId
+ * @param {Asset[]} assets
+ * @returns {Promise<void>}
+ */
+async function setUserAssets(robloxId, assets) {
+  const cleaned = normalizeAssets(assets);
+  await pool.query(
+    `INSERT INTO ${ASSETS_TABLE} (robloxid, data)
+     VALUES ($1, $2)
+     ON CONFLICT (robloxid) DO UPDATE SET data = EXCLUDED.data`,
+    [toId(robloxId), JSON.stringify(cleaned)]
+  );
+}
+
+/**
+ * Append assets to a user's asset array without re-reading it.
+ * Uses JSONB array concatenation so only the delta crosses the wire.
+ * @param {RobloxId|number} robloxId
+ * @param {Asset[]} assets
+ * @returns {Promise<void>}
+ */
+async function appendUserAssets(robloxId, assets) {
+  const cleaned = normalizeAssets(assets);
+  if (!cleaned.length) return;
+  await pool.query(
+    `INSERT INTO ${ASSETS_TABLE} (robloxid, data)
+     VALUES ($1, $2)
+     ON CONFLICT (robloxid) DO UPDATE
+       SET data = ${ASSETS_TABLE}.data || EXCLUDED.data`,
+    [toId(robloxId), JSON.stringify(cleaned)]
+  );
+}
+
+// ======================================================================
+// Asset Prices (global prices per asset)
+// ======================================================================
+
+/**
+ * Get the price for a single asset.
+ * @param {number|string} assetId
+ * @returns {Promise<number|null>}
+ */
+async function getAssetPrice(assetId) {
+  const res = await pool.query(
+    `SELECT price FROM ${ASSET_PRICES_TABLE} WHERE assetid = $1`,
+    [toId(assetId)]
+  );
+  if (!res.rows[0]) return null;
+  // assetid and price are BIGINT in Postgres, which pg returns as strings by default.
+  return Number(res.rows[0].price);
+}
+
+/**
+ * Upsert the price for a single asset.
+ * @param {number|string} assetId
+ * @param {number|string} price
+ * @returns {Promise<void>}
+ */
+async function setAssetPrice(assetId, price) {
+  await pool.query(
+    `INSERT INTO ${ASSET_PRICES_TABLE} (assetid, price)
+     VALUES ($1, $2)
+     ON CONFLICT (assetid) DO UPDATE SET price = EXCLUDED.price`,
+    [toId(assetId), Number(price)]
+  );
+}
+
+/**
+ * Get prices for a batch of asset IDs.
+ * @param {(number|string)[]} assetIds
+ * @returns {Promise<Array<{assetId:number|string,price:number|null}>>}
+ */
+async function getAssetPricesBatch(assetIds) {
+  if (!assetIds.length) return [];
+  const ids = assetIds.map(toId);
+  const res = await pool.query(
+    `SELECT assetid, price FROM ${ASSET_PRICES_TABLE} WHERE assetid = ANY($1)`,
+    [ids]
+  );
+  const map = new Map(res.rows.map(r => [String(r.assetid), Number(r.price)]));
+  return assetIds.map(id => {
+    const key = toId(id);
+    return {
+      assetId: id,
+      price: map.has(key) ? map.get(key) : null
+    };
+  });
+}
+
+/**
+ * List all asset prices.
+ * @returns {Promise<AssetPrice[]>}
+ */
+async function listAssetPrices() {
+  const res = await pool.query(
+    `SELECT assetid, price FROM ${ASSET_PRICES_TABLE}`
+  );
+  return res.rows.map(row => ({
+    assetId: Number(row.assetid),
+    price: Number(row.price)
+  }));
+}
+
+// ======================================================================
 // Role Quotas
 // ======================================================================
 
@@ -1207,6 +1492,101 @@ async function deleteRoleQuota(roleId) {
     `DELETE FROM ${ROLE_QUOTAS_TABLE} WHERE roleid = $1`,
     [roleId]
   );
+}
+
+// ======================================================================
+// Groups
+// ======================================================================
+
+/**
+ * Get a group by ID.
+ * @param {string|number} groupId
+ * @returns {Promise<Group|null>}
+ */
+async function getGroup(groupId) {
+  const res = await pool.query(
+    `SELECT groupid, roles, expires FROM ${GROUPS_TABLE} WHERE groupid = $1`,
+    [toId(groupId)]
+  );
+  if (!res.rows[0]) return null;
+  return {
+    groupid: String(res.rows[0].groupid),
+    roles: normalizeGroupRoles(res.rows[0].roles),
+    expires: ensureTimestamp(res.rows[0].expires)
+  };
+}
+
+/**
+ * Create a new group.
+ * @param {string|number} groupId
+ * @param {GroupRole[]} roles
+ * @param {string|number|Date} expires
+ * @returns {Promise<void>}
+ */
+async function createGroup(groupId, roles, expires) {
+  const cleanedRoles = normalizeGroupRoles(roles);
+  const expiresTs = ensureTimestamp(expires);
+  await pool.query(
+    `INSERT INTO ${GROUPS_TABLE} (groupid, roles, expires)
+     VALUES ($1, $2, $3)`,
+    [toId(groupId), JSON.stringify(cleanedRoles), expiresTs]
+  );
+}
+
+/**
+ * Update a group.
+ * @param {string|number} groupId
+ * @param {Partial<Group>} updates
+ * @returns {Promise<void>}
+ */
+async function updateGroup(groupId, updates) {
+  const fields = [];
+  const values = [];
+  let idx = 1;
+
+  if (updates.roles !== undefined) {
+    fields.push(`roles = $${idx++}`);
+    values.push(JSON.stringify(normalizeGroupRoles(updates.roles)));
+  }
+  if (updates.expires !== undefined) {
+    fields.push(`expires = $${idx++}`);
+    values.push(ensureTimestamp(updates.expires));
+  }
+
+  if (fields.length === 0) return;
+
+  values.push(toId(groupId));
+  const setClause = fields.join(', ');
+
+  await pool.query(
+    `UPDATE ${GROUPS_TABLE} SET ${setClause} WHERE groupid = $${idx}`,
+    values
+  );
+}
+
+/**
+ * Delete a group.
+ * @param {string|number} groupId
+ * @returns {Promise<void>}
+ */
+async function deleteGroup(groupId) {
+  await pool.query(
+    `DELETE FROM ${GROUPS_TABLE} WHERE groupid = $1`,
+    [toId(groupId)]
+  );
+}
+
+/**
+ * List all groups.
+ * @returns {Promise<Group[]>}
+ */
+async function listGroups() {
+  const res = await pool.query(`SELECT groupid, roles, expires FROM ${GROUPS_TABLE}`);
+  return res.rows.map(row => ({
+    groupid: String(row.groupid),
+    roles: normalizeGroupRoles(row.roles),
+    expires: ensureTimestamp(row.expires)
+  }));
 }
 
 // ======================================================================
@@ -1293,7 +1673,7 @@ module.exports = {
   getDiscordIdByRoblox,
   upsertRobloxId,
   deleteDiscordId,
-  
+
   getInactivity,
   setInactivity,
   deleteInactivity,
@@ -1313,7 +1693,7 @@ module.exports = {
   getAllTimeEventPointsBatch,
   getAllUsersAllTimeEventPoints,
   getAllTimeEventIdsForUser,
-  
+
   createWeeklyEvent,
   getWeeklyEvent,
   findEventByMessage,
@@ -1345,6 +1725,22 @@ module.exports = {
   getDiscordIdsBatch,
   getAllUsers,
 
+  // badges
+  getUserBadges,
+  setUserBadges,
+  appendUserBadges,
+
+  // assets
+  getUserAssets,
+  setUserAssets,
+  appendUserAssets,
+
+  // asset prices
+  getAssetPrice,
+  setAssetPrice,
+  getAssetPricesBatch,
+  listAssetPrices,
+
   setRoleQuota,
   getRoleQuota,
   listRoleQuotas,
@@ -1355,4 +1751,11 @@ module.exports = {
   addEventType,
   removeEventType,
   clearEventTypesCache,
+
+  // groups
+  getGroup,
+  createGroup,
+  updateGroup,
+  deleteGroup,
+  listGroups,
 };

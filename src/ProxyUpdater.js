@@ -1,0 +1,93 @@
+"use strict"
+
+const axios = require("axios")
+const fs = require("fs")
+const path = require("path")
+const config = require("../config.json")
+
+const WEBSHARE_API_KEY = config.WEBSHARE_API_KEY
+const WEBSHARE_PROXY_LIST_URL = config.WEBSHARE_PROXY_LIST_URL
+const WEBSHARE_USERNAME = config.WEBSHARE_USERNAME
+const WEBSHARE_PASSWORD = config.WEBSHARE_PASSWORD
+const WEBSHARE_HOST = config.WEBSHARE_HOST
+const WEBSHARE_PORT = config.WEBSHARE_PORT
+
+const CACHE_DIR = path.join(__dirname, "./cache")
+const PROXY_CACHE_FILE = path.join(CACHE_DIR, "webshare_proxies.json")
+
+if (!WEBSHARE_API_KEY || !WEBSHARE_PROXY_LIST_URL) {
+  console.error("[proxy-update] WEBSHARE_API_KEY and WEBSHARE_PROXY_LIST_URL must be set in config.json")
+  process.exit(1)
+}
+
+function ensureCacheDir() {
+  try {
+    if (!fs.existsSync(CACHE_DIR)) {
+      fs.mkdirSync(CACHE_DIR, { recursive: true })
+    }
+  } catch (err) {
+    console.error("[proxy-update] Failed to ensure cache dir:", err.message)
+    process.exit(1)
+  }
+}
+
+async function fetchAllProxies(maxPages = 4) {
+  const urls = []
+
+  for (let page = 1; page <= maxPages; page++) {
+    try {
+      const response = await axios.get(WEBSHARE_PROXY_LIST_URL, {
+        headers: { Authorization: `Token ${WEBSHARE_API_KEY}` },
+        timeout: 15000,
+        params: { page },
+      })
+
+      const results = response.data && response.data.results
+      if (!Array.isArray(results) || results.length === 0) {
+        console.log(`[proxy-update] No results on page ${page}, stopping pagination`)
+        break
+      }
+
+      console.log(`[proxy-update] Loaded ${results.length} proxies from API page ${page}`)
+
+      for (const p of results) {
+        const username = p.username || WEBSHARE_USERNAME
+        const password = p.password || WEBSHARE_PASSWORD
+        const host = p.proxy_address || WEBSHARE_HOST
+        const port = p.port || WEBSHARE_PORT
+
+        if (!username || !password || !host || !port) continue
+
+        const url = `http://${username}:${password}@${host}:${port}`
+        urls.push(url)
+      }
+    } catch (err) {
+      console.error("[proxy-update] Failed to fetch Webshare proxy list page", page, ":", err.message)
+      break
+    }
+  }
+
+  // Deduplicate
+  const unique = Array.from(new Set(urls))
+  console.log(`[proxy-update] Total unique proxies collected: ${unique.length}`)
+  return unique
+}
+
+async function main() {
+  ensureCacheDir()
+
+  const urls = await fetchAllProxies(4)
+
+  try {
+    fs.writeFileSync(PROXY_CACHE_FILE, JSON.stringify(urls, null, 2), "utf8")
+    console.log(`[proxy-update] Wrote ${urls.length} proxies to ${PROXY_CACHE_FILE}`)
+  } catch (err) {
+    console.error("[proxy-update] Failed to write proxy cache file:", err.message)
+    process.exit(1)
+  }
+}
+
+main().catch(err => {
+  console.error("[proxy-update] Unhandled error:", err)
+  process.exit(1)
+})

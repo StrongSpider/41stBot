@@ -3,7 +3,7 @@
 const { WebhookClient, EmbedBuilder } = require('discord.js')
 const noblox = require('noblox.js')
 
-const { ROBLOX_GROUP_ID, ROBLOX_GROUP_GUARDING_RANKS, ROBLOX_COOKIE, ROBLOX_PLACE_ID, GUARDING_TRACKER_WEBHOOK_URL } = require('../config.json')
+const { ROBLOX_GROUP_ID, ROBLOX_GROUP_GUARDING_RANKS, ROBLOX_COOKIE, ROBLOX_PLACE_ID, GUARDING_TRACKER_WEBHOOK_URL, DISCORD_VIP_PING_ROLE_ID } = require('../config.json')
 
 /**
  * GuardingTracker
@@ -23,6 +23,9 @@ const { ROBLOX_GROUP_ID, ROBLOX_GROUP_GUARDING_RANKS, ROBLOX_COOKIE, ROBLOX_PLAC
 
 // Minutes between presence checks
 const MINUTES_BETWEEN_CHECKS = 1
+const MINUTES_BETWEEN_PING = 60
+
+let lastPing = 0
 
 // Loaded once from the group, objects like { userid, username, rank }
 const VIP_USERS = []
@@ -83,7 +86,16 @@ async function sendVipMessage(presence, action) {
 
   if (imageUrl) embed.setThumbnail(imageUrl)
 
-  try { await webhook.send({ embeds: [embed] }) } catch (e) {
+  try {
+    const currentMS = Date.now()
+
+    let content = ""
+    if ((lastPing + MINUTES_BETWEEN_PING * 60 * 1000) < currentMS && action === 'join') {
+      lastPing = currentMS
+      content = `<@&${DISCORD_VIP_PING_ROLE_ID}>`
+    }
+    await webhook.send({ embeds: [embed], content })
+  } catch (e) {
     console.error('GuardingTracker: webhook send failed:', e && e.message ? e.message : String(e))
   }
 }

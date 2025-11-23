@@ -58,8 +58,8 @@ async function sendMentionList(interaction, title, ids) {
 module.exports = {
   permission: 'FFCNC',
   data: new SlashCommandBuilder()
-    .setName('medal-eligibility')
-    .setDescription('List users at 25+ EP and 60+ EP'),
+    .setName('distribute-weekly-medals')
+    .setDescription('List users at 25+ EP and 60+ EP and gives them medals'),
   /**
    * @param {import('discord.js').ChatInputCommandInteraction} interaction
    */
@@ -113,11 +113,29 @@ module.exports = {
         // Classify based on current medal role
         const roles = member.roles.cache
         if (roles.has(DISCORD_MEDAL_ROLES.PLATINUM_ROLE)) noMedalUsers.push(discordId)
-        else if (roles.has(DISCORD_MEDAL_ROLES.GOLD_ROLE)) platMedalUsers.push(discordId)
-        else if (roles.has(DISCORD_MEDAL_ROLES.SILVER_ROLE)) goldMedalUsers.push(discordId)
-        else if (roles.has(DISCORD_MEDAL_ROLES.BRONZE_ROLE)) silverMedalUsers.push(discordId)
-        else bronzeMedalUsers.push(discordId)
+        else if (roles.has(DISCORD_MEDAL_ROLES.GOLD_ROLE)) {
+          try {
+            await member.roles.add(DISCORD_MEDAL_ROLES.PLATINUM_ROLE)
+          } catch { }
+          platMedalUsers.push(discordId)
+        } else if (roles.has(DISCORD_MEDAL_ROLES.SILVER_ROLE)) {
+          try {
+            await member.roles.add(DISCORD_MEDAL_ROLES.GOLD_ROLE)
+          } catch { }
+          goldMedalUsers.push(discordId)
+        } else if (roles.has(DISCORD_MEDAL_ROLES.BRONZE_ROLE)) {
+          try {
+            await member.roles.add(DISCORD_MEDAL_ROLES.SILVER_ROLE)
+          } catch { }
+          silverMedalUsers.push(discordId)
+        } else {
+          try {
+            await member.roles.add(DISCORD_MEDAL_ROLES.BRONZE_ROLE)
+          } catch { }
+          bronzeMedalUsers.push(discordId)
+        }
       }
+
 
       await interaction.editReply({ content: '**Here is a list of medal users for this weeks purge!**' })
 

@@ -1,7 +1,7 @@
 'use strict'
 
 const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, UserSelectMenuBuilder, MessageFlags } = require('discord.js')
-const { DISCORD_OFFICER_ROLE_ID, DISCORD_MINOR_OFFICER_ROLE_ID, DISCORD_CHANNEL_IDS } = require('../../../config.json')
+const { DISCORD_OFFICER_ROLE_ID, DISCORD_MINOR_OFFICER_ROLE_ID, DISCORD_CHANNEL_IDS, DISCORD_HICOM_ROLE_ID } = require('../../../config.json')
 const { getIdFromUsername, getUsernameFromId } = require('../../api/roblox.js')
 const { sendEventCreateWebhook } = require('../../api/webhook.js')
 const database = require('../../api/database.js')
@@ -152,7 +152,6 @@ module.exports = {
             option
                 .setName('base-ep')
                 .setDescription('Base EP points (1-3)')
-                .setMaxValue(3)
                 .setMinValue(1)
         )
         .addStringOption(option =>
@@ -201,6 +200,14 @@ module.exports = {
         const attendeesRaw = interaction.options.getString('attendees')
 
         let baseEpPoints = interaction.options.getInteger('base-ep') || 1
+
+
+        if (baseEpPoints > 3) {
+            if (!interaction.member?.roles?.cache?.has(DISCORD_HICOM_ROLE_ID) && interaction.user.id !== DEVELOPER_DISCORD_USER_ID) {
+                baseEpPoints = 3
+            }
+        }
+
         const noteText = interaction.options.getString('note')
 
         // Extract mentioned user ids from the attendees string
@@ -558,7 +565,10 @@ module.exports = {
                     return
                 }
 
-                await submission.deferUpdate()
+                try {
+                    await submission.deferUpdate()
+                } catch { }
+
 
                 // Extract updated values
                 const updatedAttendees = submission.fields.getTextInputValue('attendees_input').split(/\s+/).filter(Boolean)

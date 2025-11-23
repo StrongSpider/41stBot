@@ -8,5 +8,6 @@ src/website/dist
 src/website/node_modules
 
 src/scripts
+
 .vscode
 .git_old

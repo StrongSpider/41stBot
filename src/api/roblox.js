@@ -4,6 +4,11 @@ const noblox = require('noblox.js')
 const path = require('path')
 const fs = require('fs')
 
+const proxy = require('./proxy.js')
+const axios = require('axios')
+
+const config = require('../../config.json')
+
 // In-memory caches
 
 /** Maps numeric Roblox user id -> username */
@@ -76,6 +81,18 @@ function persistDiskCache() {
   try { fs.writeFileSync(USER_IDS_FILE, JSON.stringify(diskUserIds, null, 2), 'utf8') } catch (e) {
     console.error('roblox.js persist error (userIds):', e && e.message ? e.message : String(e))
   }
+}
+
+const INVENTORY_BASE_URL = 'https://inventory.roblox.com/v2'
+const GAMES_BASE_URL = 'https://games.roblox.com/v1'
+
+/**
+ * Simple sleep helper.
+ * @param {number} ms
+ * @returns {Promise<void>}
+ */
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 // Public API
@@ -164,7 +181,210 @@ const getIdFromUsername = async function (username) {
   }
 }
 
+const getConnections = async function (robloxId) {
+  const friendCount = await noblox.getFriendCount(robloxId)
+  const followingCount = await noblox.getFollowingCount(robloxId)
+  const followerCount = await noblox.getFollowerCount(robloxId)
+
+  return {
+    friendCount,
+    followingCount,
+    followerCount
+  }
+}
+
+// Gamepasses: only GAR gamepasses
+const getUserGamepasses = async function (robloxId) {
+  const userId = Number(robloxId)
+  if (!Number.isFinite(userId)) {
+    throw new Error(`[gamepasses] Invalid robloxId: ${robloxId}`)
+  }
+
+  // Only count GAR gamepasses (for a specific GAR game) owned by the user.
+  const GAR_GAME_ID = 1383204830
+
+  /** @type {number[]} */
+  const garPassIds = []
+  let cursor = null
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const queryParts = ['limit=100', 'sortOrder=Asc']
+    if (cursor) {
+      queryParts.push(`cursor=${encodeURIComponent(cursor)}`)
+    }
+    const query = queryParts.join('&')
+    const url = `${GAMES_BASE_URL}/games/${GAR_GAME_ID}/game-passes?${query}`
+
+    const maxAttempts = 5
+    let attempt = 0
+    let page
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      attempt += 1
+      try {
+        page = await proxy.get(url)
+        break
+      } catch (err) {
+        const status = err && err.response && err.response.status
+        const retryAfterHeader =
+          err &&
+          err.response &&
+          err.response.headers &&
+          err.response.headers['retry-after']
+
+        if (status === 429) {
+          console.warn(
+            `[gamepasses] GAR passes 429 for game ${GAR_GAME_ID} attempt=${attempt}, ` +
+            `retry-after=${retryAfterHeader ?? 'none'}, retrying immediately`
+          )
+          continue
+        }
+
+        console.warn(
+          `[gamepasses] GAR passes request failed for game ${GAR_GAME_ID} attempt=${attempt}:`,
+          err && err.message ? err.message : err
+        )
+        if (attempt >= maxAttempts) {
+          throw err
+        }
+        await sleep(1000 * attempt)
+      }
+    }
+
+    const body = page || {}
+    const dataArr = Array.isArray(body.data) ? body.data : []
+    for (const pass of dataArr) {
+      if (!pass || typeof pass !== 'object') continue
+      const id = Number(pass.id)
+      if (!Number.isFinite(id)) continue
+      garPassIds.push(id)
+    }
+
+    if (!body.nextPageCursor) {
+      break
+    }
+    cursor = body.nextPageCursor
+  }
+
+  let garGamepasses = 0
+
+  if (garPassIds.length > 0) {
+    const ids = garPassIds.slice()
+    let nextIndex = 0
+    const maxAttemptsOwnership = 5
+
+    async function ownershipWorker() {
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const current = nextIndex
+        if (current >= ids.length) break
+        nextIndex += 1
+        const passId = ids[current]
+
+        const url = `${INVENTORY_BASE_URL}/users/${userId}/items/1/${passId}`
+        let attempt = 0
+
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          attempt += 1
+          try {
+            const body = await proxy.get(url)
+            const dataArr = Array.isArray(body.data) ? body.data : []
+            if (dataArr.length > 0) {
+              garGamepasses += 1
+            }
+            break
+          } catch (err) {
+            const status = err && err.response && err.response.status
+            const retryAfterHeader =
+              err &&
+              err.response &&
+              err.response.headers &&
+              err.response.headers['retry-after']
+
+            if (status === 429) {
+              console.warn(
+                `[gamepasses] ownership 429 for user ${userId} passId=${passId} attempt=${attempt}, ` +
+                `retry-after=${retryAfterHeader ?? 'none'}, retrying immediately`
+              )
+              continue
+            }
+
+            console.warn(
+              `[gamepasses] ownership request failed for user ${userId} passId=${passId} attempt=${attempt}:`,
+              err && err.message ? err.message : err
+            )
+            if (attempt >= maxAttemptsOwnership) {
+              break
+            }
+            await sleep(1000 * attempt)
+          }
+        }
+      }
+    }
+
+    const workerCount = Math.min(5, ids.length)
+    const workers = []
+    for (let i = 0; i < workerCount; i++) {
+      workers.push(ownershipWorker())
+    }
+    await Promise.all(workers)
+  }
+
+  // Return only the GAR gamepass count
+  return garGamepasses
+}
+
+const canViewInventory = async function (robloxId) {
+  const url = `https://inventory.roblox.com/v1/users/${robloxId}/can-view-inventory`
+
+  const maxAttempts = 5
+  let attempt = 0
+  let page
+
+  while (true) {
+    attempt += 1
+    try {
+      page = await proxy.get(url)
+      break
+    } catch (err) {
+      const status = err && err.response && err.response.status
+      const retryAfterHeader =
+        err &&
+        err.response &&
+        err.response.headers &&
+        err.response.headers['retry-after']
+
+      if (status === 429) {
+        console.warn(
+          `[gamepasses] GAR passes 429 for game ${GAR_GAME_ID} attempt=${attempt}, ` +
+          `retry-after=${retryAfterHeader ?? 'none'}, retrying immediately`
+        )
+        continue
+      }
+
+      console.warn(
+        `[gamepasses] GAR passes request failed for game ${GAR_GAME_ID} attempt=${attempt}:`,
+        err && err.message ? err.message : err
+      )
+      if (attempt >= maxAttempts) {
+        throw err
+      }
+      await sleep(1000 * attempt)
+    }
+  }
+
+  return page.data.canView
+}
+
 module.exports = {
   getUsernameFromId,
-  getIdFromUsername
+  getIdFromUsername,
+  getUserProfile: noblox.getUserInfo,
+  getConnections,
+
+  getUserGamepasses,
+  canViewInventory
 }
