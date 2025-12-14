@@ -8,31 +8,35 @@ import Statistics from '@/pages/Statistics';
 import AdminDashboard from '@/pages/Admin/Dashboard';
 import OfficerDashboard from '@/pages/Officer/Dashboard';
 
+import { DiscordActivityProvider } from '@/context/DiscordActivityContext';
+
 function App() {
   return (
     <Router>
-      <AuthProvider>
-        <Routes>
-          {/* Public Routes */}
-          <Route element={<PublicLayout />}>
-            <Route path="/" element={<Home />} />
-            <Route path="/statistics" element={<Statistics />} />
-          </Route>
+      <DiscordActivityProvider>
+        <AuthProvider>
+          <Routes>
+            {/* Public Routes */}
+            <Route element={<PublicLayout />}>
+              <Route path="/" element={<Home />} />
+              <Route path="/statistics" element={<Statistics />} />
+            </Route>
 
-          {/* Admin Routes */}
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<AdminDashboard />} />
-          </Route>
+            {/* Admin Routes */}
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<AdminDashboard />} />
+            </Route>
 
-          {/* Officer Routes */}
-          <Route path="/officer" element={<OfficerLayout />}>
-            <Route index element={<OfficerDashboard />} />
-          </Route>
+            {/* Officer Routes */}
+            <Route path="/officer" element={<OfficerLayout />}>
+              <Route index element={<OfficerDashboard />} />
+            </Route>
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </AuthProvider>
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </AuthProvider>
+      </DiscordActivityProvider>
     </Router>
   )
 }
