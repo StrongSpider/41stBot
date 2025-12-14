@@ -20,6 +20,8 @@ function App() {
             <Route element={<PublicLayout />}>
               <Route path="/" element={<Home />} />
               <Route path="/statistics" element={<Statistics />} />
+              {/* Force Statistics for Activity for now, handled via conditional redirect or just direct map */}
+              <Route path="/activity" element={<Statistics />} />
             </Route>
 
             {/* Admin Routes */}

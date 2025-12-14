@@ -9,7 +9,8 @@ export default function useEvents(mode = 'weekly') {
     const [error, setError] = useState(null);
 
     const fetchEvents = useCallback(async () => {
-        if (!user) {
+        // Allow public access for 'all-time'
+        if (!user && mode !== 'all-time') {
             setEvents([]);
             setLoading(false);
             return;
@@ -30,13 +31,14 @@ export default function useEvents(mode = 'weekly') {
     }, [user, mode]);
 
     useEffect(() => {
-        if (user) {
+        // Trigger fetch if user exists OR if mode is public 'all-time'
+        if (user || mode === 'all-time') {
             fetchEvents();
         } else {
             setEvents([]);
             setLoading(false);
         }
-    }, [fetchEvents, user]);
+    }, [fetchEvents, user, mode]);
 
     return { events, loading, error, refetch: fetchEvents };
 }

@@ -4,7 +4,8 @@ const ensureAuth = require('../util/ensureAuth.js');
 const database = require('../../../api/database.js');
 const roblox = require('../../../api/roblox.js');
 
-fileRouter.get('/api/all-time', ensureAuth, async function (req, res) {
+// Public endpoint for statistics
+fileRouter.get('/api/all-time', async function (req, res) {
     try {
         const events = await database.listAllTimeEvents();
 

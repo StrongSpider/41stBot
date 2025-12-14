@@ -1,10 +1,14 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { useDiscordActivity } from '@/context/DiscordActivityContext';
 import { LogIn, LogOut, User } from 'lucide-react';
 import icon from '@/assets/icon.png';
 
 export default function Navbar() {
     const { user, login, logout, loading } = useAuth();
+    const { isEmbedded } = useDiscordActivity();
+
+    if (isEmbedded) return null; // Hide Navbar in Activity
 
     return (
         <nav className="border-b border-neutral-800 bg-neutral-900/50 backdrop-blur-md sticky top-0 z-50">
