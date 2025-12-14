@@ -25,17 +25,32 @@ const rest = new REST().setToken(BOT_TOKEN);
 // and deploy your commands!
 (async () => {
     try {
-        console.log(`Started refreshing ${commands.length} application (/) commands.`);
+        console.log(`Started refreshing application (/) commands.`);
 
-        // The put method is used to fully refresh all commands in the guild with the current set
-        const data = await rest.put(
-            Routes.applicationGuildCommands(BOT_CLIENT_ID, BOT_GUILD_ID),
-            { body: commands },
-        );
+        const globalCommands = commands.filter(c => c.type === 4);
+        const guildCommands = commands.filter(c => c.type !== 4);
 
-        console.log(`Successfully reloaded ${data.length} application (/) commands.`);
+        // Deploy Guild Commands
+        if (guildCommands.length > 0) {
+            console.log(`Deploying ${guildCommands.length} guild commands...`);
+            await rest.put(
+                Routes.applicationGuildCommands(BOT_CLIENT_ID, BOT_GUILD_ID),
+                { body: guildCommands },
+            );
+            console.log(`Successfully reloaded guild commands.`);
+        }
+
+        // Deploy Global Commands
+        if (globalCommands.length > 0) {
+            console.log(`Deploying ${globalCommands.length} global commands...`);
+            await rest.put(
+                Routes.applicationCommands(BOT_CLIENT_ID),
+                { body: globalCommands },
+            );
+            console.log(`Successfully reloaded global commands.`);
+        }
+
     } catch (error) {
-        // And of course, make sure you catch and log any errors!
         console.error(error);
     }
 })();
