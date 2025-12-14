@@ -70,7 +70,7 @@ fileRouter.post('/api/auth/activity', async function (req, res) {
             lastFetched: Date.now()
         };
 
-        res.json({ success: true, user: req.session.user });
+        res.json({ success: true, user: req.session.user, access_token: accessToken });
 
     } catch (err) {
         console.error('Activity Auth error', err.response?.data || err);

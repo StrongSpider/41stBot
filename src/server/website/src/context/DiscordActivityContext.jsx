@@ -67,10 +67,23 @@ export const DiscordActivityProvider = ({ children }) => {
                 const authResp = await axios.post('/auth/activity', { code });
 
                 if (authResp.data.success) {
-                    setActivityUser(authResp.data.user);
-                    // Force reload or just let the app proceed? 
-                    // Since session is set, useAuth hook should be able to pick it up if it refetches.
-                    // Ideally, useAuth should expose a 'refresh' method, or we trigger it here.
+                    // Update session user for pure backend calls
+                    // setActivityUser(authResp.data.user);
+
+                    // 5. Authenticate with Discord Client using the access token
+                    const { access_token } = authResp.data;
+                    const authResult = await sdk.commands.authenticate({
+                        access_token
+                    });
+
+                    if (authResult.user) {
+                        // We can use the user from the SDK or the one from backend. 
+                        // The backend one has our custom fields (isOfficer), so let's merge or prefer backend.
+                        // Actually, authResult.user is the raw discord user.
+                        // Let's stick to the backend user which has the roles computed, 
+                        // effectively confirming we are "logged in" both sides.
+                        setActivityUser(authResp.data.user);
+                    }
                 }
 
             } catch (err) {
