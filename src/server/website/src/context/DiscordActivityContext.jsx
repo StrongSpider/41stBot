@@ -13,6 +13,8 @@ export const DiscordActivityProvider = ({ children }) => {
     const [isEmbedded, setIsEmbedded] = useState(false);
     const [isLoaded, setIsLoaded] = useState(false);
 
+    const didInit = React.useRef(false);
+
     useEffect(() => {
         // Check if running in iframe (simple check for now)
         // Or checking specific query params usually present in Activites
@@ -21,6 +23,9 @@ export const DiscordActivityProvider = ({ children }) => {
             setIsLoaded(true);
             return;
         }
+
+        if (didInit.current) return;
+        didInit.current = true;
 
         setIsEmbedded(true);
 
@@ -33,6 +38,18 @@ export const DiscordActivityProvider = ({ children }) => {
                 const sdk = new DiscordSDK(clientId);
                 await sdk.ready();
                 setDiscordSdk(sdk);
+
+                // 2.5 Check if we already have a session
+                try {
+                    const { data: user } = await axios.get('/auth/me');
+                    if (user && user.id) {
+                        setActivityUser(user);
+                        setIsLoaded(true);
+                        return; // Skip authentication
+                    }
+                } catch (e) {
+                    // Not authenticated, proceed
+                }
 
                 // 3. Authenticate
                 // "authorize" command returns the code
