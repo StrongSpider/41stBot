@@ -25,8 +25,38 @@ app.use(cors({
 
 app.use(express.json());
 
+// React app setup will be registered after API routes to ensure precedence
+
+// Routing setup
+const routingPath = path.join(__dirname, 'routing');
+const routingFolders = fs.readdirSync(routingPath)
+
+function loadRoutesFromFolder(folderPath) {
+    const entries = fs.readdirSync(folderPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+        const entryPath = path.join(folderPath, entry.name);
+
+        if (entry.isDirectory()) {
+            // Recursively load routes from subfolders
+            loadRoutesFromFolder(entryPath);
+        } else if (entry.isFile() && entry.name.endsWith('.js')) {
+            // Load and use the router file
+            const fileRouter = require(entryPath);
+            app.use(fileRouter);
+        }
+    }
+}
+
+for (const folder of routingFolders) {
+    if (folder === "util") continue; // Skip utility folder
+    const folderPath = path.join(routingPath, folder);
+    loadRoutesFromFolder(folderPath);
+}
+
+
 // React app setup
-if (process.env.NODE_ENV) {
+if (process.env.NODE_ENV === 'development') {
     (async () => {
         const { createServer } = await import('vite');
         const vite = await createServer({
@@ -58,36 +88,9 @@ if (process.env.NODE_ENV) {
     })();
 } else {
     app.use(express.static(path.join(__dirname, 'website', 'dist')));
-    app.get('/', (req, res) => {
+    app.use((req, res) => {
         res.sendFile(path.join(__dirname, 'website', 'dist', 'index.html'));
     });
-}
-
-// Routing setup
-const routingPath = path.join(__dirname, 'routing');
-const routingFolders = fs.readdirSync(routingPath)
-
-function loadRoutesFromFolder(folderPath) {
-    const entries = fs.readdirSync(folderPath, { withFileTypes: true });
-
-    for (const entry of entries) {
-        const entryPath = path.join(folderPath, entry.name);
-
-        if (entry.isDirectory()) {
-            // Recursively load routes from subfolders
-            loadRoutesFromFolder(entryPath);
-        } else if (entry.isFile() && entry.name.endsWith('.js')) {
-            // Load and use the router file
-            const fileRouter = require(entryPath);
-            app.use(fileRouter);
-        }
-    }
-}
-
-for (const folder of routingFolders) {
-    if (folder === "util") continue; // Skip utility folder
-    const folderPath = path.join(routingPath, folder);
-    loadRoutesFromFolder(folderPath);
 }
 
 
