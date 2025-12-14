@@ -2,7 +2,7 @@ const fileRouter = require('express').Router();
 const axios = require('axios').default;
 const qs = require('querystring');
 
-const { BOT_TOKEN, BOT_CLIENT_ID, DISCORD_AUTH_CLIENT_SECRET, DISCORD_AUTH_REDIRECT_URI, BOT_GUILD_ID, DEVELOPER_DISCORD_USER_ID, DISCORD_HICOM_ROLE_ID } = require('../../../../../config.json');
+const { BOT_TOKEN, BOT_CLIENT_ID, DISCORD_AUTH_CLIENT_SECRET, DISCORD_AUTH_REDIRECT_URI, BOT_GUILD_ID, DEVELOPER_DISCORD_USER_ID, DISCORD_HICOM_ROLE_ID, DISCORD_OFFICER_ROLE_ID } = require('../../../../../config.json');
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
 
 fileRouter.get('/api/auth/callback', async function (req, res) {
@@ -41,11 +41,17 @@ fileRouter.get('/api/auth/callback', async function (req, res) {
         await client.login(BOT_TOKEN);
 
         let isHICOM = false;
+        let isOfficer = false;
         try {
             const guild = await client.guilds.fetch(BOT_GUILD_ID);
             const member = await guild.members.fetch(userResp.data.id);
-            if (member && (member.roles.cache.has(DISCORD_HICOM_ROLE_ID) || member.id === DEVELOPER_DISCORD_USER_ID)) {
-                isHICOM = true;
+            if (member) {
+                if (member.roles.cache.has(DISCORD_HICOM_ROLE_ID) || member.id === DEVELOPER_DISCORD_USER_ID) {
+                    isHICOM = true;
+                }
+                if (member.roles.cache.has(DISCORD_OFFICER_ROLE_ID) || isHICOM) { // HICOM implies Officer access usually
+                    isOfficer = true;
+                }
             }
         } catch {
 
@@ -58,6 +64,7 @@ fileRouter.get('/api/auth/callback', async function (req, res) {
             username: `${userResp.data.username}#${userResp.data.discriminator}`,
             avatar: userResp.data.avatar,
             isHICOM,
+            isOfficer,
             lastFetched: Date.now()
         };
 

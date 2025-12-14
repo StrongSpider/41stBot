@@ -138,7 +138,7 @@ module.exports = async function counterRaidLog(message) {
             })
 
             await sendEventCreateWebhook({
-                eventid: createdId,
+                eventId: createdId,
                 type: 'Counter Raid',
                 host: hostRobloxId,
                 supervisor: -1,

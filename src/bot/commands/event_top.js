@@ -173,7 +173,7 @@ module.exports = {
       }
       const uniqIds = Array.from(new Set(allEventIds))
       const eventsArr = await database.getAllTimeEventsBatch(uniqIds).catch(() => [])
-      const eventsById = new Map(eventsArr.map(ev => [ev.eventid || ev.id || ev._id || ev.eventId, ev]))
+      const eventsById = new Map(eventsArr.map(ev => [ev.eventId || ev.id || ev._id, ev]))
 
       // Count per user with filters applied
       const counts = []

@@ -75,11 +75,11 @@ async function safeSend(payload) {
 
 /**
  * Send a webhook for event creation
- * @param {{ eventid: string|number, type?: string, host?: number, supervisor?: number, attendees?: number[], message?: string }} entry
+ * @param {{ eventId: string|number, type?: string, host?: number, supervisor?: number, attendees?: number[], message?: string }} entry
  */
 async function sendEventCreateWebhook(entry) {
   if (!webhookClient) return
-  const { eventid, type, host, supervisor, attendees, message } = entry || {}
+  const { eventId, type, host, supervisor, attendees, message } = entry || {}
 
   const hostName = await safeUsername(host)
   const supervisorName = await safeUsername(typeof supervisor === 'number' ? supervisor : -1)
@@ -89,7 +89,7 @@ async function sendEventCreateWebhook(entry) {
     try { attendeeNames = await Promise.all(attendees.map(id => safeUsername(id))) } catch { attendeeNames = [] }
   }
 
-  let embed = new EmbedBuilder().setTitle('New Event Created: ' + String(eventid)).setColor('Green').setTimestamp()
+  let embed = new EmbedBuilder().setTitle('New Event Created: ' + String(eventId)).setColor('Green').setTimestamp()
 
   if (type) embed.addFields({ name: 'Type', value: String(type), inline: true })
   if (host) embed.addFields({ name: 'Host', value: hostName, inline: true })
@@ -103,11 +103,11 @@ async function sendEventCreateWebhook(entry) {
 
 /**
  * Send a webhook for event updates
- * @param {{ eventid: string|number, changedBy: string, changes: Record<string, {from:any, to:any}> }} logEntry
+ * @param {{ eventId: string|number, changedBy: string, changes: Record<string, {from:any, to:any}> }} logEntry
  */
 async function sendEventUpdateWebhook(logEntry) {
   if (!webhookClient) return
-  const { eventid, changedBy, changes } = logEntry || {}
+  const { eventId, changedBy, changes } = logEntry || {}
 
   const changedKeys = changes && typeof changes === 'object' ? Object.keys(changes) : []
   const changedFieldsList = changedKeys.length ? changedKeys.join(', ') : 'None'
@@ -138,8 +138,8 @@ async function sendEventUpdateWebhook(logEntry) {
 
     let removedNames = []
     let addedNames = []
-    try { removedNames = await Promise.all(removed.map(id => safeUsername(id))) } catch {}
-    try { addedNames = await Promise.all(added.map(id => safeUsername(id))) } catch {}
+    try { removedNames = await Promise.all(removed.map(id => safeUsername(id))) } catch { }
+    try { addedNames = await Promise.all(added.map(id => safeUsername(id))) } catch { }
 
     const parts = []
     if (addedNames.length) parts.push('Added: ' + addedNames.join(', '))
@@ -148,7 +148,7 @@ async function sendEventUpdateWebhook(logEntry) {
   }
 
   let embed = new EmbedBuilder()
-    .setTitle('Event Updated: ' + String(eventid))
+    .setTitle('Event Updated: ' + String(eventId))
     .setDescription('Changed by <@' + String(changedBy) + '>\n\n**Fields Changed:** ' + changedFieldsList)
     .setColor('Blue')
     .setTimestamp()
@@ -173,14 +173,14 @@ async function sendEventUpdateWebhook(logEntry) {
 
 /**
  * Send a webhook for event deletions
- * @param {{ eventid: string|number, changedBy: string }} logEntry
+ * @param {{ eventId: string|number, changedBy: string }} logEntry
  */
 async function sendEventDeleteWebhook(logEntry) {
   if (!webhookClient) return
-  const { eventid, changedBy } = logEntry || {}
+  const { eventId, changedBy } = logEntry || {}
 
   let embed = new EmbedBuilder()
-    .setTitle('Event Deleted: ' + String(eventid))
+    .setTitle('Event Deleted: ' + String(eventId))
     .setDescription('Deleted by <@' + String(changedBy) + '>\n\n')
     .setColor('Red')
     .setTimestamp()

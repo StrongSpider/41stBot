@@ -6,6 +6,7 @@ const path = require("path")
 const fs = require("fs")
 
 const config = require("../../config.json")
+
 const WEBSHARE_API_KEY = config.WEBSHARE_API_KEY // used by updater script, not here
 const WEBSHARE_PROXIES = config.WEBSHARE_PROXIES // optional: array of full proxy URLs like "http://user:pass@host:port"
 
@@ -13,6 +14,15 @@ const WEBSHARE_USERNAME = config.WEBSHARE_USERNAME
 const WEBSHARE_PASSWORD = config.WEBSHARE_PASSWORD
 const WEBSHARE_HOST = config.WEBSHARE_HOST
 const WEBSHARE_PORT = config.WEBSHARE_PORT
+
+const DEFAULT_USER_AGENT =
+  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+
+const axiosInstance = axios.create({
+  headers: {
+    "User-Agent": DEFAULT_USER_AGENT,
+  },
+})
 
 if (
   !Array.isArray(WEBSHARE_PROXIES) &&
@@ -40,25 +50,27 @@ function ensureCacheDir() {
   }
 }
 
+function createProxyAgent(url) {
+  if (!url || typeof url !== "string") return
+
+  try {
+    proxyAgents.push(new HttpsProxyAgent(url))
+  } catch (err) {
+    console.warn(`[proxy] Failed to create proxy agent for URL ${url}:`, err.message)
+  }
+}
+
 function initProxiesFromConfig() {
-  if (!Array.isArray(WEBSHARE_PROXIES) || WEBSHARE_PROXIES.length === 0) {
-    if (WEBSHARE_USERNAME && WEBSHARE_PASSWORD && WEBSHARE_HOST && WEBSHARE_PORT) {
-      const url = `http://${WEBSHARE_USERNAME}:${WEBSHARE_PASSWORD}@${WEBSHARE_HOST}:${WEBSHARE_PORT}`
-      try {
-        proxyAgents.push(new HttpsProxyAgent(url))
-      } catch (err) {
-        console.warn(`[proxy] Failed to create proxy agent from config URL ${url}:`, err.message)
-      }
+  if (Array.isArray(WEBSHARE_PROXIES) && WEBSHARE_PROXIES.length > 0) {
+    for (const url of WEBSHARE_PROXIES) {
+      createProxyAgent(url)
     }
     return
   }
 
-  for (const url of WEBSHARE_PROXIES) {
-    try {
-      proxyAgents.push(new HttpsProxyAgent(url))
-    } catch (err) {
-      console.warn(`[proxy] Failed to create proxy agent for URL ${url}:`, err.message)
-    }
+  if (WEBSHARE_USERNAME && WEBSHARE_PASSWORD && WEBSHARE_HOST && WEBSHARE_PORT) {
+    const url = `http://${WEBSHARE_USERNAME}:${WEBSHARE_PASSWORD}@${WEBSHARE_HOST}:${WEBSHARE_PORT}`
+    createProxyAgent(url)
   }
 }
 
@@ -81,16 +93,14 @@ function loadProxiesFromCache() {
 
     let added = 0
     for (const entry of parsed) {
-      // Accept either plain string or object with url property
       const url = typeof entry === "string" ? entry : entry && entry.url
       if (!url || typeof url !== "string") continue
 
-      try {
-        proxyAgents.push(new HttpsProxyAgent(url))
-        added++
-      } catch (err) {
-        console.warn(`[proxy] Failed to create proxy agent from cache URL ${url}:`, err.message)
-      }
+      const alreadyHave = proxyAgents.some(agent => agent.proxy && agent.proxy.href === url)
+      if (alreadyHave) continue
+
+      createProxyAgent(url)
+      added++
     }
 
     if (added > 0) {
@@ -101,9 +111,45 @@ function loadProxiesFromCache() {
   }
 }
 
-// Initialize once at module load
-//initProxiesFromConfig()
-loadProxiesFromCache()
+function logProxyPool() {
+  if (proxyAgents.length === 0) {
+    console.warn("[proxy] Proxy pool is empty, requests will go direct")
+  } else {
+    console.log("[proxy] Proxy pool size:", proxyAgents.length)
+  }
+}
+
+// Helper to detect Roblox API URLs
+function isRobloxUrl(url) {
+  if (typeof url !== "string") return false
+  return /(^https?:\/\/)?([^.]+\.)*roblox\.com(\/|$)/i.test(url)
+}
+
+function isNetworkOrTlsError(err) {
+  if (!err) return false
+
+  const code = err.code
+  const msg = err.message || ""
+
+  const networkCodes = [
+    "ECONNRESET",
+    "ECONNREFUSED",
+    "EPIPE",
+    "ETIMEDOUT",
+    "EHOSTUNREACH",
+    "EAI_AGAIN",
+  ]
+
+  if (code && networkCodes.includes(code)) {
+    return true
+  }
+
+  if (msg.includes("Client network socket disconnected before secure TLS connection was established")) {
+    return true
+  }
+
+  return false
+}
 
 function removeProxyAgent(agent) {
   if (!agent) return
@@ -111,6 +157,7 @@ function removeProxyAgent(agent) {
   if (index === -1) return
 
   proxyAgents.splice(index, 1)
+
   if (proxyAgents.length === 0) {
     nextProxyIndex = 0
     console.warn("[proxy] All proxy agents removed, no proxies left in pool")
@@ -128,6 +175,11 @@ function getNextProxyAgent() {
   nextProxyIndex = (nextProxyIndex + 1) % proxyAgents.length
   return agent
 }
+
+// Initialize proxies once at module load
+initProxiesFromConfig()
+loadProxiesFromCache()
+logProxyPool()
 
 async function request(config) {
   let attempt = 0
@@ -147,17 +199,27 @@ async function request(config) {
       finalConfig.httpsAgent = proxyAgent
     }
 
+    if (!finalConfig.headers) {
+      finalConfig.headers = {}
+    }
+
+    if (!finalConfig.headers["User-Agent"]) {
+      finalConfig.headers["User-Agent"] = DEFAULT_USER_AGENT
+    }
+
     const attemptStart = Date.now()
     const method = (finalConfig.method || "GET").toUpperCase()
     const url = finalConfig.url
 
     try {
-      const res = await axios(finalConfig)
+      const res = await axiosInstance(finalConfig)
       const duration = Date.now() - attemptStart
-      console.log(
-        "[proxy] request success",
-        { method, url, status: res.status, attempt, duration }
-      )
+
+      // console.log(
+      //   "[proxy] request success",
+      //   { method, url, status: res.status, attempt, duration }
+      // )
+
       return res
     } catch (err) {
       const duration = Date.now() - attemptStart
@@ -171,13 +233,23 @@ async function request(config) {
           status,
           attempt,
           duration,
+          code: err && err.code,
           message: err && err.message ? err.message : err,
         }
       )
 
-      // On 407, drop this proxy from the pool and retry with another one
       if (status === 407 && proxyAgent) {
-        console.warn("[proxy] Got 407 Proxy Authentication Required, removing bad proxy and retrying", proxyAgent)
+        console.warn("[proxy] Got 407 Proxy Authentication Required, removing bad proxy and retrying")
+        removeProxyAgent(proxyAgent)
+
+        if (proxyAgents.length > 0) {
+          continue
+        }
+      } else if (proxyAgent && isNetworkOrTlsError(err)) {
+        console.warn("[proxy] Network/TLS error through proxy, removing proxy and retrying", {
+          code: err.code,
+          message: err.message,
+        })
         removeProxyAgent(proxyAgent)
 
         if (proxyAgents.length > 0) {
@@ -252,7 +324,41 @@ async function batchGet(
       const status = err && err.response && err.response.status
 
       if (protect429 && status === 429 && attempt < maxRetries) {
-        const backoff = Math.min(60000, 1000 * Math.pow(2, attempt))
+        let backoff = Math.min(60000, 1000 * Math.pow(2, attempt))
+
+        try {
+          const headers = err && err.response && err.response.headers
+          if (headers) {
+            const retryAfterRaw = headers["retry-after"] || headers["Retry-After"]
+            if (retryAfterRaw) {
+              let retryMs = NaN
+
+              const seconds = parseInt(retryAfterRaw, 10)
+              if (!Number.isNaN(seconds) && seconds >= 0) {
+                retryMs = seconds * 1000
+              } else {
+                const retryDate = Date.parse(retryAfterRaw)
+                if (!Number.isNaN(retryDate)) {
+                  const diff = retryDate - Date.now()
+                  if (diff > 0) {
+                    retryMs = diff
+                  }
+                }
+              }
+
+              if (!Number.isNaN(retryMs)) {
+                backoff = Math.min(60000, retryMs)
+              }
+            }
+          }
+        } catch (parseErr) {
+          console.warn("[proxy] Failed to parse Retry-After header", {
+            url,
+            attempt: attemptLabel,
+            error: parseErr && parseErr.message ? parseErr.message : parseErr,
+          })
+        }
+
         console.warn(
           "[proxy] batchGet 429, backing off",
           { url, attempt: attemptLabel, backoff }
@@ -291,16 +397,6 @@ async function batchGet(
     return []
   }
 
-  console.log(
-    "[proxy] batchGet starting",
-    {
-      urlCount: urls.length,
-      maxConcurrent: Math.min(maxConcurrent, urls.length),
-      maxRetries,
-      protect429,
-    }
-  )
-
   const results = new Array(urls.length)
   let index = 0
   const workers = []
@@ -323,13 +419,6 @@ async function batchGet(
   }
 
   await Promise.all(workers)
-
-  console.log(
-    "[proxy] batchGet completed",
-    {
-      urlCount: urls.length,
-    }
-  )
 
   return results
 }

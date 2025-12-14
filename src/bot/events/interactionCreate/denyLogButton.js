@@ -50,7 +50,7 @@ module.exports = async function denyLogButton(interaction) {
 
         try {
             // Remove the event from storage
-            await database.deleteEventById(event.eventid)
+            await database.deleteEventById(event.eventId)
 
             // Remove the buttons and then delete the message to avoid re-clicks
             try { await interaction.message.edit({ content: interaction.message?.content || '', components: [] }) } catch { }
@@ -58,7 +58,7 @@ module.exports = async function denyLogButton(interaction) {
 
             // Webhook audit
             try {
-                await webhook.sendEventDeleteWebhook({ eventid: event.eventid, changedBy: interaction.user.id })
+                await webhook.sendEventDeleteWebhook({ eventId: event.eventId, changedBy: interaction.user.id })
             } catch { }
 
             // Notify host via DM if possible
@@ -70,7 +70,7 @@ module.exports = async function denyLogButton(interaction) {
                 }
             } catch { }
 
-            await interaction.editReply({ content: 'Deleted Event: `' + String(event.eventid) + '`', flags: MessageFlags.Ephemeral })
+            await interaction.editReply({ content: 'Deleted Event: `' + String(event.eventId) + '`', flags: MessageFlags.Ephemeral })
         } catch (e) {
             const msg = e && e.message ? e.message : 'Unknown error'
             await interaction.editReply({ content: '<:warning:1297618648810393630> `' + msg + '`', flags: MessageFlags.Ephemeral })

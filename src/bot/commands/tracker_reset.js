@@ -88,7 +88,7 @@ module.exports = {
                 const discordMap = Object.fromEntries((discordList || []).map(o => [o.robloxId, o.discordId]))
                 const allEventIds = [...new Set((userEventsList || []).flatMap(o => Array.isArray(o.events) ? o.events : []))]
                 const weeklyDetails = allEventIds.length ? await database.getWeeklyEventsBatch(allEventIds) : []
-                const weeklyMap = Object.fromEntries((weeklyDetails || []).map(e => [e.eventid, e]))
+                const weeklyMap = Object.fromEntries((weeklyDetails || []).map(e => [e.eventId, e]))
 
                 // Build the user entries for the backup file
                 users = await Promise.all(robloxIds.map(async robloxId => {

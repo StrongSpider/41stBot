@@ -32,7 +32,7 @@ fileRouter.get('/api/users', ensureAuth, async function (req, res) {
         const discordMap = Object.fromEntries(discordList.map(o => [o.robloxId, o.discordId]));
         const allEventIds = [...new Set(userEventsList.flatMap(o => o.events))];
         const weeklyDetails = await database.getWeeklyEventsBatch(allEventIds);
-        const weeklyMap = Object.fromEntries(weeklyDetails.map(e => [e.eventid, e]));
+        const weeklyMap = Object.fromEntries(weeklyDetails.map(e => [e.eventId, e]));
         const users = await Promise.all(robloxIds.map(async robloxId => {
             const discordId = discordMap[robloxId];
             const username = robloxId ? await roblox.getUsernameFromId(+robloxId).catch(() => null) : null;

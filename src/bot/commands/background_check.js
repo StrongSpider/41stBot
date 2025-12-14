@@ -1,18 +1,63 @@
 "use strict";
 
-const { SlashCommandBuilder, CommandInteraction, ContainerBuilder, ComponentType, TextInputStyle, TextInputBuilder, ModalBuilder, ButtonStyle, MessageFlags, ActionRowBuilder, ButtonBuilder, MediaGalleryItemBuilder } = require('discord.js');
+const { SlashCommandBuilder, ContainerBuilder, MessageFlags } = require('discord.js');
 const { getIdFromUsername } = require("../../api/roblox.js");
 const roblox = require("../../api/roblox.js");
 const badge = require("../../api/badge.js");
 const assets = require("../../api/assets.js");
 const groupsApi = require("../../api/groups.js");
 
-const { createCanvas, loadImage } = require("canvas");
+const { createCanvas } = require("canvas");
 const customization = require('../../../config.json');
-const { default: axios } = require('axios');
+const axios = require('axios');
+const https = require('https');
+
+const REQUEST_TIMEOUT_MS = 55000;
+
+// keep connections alive for long-running lookups
+const defaultHttpsAgent = new https.Agent({ keepAlive: true });
+
+// shared axios client with a 55s timeout
+const http = axios.create({
+    timeout: REQUEST_TIMEOUT_MS,
+    httpsAgent: defaultHttpsAgent
+});
+
+async function wrap(promise) {
+    try {
+        const data = await Promise.resolve(promise);
+        return ({ ok: true, data });
+    } catch (err) {
+        return ({
+            ok: false,
+            error: err instanceof Error && err.message ? err.message : String(err)
+        });
+    }
+}
+
+async function fetchAllUserGamePasses(userId) {
+    const all = [];
+    let exclusiveStartId = "";
+
+    while (true) {
+        const url = `https://apis.roblox.com/game-passes/v1/users/${userId}/game-passes?count=100&exclusiveStartId=${exclusiveStartId}`;
+        const res = await http.get(url);
+        const page = Array.isArray(res?.data?.gamePasses) ? res.data.gamePasses : [];
+
+        all.push(...page);
+
+        if (page.length === 100 && page[page.length - 1] && page[page.length - 1].gamePassId) {
+            exclusiveStartId = String(page[page.length - 1].gamePassId);
+            continue;
+        }
+
+        break;
+    }
+
+    return all;
+}
 
 module.exports = {
-    // adjust permission if you want
     permission: "OFFICER",
     data: new SlashCommandBuilder()
         .setName("background-check")
@@ -37,164 +82,200 @@ module.exports = {
             const robloxId = await getIdFromUsername(username);
             if (!robloxId) throw new Error("username not found");
 
-            // const canView = await roblox.canViewInventory(robloxId)
-            // if (!canView) throw new Error("inventory private")
+            // run all external lookups in parallel (each is wrapped so one failure does not fail the whole command)
+            const profilePromise = wrap(roblox.getUserProfile(robloxId));
+            const connectionsPromise = wrap(roblox.getConnections(robloxId));
+            const groupsPromise = wrap(groupsApi.getGroupInformation(robloxId));
+            const inventoryPromise = wrap(assets.getAssetsInformation(robloxId));
+            const gamePassesPromise = wrap(fetchAllUserGamePasses(robloxId));
 
-            const profile = await roblox.getUserProfile(robloxId)
+            const inventoryValuePromise = wrap((async () => {
+                try {
+                    const rolimonsResponse = await http.get(
+                        `https://api.rolimons.com/players/v1/playerinfo/${robloxId}`,
+                        {
+                            // rolimons has been picky at times, force IPv4 but keep the longer timeout
+                            httpsAgent: new https.Agent({ keepAlive: true, family: 4 }),
+                            timeout: REQUEST_TIMEOUT_MS
+                        }
+                    );
+                    if (rolimonsResponse.data && rolimonsResponse.data.success && typeof rolimonsResponse.data.value === 'number') {
+                        return rolimonsResponse.data.value;
+                    }
+                } catch (e) {
+                    console.log(e);
+                }
+                return null;
+            })());
 
-            await interaction.editReply({ content: `<a:loading:1439026179993767946> Loading user connections...`, components: [] })
-
-            const connections = await roblox.getConnections(robloxId)
-
-            await interaction.editReply({ content: `<a:loading:1439026179993767946> Loading user groups...`, components: [] })
-
-            const groups = await groupsApi.getGroupInformation(robloxId)
-
-            await interaction.editReply({ content: `<a:loading:1439026179993767946> Loading user inventory...`, components: [] })
-
-            const inventory = await assets.getAssetsInformation(robloxId)
-
-            await interaction.editReply({ content: `<a:loading:1439026179993767946> Loading user cheating profile...`, components: [] })
-
-            const xTrackerResponse = await axios.get(`https://api.xtracker.xyz/api/registry/user?id=${robloxId}`, {
+            const xTrackerPromise = wrap(http.get(`https://api.xtracker.xyz/api/registry/user?id=${robloxId}`, {
                 headers: {
                     "Authorization": customization.XTRACKER_API_KEY
                 }
-            }).catch((e) => {
-                return {
-                    data: { error: e.message }
-                }
-            })
+            }));
 
-            await interaction.editReply({ content: `<a:loading:1439026179993767946> Loading user badges...`, components: [] })
+            const badgesPromise = wrap(badge.getUserBadges(robloxId));
 
-            // pull badges using the same source as test.js
-            const badges = await badge.getUserBadges(robloxId);
-            if (!badges || badges.length === 0) {
-                await interaction.editReply({
-                    content: `No badges found for **${username}**`
-                });
-                return;
-            }
+            const [profileRes, connectionsRes, groupsRes, inventoryRes, gamePassesRes, inventoryValueRes, xTrackerRes, badgesRes] = await Promise.all([
+                profilePromise,
+                connectionsPromise,
+                groupsPromise,
+                inventoryPromise,
+                gamePassesPromise,
+                inventoryValuePromise,
+                xTrackerPromise,
+                badgesPromise
+            ]);
 
-            // sort by awardedDate ascending
-            const sorted = [...badges].sort(
-                (a, b) => a.awardedDate - b.awardedDate
-            );
+            const profile = profileRes.ok ? profileRes.data : null;
+            const connections = connectionsRes.ok ? connectionsRes.data : null;
+            const groups = groupsRes.ok && Array.isArray(groupsRes.data) ? groupsRes.data : [];
+            const inventory = inventoryRes.ok && Array.isArray(inventoryRes.data) ? inventoryRes.data : [];
+            const gamePasses = gamePassesRes.ok && Array.isArray(gamePassesRes.data) ? gamePassesRes.data : [];
+            const inventoryValue = inventoryValueRes.ok ? inventoryValueRes.data : null;
+            const xTrackerResponse = xTrackerRes.ok ? xTrackerRes.data : null;
+            const badges = badgesRes.ok && Array.isArray(badgesRes.data) ? badgesRes.data : [];
 
-            const width = 1200;
-            const height = 600;
-            const marginLeft = 80;
-            const marginRight = 40;
-            const marginTop = 70;
-            const marginBottom = 70;
+            const profileError = profileRes.ok ? null : profileRes.error;
+            const connectionsError = connectionsRes.ok ? null : connectionsRes.error;
+            const groupsError = groupsRes.ok ? null : groupsRes.error;
+            const inventoryError = inventoryRes.ok ? null : inventoryRes.error;
+            const gamePassesError = gamePassesRes.ok ? null : gamePassesRes.error;
+            const inventoryValueError = inventoryValueRes.ok ? null : inventoryValueRes.error;
+            const xTrackerError = xTrackerRes.ok ? null : xTrackerRes.error;
+            const badgesError = badgesRes.ok ? null : badgesRes.error;
 
-            const canvas = createCanvas(width, height);
-            const ctx = canvas.getContext("2d");
+            // badges are optional; if they fail we still show the rest of the background check
+            const canBuildBadgeGraph = Array.isArray(badges) && badges.length > 0;
 
-            // background
-            ctx.fillStyle = "black";
-            ctx.fillRect(0, 0, width, height);
+            let buffer = null;
+            let attachmentName = null;
+            let badgeCount = Array.isArray(badges) ? badges.length : 0;
 
-            // title
-            ctx.fillStyle = "white";
-            ctx.font = "30px sans-serif";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "top";
-            ctx.fillText(`${username} • Badge Timeline`, width / 2, 15);
+            if (canBuildBadgeGraph) {
+                // sort by awardedDate ascending
+                const sorted = [...badges].sort(
+                    (a, b) => a.awardedDate - b.awardedDate
+                );
 
-            // subtitle
-            ctx.font = "20px sans-serif";
-            ctx.fillText(`${sorted.length} total badges`, width / 2, 50);
+                const width = 1200;
+                const height = 600;
+                const marginLeft = 80;
+                const marginRight = 40;
+                const marginTop = 70;
+                const marginBottom = 70;
 
-            if (sorted.length > 0) {
-                // build data
-                const times = sorted.map(b => new Date(b.awardedDate * 1000).getTime());
-                const minTime = Math.min(...times);
-                const maxTime = Math.max(...times);
-                const spanTime = maxTime - minTime || 1;
+                const canvas = createCanvas(width, height);
+                const ctx = canvas.getContext("2d");
 
-                const maxTotal = sorted.length;
+                // background
+                ctx.fillStyle = "black";
+                ctx.fillRect(0, 0, width, height);
 
-                // helper to map time and total to canvas coords
-                const xForTime = (t) =>
-                    marginLeft +
-                    ((t - minTime) / spanTime) *
-                    (width - marginLeft - marginRight);
-
-                const yForTotal = (total) =>
-                    height - marginBottom -
-                    ((total - 1) / (maxTotal - 1 || 1)) *
-                    (height - marginTop - marginBottom);
-
-                // grid - X (years)
-                const minYear = new Date(minTime).getUTCFullYear();
-                const maxYear = new Date(maxTime).getUTCFullYear();
-                ctx.strokeStyle = "#222222";
-                ctx.lineWidth = 1;
-                ctx.font = "18px sans-serif";
+                // title
                 ctx.fillStyle = "white";
+                ctx.font = "30px sans-serif";
                 ctx.textAlign = "center";
                 ctx.textBaseline = "top";
+                ctx.fillText(`${username} • Badge Timeline`, width / 2, 15);
 
-                for (let year = minYear; year <= maxYear; year++) {
-                    const t = Date.UTC(year, 0, 1);
-                    if (t < minTime || t > maxTime) continue;
-                    const x = xForTime(t);
+                // subtitle
+                ctx.font = "20px sans-serif";
+                ctx.fillText(`${sorted.length} total badges`, width / 2, 50);
 
-                    ctx.beginPath();
-                    ctx.moveTo(x, marginTop);
-                    ctx.lineTo(x, height - marginBottom);
-                    ctx.stroke();
+                if (sorted.length > 0) {
+                    // build data
+                    const times = sorted.map(b => new Date(b.awardedDate * 1000).getTime());
+                    const minTime = Math.min(...times);
+                    const maxTime = Math.max(...times);
+                    const spanTime = maxTime - minTime || 1;
 
-                    ctx.fillText(String(year), x, height - marginBottom + 5);
+                    const maxTotal = sorted.length;
+
+                    // helper to map time and total to canvas coords
+                    const xForTime = (t) =>
+                        marginLeft +
+                        ((t - minTime) / spanTime) *
+                        (width - marginLeft - marginRight);
+
+                    const yForTotal = (total) =>
+                        height - marginBottom -
+                        ((total - 1) / (maxTotal - 1 || 1)) *
+                        (height - marginTop - marginBottom);
+
+                    // grid - X (years)
+                    const minYear = new Date(minTime).getUTCFullYear();
+                    const maxYear = new Date(maxTime).getUTCFullYear();
+                    ctx.strokeStyle = "#222222";
+                    ctx.lineWidth = 1;
+                    ctx.font = "18px sans-serif";
+                    ctx.fillStyle = "white";
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "top";
+
+                    for (let year = minYear; year <= maxYear; year++) {
+                        const t = Date.UTC(year, 0, 1);
+                        if (t < minTime || t > maxTime) continue;
+                        const x = xForTime(t);
+
+                        ctx.beginPath();
+                        ctx.moveTo(x, marginTop);
+                        ctx.lineTo(x, height - marginBottom);
+                        ctx.stroke();
+
+                        ctx.fillText(String(year), x, height - marginBottom + 5);
+                    }
+
+                    // grid - Y (totals) at fixed 100-badge steps
+                    const steps = 6;
+                    ctx.textAlign = "right";
+                    ctx.textBaseline = "middle";
+
+                    for (let i = 0; i <= steps; i++) {
+                        const total = 1 + Math.round((maxTotal - 1) * (i / steps));
+                        const y = yForTotal(Math.min(total, maxTotal));
+
+                        ctx.beginPath();
+                        ctx.moveTo(marginLeft, y);
+                        ctx.lineTo(width - marginRight, y);
+                        ctx.stroke();
+
+                        ctx.fillText(String(total), marginLeft - 10, y);
+                    }
+
+                    // draw points (green outlined dot with transparent fill)
+                    for (let i = 0; i < sorted.length; i++) {
+                        const b = sorted[i];
+                        const t = new Date(b.awardedDate * 1000).getTime();
+                        const total = i + 1;
+                        const x = xForTime(t);
+                        const y = yForTotal(total);
+
+                        ctx.beginPath();
+                        ctx.arc(x, y, 3, 0, Math.PI * 2);
+                        ctx.fillStyle = "rgba(0, 255, 90, 0.35)";
+                        ctx.fill();
+                        ctx.strokeStyle = "rgba(0, 255, 90, 0.9)";
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
                 }
 
-                // grid - Y (totals) at fixed 100-badge steps
-                const steps = 6;
-                ctx.textAlign = "right";
-                ctx.textBaseline = "middle";
-
-                for (let i = 0; i <= steps; i++) {
-                    const total = 1 + Math.round((maxTotal - 1) * (i / steps));
-                    const y = yForTotal(Math.min(total, maxTotal));
-
-                    ctx.beginPath();
-                    ctx.moveTo(marginLeft, y);
-                    ctx.lineTo(width - marginRight, y);
-                    ctx.stroke();
-
-                    ctx.fillText(String(total), marginLeft - 10, y);
-                }
-
-                // draw points (green outlined dot with transparent fill)
-                for (let i = 0; i < sorted.length; i++) {
-                    const b = sorted[i];
-                    const t = new Date(b.awardedDate * 1000).getTime();
-                    const total = i + 1;
-                    const x = xForTime(t);
-                    const y = yForTotal(total);
-
-                    ctx.beginPath();
-                    ctx.arc(x, y, 3, 0, Math.PI * 2);
-                    ctx.fillStyle = "rgba(0, 255, 90, 0.35)";
-                    ctx.fill();
-                    ctx.strokeStyle = "rgba(0, 255, 90, 0.9)";
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                }
+                buffer = canvas.toBuffer("image/png");
+                attachmentName = `badge_graph_${username}.png`;
+                badgeCount = sorted.length;
             }
-
-            const buffer = canvas.toBuffer("image/png");
-            const attachmentName = `badge_graph_${username}.png`;
 
             const baseRankGroups = groups.filter((g) => g.IsBaseRank)
 
             const developmentItems = inventory.filter((i) => customization.ROBLOX_ASSET_TYPES.DEVELOPMENT.find((type) => type == i.type))
 
+            const gamePassPriceTotal = gamePasses.reduce((acc, gp) => acc + (typeof gp.price === "number" ? gp.price : 0), 0);
+            const pricedGamePassCount = gamePasses.reduce((acc, gp) => acc + (typeof gp.price === "number" ? 1 : 0), 0);
+
             const xTrackerEvidence = []
 
-            const evidence = xTrackerResponse.data.evidence
+            const evidence = xTrackerResponse && xTrackerResponse.data ? xTrackerResponse.data.evidence : null
             if (evidence) {
                 const year = 31556952000 // 1 year in ms
                 for (let index = 0; index < evidence.length; index++) {
@@ -205,7 +286,10 @@ module.exports = {
                 }
             }
 
-            let xTrackerString = "User was not found on the xTracker database"
+            let xTrackerString = xTrackerError
+                ? `Error fetching xTracker record: ${xTrackerError}`
+                : "User was not found on the xTracker database";
+
             if (xTrackerEvidence.length > 0) {
                 xTrackerString = `User has **${xTrackerEvidence.length}** xTracker submissions in the last year:\n`
                 for (let index = 0; index < xTrackerEvidence.length; index++) {
@@ -216,36 +300,62 @@ module.exports = {
 
             const selectionContainer = new ContainerBuilder()
                 .setAccentColor(customization.ACCENT_COLOR)
-                .addTextDisplayComponents(textDisplay =>
-                    textDisplay.setContent(`### Background check - [${username}](https://www.roblox.com/users/${robloxId}/profile) 🔎`)
-                )
-                .addSeparatorComponents(separator => separator)
-                .addTextDisplayComponents(textDisplay =>
-                    textDisplay.setContent(
+                .addTextDisplayComponents(textDisplay => {
+                    if (profileError || !profile || !profile.created) {
+                        return textDisplay.setContent(`**Join Date:** Error fetching join date: ${profileError || 'unknown error'}`);
+                    }
+                    return textDisplay.setContent(
                         `**Join Date:** User joined roblox on **${profile.created.toDateString()}**`
-                    )
-                )
+                    );
+                })
                 .addSeparatorComponents(separator => separator)
-                .addTextDisplayComponents(textDisplay =>
-                    textDisplay.setContent(
+                .addTextDisplayComponents(textDisplay => {
+                    if (connectionsError || !connections) {
+                        return textDisplay.setContent(`**Connections:** Error fetching connections: ${connectionsError || 'unknown error'}`);
+                    }
+                    return textDisplay.setContent(
                         `**Connections:** User has **${connections.friendCount}** friends and has **${connections.followerCount}** followers while following **${connections.followingCount}** accounts.`
-                    )
-                )
+                    );
+                })
                 .addSeparatorComponents(separator => separator)
-                .addTextDisplayComponents(textDisplay =>
-                    textDisplay.setContent(
+                .addTextDisplayComponents(textDisplay => {
+                    if (groupsError) {
+                        return textDisplay.setContent(`**Groups:** Error fetching groups: ${groupsError}`);
+                    }
+                    return textDisplay.setContent(
                         `**Groups:** User is in **${groups.length}** groups while being the base rank in **${baseRankGroups.length}** groups${groups.length > 0
                             ? ` **(${Math.round((baseRankGroups.length / groups.length) * 100)}%)**`
                             : ''
                         }`
-                    )
-                )
+                    );
+                })
                 .addSeparatorComponents(separator => separator)
-                .addTextDisplayComponents(textDisplay =>
-                    textDisplay.setContent(
-                        `**Inventory:** User has **${inventory.length}** assets and **${developmentItems.length}** development assets`
-                    )
-                )
+                .addTextDisplayComponents(textDisplay => {
+                    if (inventoryError) {
+                        return textDisplay.setContent(`**Inventory:** Error fetching inventory: ${inventoryError}`);
+                    }
+
+                    const valueText = (inventoryValueError || inventoryValue === null)
+                        ? ""
+                        : ` and an estimated total value of <:robux:1444752443614171279> **${inventoryValue.toLocaleString()}**`;
+
+                    return textDisplay.setContent(
+                        `**Inventory:** User has **${inventory.length}** assets and **${developmentItems.length}** development assets${valueText}`
+                    );
+                })
+                .addSeparatorComponents(separator => separator)
+                .addTextDisplayComponents(textDisplay => {
+                    if (gamePassesError) {
+                        return textDisplay.setContent(`**Gamepasses:** Error fetching gamepasses: ${gamePassesError}`);
+                    }
+
+                    const priceText = pricedGamePassCount > 0
+                        ? ` totaling <:robux:1444752443614171279> **${gamePassPriceTotal.toLocaleString()}**`
+                        : "";
+                    return textDisplay.setContent(
+                        `**Gamepasses:** User has **${gamePasses.length}** gamepasses with **${pricedGamePassCount}** priced gamepasses${priceText}`
+                    );
+                })
                 .addSeparatorComponents(separator => separator)
                 .addTextDisplayComponents(textDisplay =>
                     textDisplay.setContent(
@@ -255,16 +365,22 @@ module.exports = {
                 .addSeparatorComponents(separator => separator)
                 .addTextDisplayComponents(textDisplay =>
                     textDisplay.setContent(
-                        `**Badges:** User has **${badges.length}** badges.`
+                        badgesError
+                            ? `**Badges:** Error fetching badges: ${badgesError}`
+                            : `**Badges:** User has **${badgeCount}** badges.`
                     )
                 )
-                .addMediaGalleryComponents(gallery =>
+                ;
+
+            if (buffer && attachmentName) {
+                selectionContainer.addMediaGalleryComponents(gallery =>
                     gallery.addItems(item =>
                         item
                             .setURL(`attachment://${attachmentName}`)
                             .setDescription('Badge timeline')
                     )
                 );
+            }
 
             const elapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(2);
 
@@ -274,12 +390,14 @@ module.exports = {
 
             await interaction.followUp({
                 components: [selectionContainer],
-                files: [
-                    {
-                        attachment: buffer,
-                        name: `badge_graph_${username}.png`
-                    }
-                ],
+                files: buffer && attachmentName
+                    ? [
+                        {
+                            attachment: buffer,
+                            name: attachmentName
+                        }
+                    ]
+                    : [],
                 flags: MessageFlags.IsComponentsV2
             });
 

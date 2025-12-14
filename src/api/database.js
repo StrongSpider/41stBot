@@ -117,7 +117,6 @@ const ROBLOX_IDS_TABLE = 'roblox_ids';
 const INACTIVITY_TABLE = 'inactivity';
 const BADGES_TABLE = 'badges';
 const ASSETS_TABLE = 'assets';
-const ASSET_PRICES_TABLE = 'asset_prices';
 const GROUPS_TABLE = 'groups';
 
 // ----------------------------------------
@@ -206,14 +205,8 @@ function normalizeBadges(raw) {
  * @typedef {Object} Asset
  * @property {string} type
  * @property {number} assetId
- * @property {number} price
  */
 
-/**
- * @typedef {Object} AssetPrice
- * @property {number} assetId
- * @property {number} price
- */
 
 /**
  * Normalize a JSON-ish value into a clean Asset[].
@@ -230,9 +223,8 @@ function normalizeAssets(raw) {
     if (!a || typeof a !== 'object') continue;
     const type = typeof a.type === 'string' ? a.type : '';
     const assetId = Number(a.assetId);
-    const price = Number(a.price);
-    if (!type || !Number.isFinite(assetId) || !Number.isFinite(price)) continue;
-    out.push({ type, assetId, price });
+    if (!type || !Number.isFinite(assetId)) continue;
+    out.push({ type, assetId });
   }
   return out;
 }
@@ -273,7 +265,7 @@ function normalizeGroupRoles(raw) {
 
 /**
  * @typedef {Object} EventData
- * @property {EventId} eventid
+ * @property {EventId} eventId
  * @property {number[]} attendees
  * @property {number} host
  * @property {number} supervisor
@@ -862,11 +854,15 @@ async function getWeeklyEvent(eventId) {
   if (!res.rows[0]) return null;
 
   const d = res.rows[0];
-  d.attendees = (d.attendees || []).map(e => Number(e));
-  d.host = Number(d.host);
-  d.supervisor = Number(d.supervisor);
-  d.timestamp = ensureTimestamp(d.timestamp);
-  return d;
+  return {
+    eventId: String(d.eventid),
+    attendees: (d.attendees || []).map(e => Number(e)),
+    host: Number(d.host),
+    supervisor: Number(d.supervisor),
+    timestamp: ensureTimestamp(d.timestamp),
+    type: d.type,
+    message: d.message
+  };
 }
 
 /**
@@ -882,12 +878,18 @@ async function findEventByMessage(messageUrl) {
   if (!res.rows[0]) return null;
 
   const d = res.rows[0];
-  d.attendees = (d.attendees || []).map(e => Number(e));
-  d.host = Number(d.host);
-  d.supervisor = Number(d.supervisor);
-  d.timestamp = ensureTimestamp(d.timestamp);
-  return d;
+  return {
+    eventId: String(d.eventid),
+    attendees: (d.attendees || []).map(e => Number(e)),
+    host: Number(d.host),
+    supervisor: Number(d.supervisor),
+    timestamp: ensureTimestamp(d.timestamp),
+    type: d.type,
+    message: d.message
+  };
 }
+
+// ... (updateWeeklyEvent is write-only mostly, but uses getWeeklyEvent)
 
 /**
  * Update fields on a weekly event and mirror to all-time. Sync indexes if attendees changed.
@@ -954,11 +956,15 @@ async function getAllTimeEventById(eventId) {
   if (!res.rows[0]) return null;
 
   const d = res.rows[0];
-  d.attendees = (d.attendees || []).map(e => Number(e));
-  d.host = Number(d.host);
-  d.supervisor = Number(d.supervisor);
-  d.timestamp = ensureTimestamp(d.timestamp);
-  return d;
+  return {
+    eventId: String(d.eventid),
+    attendees: (d.attendees || []).map(e => Number(e)),
+    host: Number(d.host),
+    supervisor: Number(d.supervisor),
+    timestamp: ensureTimestamp(d.timestamp),
+    type: d.type,
+    message: d.message
+  };
 }
 
 /**
@@ -1047,7 +1053,7 @@ async function deleteAllTimeEventById(eventId) {
 async function listWeeklyEvents() {
   const res = await pool.query(`SELECT * FROM ${WEEKLY_EVENTS_TABLE}`);
   return res.rows.map(row => ({
-    eventid: String(row.eventid),
+    eventId: String(row.eventid),
     attendees: (row.attendees || []).map(e => Number(e)),
     host: Number(row.host),
     supervisor: Number(row.supervisor),
@@ -1073,7 +1079,7 @@ async function getWeeklyEventIds() {
 async function listAllTimeEvents() {
   const res = await pool.query(`SELECT * FROM ${ALL_TIME_EVENTS_TABLE}`);
   return res.rows.map(row => ({
-    eventid: String(row.eventid),
+    eventId: String(row.eventid),
     attendees: (row.attendees || []).map(e => Number(e)),
     host: Number(row.host),
     supervisor: Number(row.supervisor),
@@ -1167,7 +1173,7 @@ async function getWeeklyEventsBatch(eventIds) {
   return eventIds.map(id => {
     const d = map.get(id) || {};
     return {
-      eventid: id,
+      eventId: id,
       type: d.type || null,
       message: d.message || null,
       host: toNumOrNull(d.host)
@@ -1191,7 +1197,7 @@ async function getAllTimeEventsBatch(eventIds) {
   return eventIds.map(id => {
     const d = map.get(id) || {};
     return {
-      eventid: id,
+      eventId: id,
       type: d.type || null,
       message: d.message || null,
       timestamp: d.timestamp || null,
@@ -1345,75 +1351,6 @@ async function appendUserAssets(robloxId, assets) {
   );
 }
 
-// ======================================================================
-// Asset Prices (global prices per asset)
-// ======================================================================
-
-/**
- * Get the price for a single asset.
- * @param {number|string} assetId
- * @returns {Promise<number|null>}
- */
-async function getAssetPrice(assetId) {
-  const res = await pool.query(
-    `SELECT price FROM ${ASSET_PRICES_TABLE} WHERE assetid = $1`,
-    [toId(assetId)]
-  );
-  if (!res.rows[0]) return null;
-  // assetid and price are BIGINT in Postgres, which pg returns as strings by default.
-  return Number(res.rows[0].price);
-}
-
-/**
- * Upsert the price for a single asset.
- * @param {number|string} assetId
- * @param {number|string} price
- * @returns {Promise<void>}
- */
-async function setAssetPrice(assetId, price) {
-  await pool.query(
-    `INSERT INTO ${ASSET_PRICES_TABLE} (assetid, price)
-     VALUES ($1, $2)
-     ON CONFLICT (assetid) DO UPDATE SET price = EXCLUDED.price`,
-    [toId(assetId), Number(price)]
-  );
-}
-
-/**
- * Get prices for a batch of asset IDs.
- * @param {(number|string)[]} assetIds
- * @returns {Promise<Array<{assetId:number|string,price:number|null}>>}
- */
-async function getAssetPricesBatch(assetIds) {
-  if (!assetIds.length) return [];
-  const ids = assetIds.map(toId);
-  const res = await pool.query(
-    `SELECT assetid, price FROM ${ASSET_PRICES_TABLE} WHERE assetid = ANY($1)`,
-    [ids]
-  );
-  const map = new Map(res.rows.map(r => [String(r.assetid), Number(r.price)]));
-  return assetIds.map(id => {
-    const key = toId(id);
-    return {
-      assetId: id,
-      price: map.has(key) ? map.get(key) : null
-    };
-  });
-}
-
-/**
- * List all asset prices.
- * @returns {Promise<AssetPrice[]>}
- */
-async function listAssetPrices() {
-  const res = await pool.query(
-    `SELECT assetid, price FROM ${ASSET_PRICES_TABLE}`
-  );
-  return res.rows.map(row => ({
-    assetId: Number(row.assetid),
-    price: Number(row.price)
-  }));
-}
 
 // ======================================================================
 // Role Quotas
@@ -1735,11 +1672,6 @@ module.exports = {
   setUserAssets,
   appendUserAssets,
 
-  // asset prices
-  getAssetPrice,
-  setAssetPrice,
-  getAssetPricesBatch,
-  listAssetPrices,
 
   setRoleQuota,
   getRoleQuota,

@@ -14,7 +14,7 @@ const GROUP_FUNDING_ID = 15078901
 const weights = {
     ceremony: [
         { userid: 1389759088, weight: 3 }, // Triangle
-        { userid: 118975846, weight: 6 }, // myname
+     //   { userid: 118975846, weight: 6 }, // myname
         { userid: 2973649953, weight: 3 }, // Fox
         { userid: 1795742231, weight: 2 }, // broomy
         { userid: 986252567, weight: 2 }, // senja

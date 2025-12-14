@@ -410,7 +410,7 @@ module.exports = {
                 }
 
                 // Audit webhook
-                await sendEventUpdateWebhook({ eventid: eventId, changedBy: discordUserId, changes: changesObj })
+                await sendEventUpdateWebhook({ eventId: eventId, changedBy: discordUserId, changes: changesObj })
 
                 // Final private summary to the editor
                 let followUpMessage = '**Event updated successfully!**'

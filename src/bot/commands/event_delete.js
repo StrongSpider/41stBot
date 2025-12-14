@@ -25,7 +25,7 @@ module.exports = {
         const event = await database.getWeeklyEvent(eventId).catch(() => null)
         if (!event) return interaction.reply({ content: '<:warning:1297618648810393630> `Event not found.`', flags: MessageFlags.Ephemeral })
 
-        const discordUserId = interaction.user.id    
+        const discordUserId = interaction.user.id
 
         const confirmButton = new ButtonBuilder()
             .setCustomId(`delete_event_button_${eventId}`)
@@ -52,7 +52,7 @@ module.exports = {
                 await database.deleteEventById(eventId)
 
                 // Audit webhook
-                await sendEventDeleteWebhook({ eventid: eventId, changedBy: discordUserId })
+                await sendEventDeleteWebhook({ eventId: eventId, changedBy: discordUserId })
 
                 // Delete event message
                 if (event.message) {

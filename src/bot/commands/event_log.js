@@ -393,7 +393,7 @@ module.exports = {
                     // debugTiming(`minor: createWeeklyEvent complete (eventId=${createdId})`, timingStart)
 
                     await sendEventCreateWebhook({
-                        eventid: createdId,
+                        eventId: createdId,
                         type: eventName,
                         host: currentHostData.robloxId,
                         supervisor: supervisorId,
@@ -446,7 +446,7 @@ module.exports = {
                 // debugTiming(`officer: createWeeklyEvent complete (eventId=${createdId})`, timingStart)
 
                 await sendEventCreateWebhook({
-                    eventid: createdId,
+                    eventId: createdId,
                     type: eventName,
                     host: currentHostData.robloxId,
                     supervisor: supervisorId,

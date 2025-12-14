@@ -1,7 +1,6 @@
 'use strict'
 
 const database = require('./database.js')
-const proxy = require('./proxy.js')
 const config = require('../../config.json')
 const { default: axios } = require('axios')
 
@@ -20,9 +19,6 @@ function debugAssets(...args) {
 
 const INVENTORY_BASE_URL = 'https://inventory.roblox.com/v2'
 const MAX_ASSETS = 10000
-
-// Kept for potential future use (see commented-out economy pricing block below)
-const ECONOMY_BASE_URL = 'https://economy.roblox.com/v2'
 
 const INVENTORY_HTTPS_AGENT = new https.Agent({
   keepAlive: true,
@@ -54,7 +50,6 @@ function sleep(ms) {
  * - Stops paging early if it encounters an assetId that already exists in the DB snapshot,
  *   then merges new IDs with the old snapshot.
  * - Respects a global hard cap of MAX_ASSETS across existing + new assets.
- * - Uses cached prices from the asset_prices table before calling the Roblox economy API.
  *
  * @param {number|string} robloxId
  * @param {{ overwriteExisting?: boolean }} [options]
@@ -84,11 +79,9 @@ const getAssetsInformation = async function (robloxId, options) {
       const id = Number(a.assetId)
       if (!Number.isFinite(id)) continue
       const type = typeof a.type === 'string' ? a.type : ''
-      const price = Number(a.price)
       existingMap.set(id, {
         type,
-        assetId: id,
-        price: Number.isFinite(price) ? price : 0
+        assetId: id
       })
     }
   } else {
@@ -103,7 +96,6 @@ const getAssetsInformation = async function (robloxId, options) {
   const avatarTypes = Array.isArray(config.ROBLOX_ASSET_TYPES && config.ROBLOX_ASSET_TYPES.AVATAR)
     ? config.ROBLOX_ASSET_TYPES.AVATAR
     : []
-  const avatarTypeSet = new Set(avatarTypes)
   const allTypes = [...devTypes, ...avatarTypes].filter(t => typeof t === 'string' && t)
   debugAssets('devTypes:', devTypes, 'avatarTypes:', avatarTypes, 'allTypes:', allTypes)
   if (!allTypes.length) {
@@ -204,8 +196,7 @@ const getAssetsInformation = async function (robloxId, options) {
       /** @type {Asset} */
       const asset = {
         type,
-        assetId,
-        price: 0
+        assetId
       }
       byId.set(assetId, asset)
       debugAssets('added new asset from inventory', { userId, assetId, type })
@@ -236,127 +227,6 @@ const getAssetsInformation = async function (robloxId, options) {
     debugAssets('no assets found at all, clearing DB snapshot', { userId })
     await database.setUserAssets(userId, [])
     return []
-  }
-
-  // Phase 2: fetch pricing info, preferring DB cache first and falling back to economy API.
-  // This must happen before we decide between full refresh vs merge so new assets
-  // always get priced on the first run. We skip economy only for assets that were
-  // already present in the DB snapshot.
-  debugAssets('preparing economy pricing fetch', { userId, newAssetCount: byId.size })
-  const newIds = []
-  for (const assetId of byId.keys()) {
-    if (existingMap.has(assetId)) continue
-    const asset = byId.get(assetId)
-    if (!asset) continue
-    // Only check prices for avatar-type assets
-    if (!avatarTypeSet.has(asset.type)) continue
-    newIds.push(assetId)
-  }
-
-  /** @type {number[]} */
-  let idsNeedingEconomy = []
-
-  if (newIds.length > 0) {
-    try {
-      const cachedPrices = await database.getAssetPricesBatch(newIds)
-      const cacheMap = new Map()
-      for (const row of cachedPrices) {
-        const aId = Number(row.assetId)
-        const p = Number(row.price)
-        if (!Number.isFinite(aId)) continue
-        cacheMap.set(aId, Number.isFinite(p) ? p : null)
-      }
-
-      for (const rawId of newIds) {
-        const assetId = Number(rawId)
-        if (!Number.isFinite(assetId)) continue
-        const cachedPrice = cacheMap.get(assetId)
-        const asset = byId.get(assetId)
-        if (!asset) continue
-
-        if (cachedPrice != null && Number.isFinite(cachedPrice) && cachedPrice > 0) {
-          asset.price = cachedPrice
-          debugAssets('using cached asset price from DB', { userId, assetId, price: cachedPrice })
-        } else {
-          idsNeedingEconomy.push(assetId)
-        }
-      }
-    } catch (err) {
-      console.warn('[assets] failed to load cached asset prices, falling back to full economy fetch:', err && err.message ? err.message : err)
-      idsNeedingEconomy = newIds.map(Number).filter(Number.isFinite)
-    }
-  }
-
-  /*
-  // Economy pricing (currently disabled).
-  let econResults = []
-  if (idsNeedingEconomy.length > 0) {
-    const urls = idsNeedingEconomy.map(id => `${ECONOMY_BASE_URL}/assets/${id}/details`)
-    try {
-      econResults = await proxy.batchGet(
-        urls,
-        {},
-        2,
-        50,
-        30000,
-        true
-      )
-      debugAssets('economy batchGet success', {
-        userId,
-        requested: urls.length,
-        received: Array.isArray(econResults) ? econResults.length : 0
-      })
-    } catch (err) {
-      console.warn(
-        '[assets] economy batchGet failed, proceeding with zero prices:',
-        err && err.message ? err.message : err
-      )
-      econResults = []
-    }
-  }
-
-  if (Array.isArray(econResults)) {
-    for (const body of econResults) {
-      debugAssets('processing economy response body', { userId })
-      if (!body || typeof body !== 'object') continue
-      const assetId = Number(body.AssetId ?? body.TargetId)
-      if (!Number.isFinite(assetId)) continue
-      const asset = byId.get(assetId)
-      if (!asset) continue
-
-      const rawPrice = body.PriceInRobux ?? 0
-      const priceNum = Number(rawPrice)
-      const finalPrice = Number.isFinite(priceNum) ? priceNum : 0
-      asset.price = finalPrice
-
-      // Cache back to the DB so future runs can skip the economy call.
-      if (finalPrice > 0) {
-        try {
-          await database.setAssetPrice(assetId, finalPrice)
-          debugAssets('cached asset price to DB', { userId, assetId, price: finalPrice })
-        } catch (err) {
-          console.warn('[assets] failed to cache asset price to DB:', err && err.message ? err.message : err)
-        }
-      }
-    }
-  }
-  */
-
-  // Fill in prices for newly seen assets using existing DB snapshot when they have no price yet.
-  for (const [assetId, asset] of byId) {
-    if (!Number.isFinite(asset.price) || asset.price === 0) {
-      const existing = existingMap.get(assetId)
-      if (existing) {
-        const existingPrice = Number(existing.price)
-        if (Number.isFinite(existingPrice) && existingPrice > 0) {
-          asset.price = existingPrice
-        } else if (!Number.isFinite(asset.price)) {
-          asset.price = 0
-        }
-      } else if (!Number.isFinite(asset.price)) {
-        asset.price = 0
-      }
-    }
   }
 
   // If we never hit a known ID, treat this as a full refresh snapshot.

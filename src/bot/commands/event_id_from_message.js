@@ -53,7 +53,7 @@ module.exports = {
             }
 
             await interaction.editReply({
-                content: `Event found! Event ID: \`${event.eventid}\``
+                content: `Event found! Event ID: \`${event.eventId}\``
             })
         } catch (err) {
             const msg = err instanceof Error && err.message ? err.message : 'Unknown error'

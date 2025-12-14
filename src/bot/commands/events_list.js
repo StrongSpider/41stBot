@@ -181,7 +181,7 @@ module.exports = {
                             supervisorLine +
                             `Logged: <t:${unixTs}:D>\n` +
                             msgLine +
-                            `Event ID: \`${ev.eventid || ev.id}\`\n`,
+                            `Event ID: \`${ev.eventId || ev.id}\`\n`,
                         inline: true
                     })
                 }

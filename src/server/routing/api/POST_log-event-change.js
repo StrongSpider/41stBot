@@ -4,12 +4,12 @@ const ensureAuth = require('../util/ensureAuth.js');
 const webhook = require('../../../api/webhook.js');
 
 fileRouter.post('/api/log-event-change', ensureAuth, async function (req, res) {
-    const { eventid, action, changes, changedBy: bodyChangedBy, timestamp: clientTimestamp } = req.body;
+    const { eventid, eventId, action, changes, changedBy: bodyChangedBy, timestamp: clientTimestamp } = req.body;
     const changedBy = req.session.user?.id || bodyChangedBy || 'unknown';
     const when = clientTimestamp || new Date().toISOString();
 
     const logEntry = {
-        eventid,
+        eventId: eventId || eventid,
         changedBy,      // Discord user ID who made the change
         timestamp: when
     };
