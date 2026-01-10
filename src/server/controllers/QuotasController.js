@@ -1,6 +1,6 @@
 const database = require('../../api/database.js');
 const { checkQuota } = require('../../api/quota.js');
-const getMembers = require('../routing/util/getMembers.js');
+const getMembers = require('../services/getMembers.js');
 const Logger = require('../../api/logger.js');
 
 const QuotasController = {

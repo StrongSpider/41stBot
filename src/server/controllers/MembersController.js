@@ -1,7 +1,7 @@
 const database = require('../../api/database.js');
 const roblox = require('../../api/roblox.js');
 const Logger = require('../../api/logger.js');
-const getMembers = require('../routing/util/getMembers.js');
+const getMembers = require('../services/getMembers.js');
 
 const { COMPANY_DISCORD_ROLES, BOT_TOKEN, BOT_GUILD_ID, RANK_DISCORD_ROLES } = require('../../../config.json');
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
