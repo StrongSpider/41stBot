@@ -60,9 +60,21 @@ async function sendToWebhook(level, message, source, context) {
         ERROR: 0xff0000 // Red
     }
 
+    let description = message.length > 3900 ? message.substring(0, 3900) + '...' : message
+
+    // Apply codeblock formatting if applicable (multi-line, error, or JSON-like)
+    const isMultiLine = description.includes('\n')
+    const isError = level === 'ERROR'
+    const isJson = description.trim().startsWith('{') || description.trim().startsWith('[')
+
+    if (isMultiLine || isError || isJson) {
+        const lang = (isError || isJson) ? 'js' : ''
+        description = `\`\`\`${lang}\n${description}\n\`\`\``
+    }
+
     const embed = new EmbedBuilder()
         .setTitle(`[${level}] ${source} - ${context}`)
-        .setDescription(message.length > 4000 ? message.substring(0, 4000) + '...' : message)
+        .setDescription(description)
         .setColor(colorMap[level] || 0xcccccc)
         .setTimestamp()
 

@@ -13,14 +13,14 @@ jest.mock('../../api/roblox.js', () => ({
 }));
 
 // Mock Auth Middleware
-jest.mock('../../server/routing/util/ensureAuth.js', () => (req, res, next) => next());
+jest.mock('../../server/middleware/ensureAuth.js', () => (req, res, next) => next());
 
 // Import the specific router - need to mock the require path to be relative to the test file if needed, 
 // but since we are importing the router file directly, we need express app to mount it.
-const historyRouter = require('../../server/routing/api/GET_all-time.js');
+const EventsController = require('../../server/controllers/EventsController.js');
 
 const app = express();
-app.use(historyRouter);
+app.get('/api/all-time', EventsController.getAllTime);
 
 describe('GET /api/all-time', () => {
     beforeEach(() => {

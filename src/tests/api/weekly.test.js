@@ -13,12 +13,12 @@ jest.mock('../../api/roblox.js', () => ({
 }));
 
 // Mock Auth Middleware
-jest.mock('../../server/routing/util/ensureAuth.js', () => (req, res, next) => next());
+jest.mock('../../server/middleware/ensureAuth.js', () => (req, res, next) => next());
 
-const weeklyRouter = require('../../server/routing/api/GET_weekly.js');
+const EventsController = require('../../server/controllers/EventsController.js');
 
 const app = express();
-app.use(weeklyRouter);
+app.get('/api/weekly', EventsController.getWeekly);
 
 describe('GET /api/weekly', () => {
     beforeEach(() => {
