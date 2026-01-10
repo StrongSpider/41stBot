@@ -1,4 +1,5 @@
 const { PORTAL_PORT, PORTAL_CORS_PORT, PORTAL_SECRET } = require('../../config.json');
+const Logger = require('../api/logger.js');
 const session = require('express-session');
 const bodyParser = require('body-parser');
 const express = require('express');
@@ -28,31 +29,7 @@ app.use(express.json({ limit: '50mb' }));
 // React app setup will be registered after API routes to ensure precedence
 
 // Routing setup
-const routingPath = path.join(__dirname, 'routing');
-const routingFolders = fs.readdirSync(routingPath)
-
-function loadRoutesFromFolder(folderPath) {
-    const entries = fs.readdirSync(folderPath, { withFileTypes: true });
-
-    for (const entry of entries) {
-        const entryPath = path.join(folderPath, entry.name);
-
-        if (entry.isDirectory()) {
-            // Recursively load routes from subfolders
-            loadRoutesFromFolder(entryPath);
-        } else if (entry.isFile() && entry.name.endsWith('.js')) {
-            // Load and use the router file
-            const fileRouter = require(entryPath);
-            app.use(fileRouter);
-        }
-    }
-}
-
-for (const folder of routingFolders) {
-    if (folder === "util") continue; // Skip utility folder
-    const folderPath = path.join(routingPath, folder);
-    loadRoutesFromFolder(folderPath);
-}
+app.use(require('./routes/index.js'));
 
 
 // React app setup
@@ -95,5 +72,5 @@ if (process.env.NODE_ENV === 'development') {
 
 
 app.listen(PORTAL_PORT, "192.168.1.100", () => {
-    console.log(`App listening on port ${PORTAL_PORT}.`);
+    Logger.info(`App listening on port ${PORTAL_PORT}.`);
 });
