@@ -3,6 +3,7 @@
 const { BOT_GUILD_ID, INACTIVITY_NOTICE_ROLE_ID, EXEMPT_DISCORD_ROLE_ID } = require('../../../../config.json')
 const { Client } = require('discord.js')
 const { getInactivity, deleteInactivity } = require('../../../api/database.js')
+const Logger = require('../../../api/logger.js')
 
 /**
  * @param {Client} client
@@ -41,7 +42,7 @@ module.exports = async function handleInactivityNotices(client) {
 
         // Past the end date: clear record and adjust roles
         try { await deleteInactivity(member.id) } catch { }
-        console.log('Deleted inactivity notice for', member.user.tag)
+        Logger.info('Deleted inactivity notice for ' + member.user.tag)
 
         let failedRemove = false
         let failedExempt = false
@@ -52,7 +53,7 @@ module.exports = async function handleInactivityNotices(client) {
                 await member.roles.remove(INACTIVITY_NOTICE_ROLE_ID, 'Inactivity Notice Ended')
             }
         } catch (err) {
-            console.error('Failed to remove inactivity notice role:', err && err.message ? err.message : err)
+            Logger.error('Failed to remove inactivity notice role: ' + (err && err.message ? err.message : err))
             failedRemove = true
         }
 
@@ -64,14 +65,14 @@ module.exports = async function handleInactivityNotices(client) {
                     await member.roles.add(EXEMPT_DISCORD_ROLE_ID, 'Inactivity Notice Ended')
                 }
             } catch (err) {
-                console.error('Failed to add exempt role:', err && err.message ? err.message : err)
+                Logger.error('Failed to add exempt role: ' + (err && err.message ? err.message : err))
                 failedExempt = true
             }
         }
 
         if (failedRemove || failedExempt) {
             const extra = failedExempt ? ' and or add the exempt role' : ''
-            console.log('Manual action needed for', member.id, 'failed to remove the inactivity notice role' + extra)
+            Logger.warn('Manual action needed for ' + member.id + ' failed to remove the inactivity notice role' + extra)
         }
 
         // Best effort DM to the user

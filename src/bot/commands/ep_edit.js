@@ -5,6 +5,7 @@ const { sendEPUpdateWebhook } = require("../../api/webhook.js");
 const { getIdFromUsername } = require("../../api/roblox.js");
 const { EMBED_COLOR } = require('../../../config.json');
 const database = require("../../api/database.js");
+const Logger = require("../../api/logger.js");
 const path = require("path");
 const fs = require("fs");
 
@@ -149,7 +150,7 @@ module.exports = {
                     newEP = Math.max(newEP, 0);
 
                     await database.setCurrentEventPoints(robloxId, newEP).catch((err) => {
-                        console.log(err);
+                        Logger.error(err);
                         throw new Error("db write failed or user not verified");
                     });
 
@@ -163,7 +164,7 @@ module.exports = {
 
                     result += `✅ ${username}: \`${oldEP}\` -> \`${newEP}\`\n`;
                 } catch (err) {
-                    console.log(err);
+                    Logger.error(err);
                     const msg =
                         err instanceof Error && err.message ? err.message : "unknown error";
                     result += `❌ ${username}: **${msg}**\n`;

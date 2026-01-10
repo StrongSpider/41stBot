@@ -5,6 +5,7 @@ const { DISCORD_OFFICER_ROLE_ID, DISCORD_MINOR_OFFICER_ROLE_ID, DISCORD_CHANNEL_
 const { getIdFromUsername, getUsernameFromId } = require('../../api/roblox.js')
 const { sendEventCreateWebhook } = require('../../api/webhook.js')
 const database = require('../../api/database.js')
+const Logger = require('../../api/logger.js')
 
 
 // Note: Good luck! This command was a hacked together mess. I got AI to do a refactorization of it so hopefully its cleaner but, its AI code so who knows. - spiider
@@ -115,7 +116,7 @@ function createMinorActionButtons() {
  */
 function debugTiming(label, startTime) {
     const elapsed = Date.now() - startTime
-    console.log(`[event-log] ${label} +${elapsed}ms`)
+    Logger.debug(`[event-log] ${label} +${elapsed}ms`)
 }
 
 module.exports = {
@@ -359,7 +360,7 @@ module.exports = {
 
             if (btn.customId === 'confirm') {
                 const timingStart = Date.now()
-                // console.log(`[event-log] confirm start event="${eventName}" user=${interaction.user.id}`)
+                Logger.debug(`[event-log] confirm start event="${eventName}" user=${interaction.user.id}`)
 
                 locked = true
                 await btn.deferUpdate()
@@ -374,7 +375,7 @@ module.exports = {
                         components: [createMinorActionButtons()]
                     })
 
-                    // debugTiming('minor: review message sent', timingStart)
+                    debugTiming('minor: review message sent', timingStart)
 
                     await interaction.editReply({ content: `Event sent for review to <#${minorChannelId}>.`, components: [] })
 
@@ -390,7 +391,7 @@ module.exports = {
                         message: msg.url
                     })
 
-                    // debugTiming(`minor: createWeeklyEvent complete (eventId=${createdId})`, timingStart)
+                    debugTiming(`minor: createWeeklyEvent complete (eventId=${createdId})`, timingStart)
 
                     await sendEventCreateWebhook({
                         eventId: createdId,
@@ -402,7 +403,7 @@ module.exports = {
                         timestamp: new Date().toISOString()
                     })
 
-                    // debugTiming('minor: webhook sent and logging complete', timingStart)
+                    debugTiming('minor: webhook sent and logging complete', timingStart)
                     return
                 }
 
@@ -424,14 +425,14 @@ module.exports = {
                     await database.incrementCurrentEventPoints(u.robloxId, 1)
                 }
 
-                // debugTiming('officer: EP increments complete', timingStart)
+                debugTiming('officer: EP increments complete', timingStart)
 
                 const supervisorId = currentResolvedSupervisor ? currentResolvedSupervisor.robloxId : -1
 
                 let officerMsg = null
                 if (hasOfficer && targetChannel) {
                     officerMsg = await targetChannel.send({ content: `${currentSummaryText}` })
-                    // debugTiming('officer: officer channel message sent', timingStart)
+                    debugTiming('officer: officer channel message sent', timingStart)
                 }
 
                 const createdId = await database.createWeeklyEvent({
@@ -443,7 +444,7 @@ module.exports = {
                     message: officerMsg ? officerMsg.url : undefined
                 })
 
-                // debugTiming(`officer: createWeeklyEvent complete (eventId=${createdId})`, timingStart)
+                debugTiming(`officer: createWeeklyEvent complete (eventId=${createdId})`, timingStart)
 
                 await sendEventCreateWebhook({
                     eventId: createdId,
@@ -455,7 +456,7 @@ module.exports = {
                     timestamp: new Date().toISOString()
                 })
 
-                // debugTiming('officer: webhook sent and logging complete', timingStart)
+                debugTiming('officer: webhook sent and logging complete', timingStart)
 
                 await interaction.editReply({ content: `Event confirmed & published! Event ID:\n\`\`\`${createdId}\`\`\``, components: [] })
                 return

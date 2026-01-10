@@ -4,6 +4,7 @@ const axios = require("axios")
 const { HttpsProxyAgent } = require("https-proxy-agent")
 const path = require("path")
 const fs = require("fs")
+const Logger = require("./logger.js")
 
 const config = require("../../config.json")
 
@@ -29,7 +30,7 @@ if (
   !WEBSHARE_API_KEY &&
   (!WEBSHARE_USERNAME || !WEBSHARE_PASSWORD || !WEBSHARE_HOST || !WEBSHARE_PORT)
 ) {
-  console.warn(
+  Logger.warn(
     "[proxy] Webshare proxy is not fully configured. Set WEBSHARE_PROXIES, WEBSHARE_API_KEY, or WEBSHARE_USERNAME/WEBSHARE_PASSWORD/WEBSHARE_HOST/WEBSHARE_PORT."
   )
 }
@@ -40,26 +41,36 @@ let nextProxyIndex = 0
 const CACHE_DIR = path.join(__dirname, "../cache")
 const PROXY_CACHE_FILE = path.join(CACHE_DIR, "webshare_proxies.json")
 
+/**
+ * Ensure logic cache directory exists
+ */
 function ensureCacheDir() {
   try {
     if (!fs.existsSync(CACHE_DIR)) {
       fs.mkdirSync(CACHE_DIR, { recursive: true })
     }
   } catch (err) {
-    console.warn("[proxy] Failed to ensure cache dir:", err.message)
+    Logger.warn("[proxy] Failed to ensure cache dir: " + err.message)
   }
 }
 
+/**
+ * Create a new HTTPS proxy agent from a URL
+ * @param {string} url Proxy URL
+ */
 function createProxyAgent(url) {
   if (!url || typeof url !== "string") return
 
   try {
     proxyAgents.push(new HttpsProxyAgent(url))
   } catch (err) {
-    console.warn(`[proxy] Failed to create proxy agent for URL ${url}:`, err.message)
+    Logger.warn(`[proxy] Failed to create proxy agent for URL ${url}: ${err.message}`)
   }
 }
 
+/**
+ * Initialize proxy agents from config (Env vars)
+ */
 function initProxiesFromConfig() {
   if (Array.isArray(WEBSHARE_PROXIES) && WEBSHARE_PROXIES.length > 0) {
     for (const url of WEBSHARE_PROXIES) {
@@ -74,6 +85,9 @@ function initProxiesFromConfig() {
   }
 }
 
+/**
+ * Load proxies from JSON cache file
+ */
 function loadProxiesFromCache() {
   ensureCacheDir()
 
@@ -87,7 +101,7 @@ function loadProxiesFromCache() {
 
     const parsed = JSON.parse(raw)
     if (!Array.isArray(parsed)) {
-      console.warn("[proxy] Cache file is not an array, ignoring")
+      Logger.warn("[proxy] Cache file is not an array, ignoring")
       return
     }
 
@@ -104,27 +118,39 @@ function loadProxiesFromCache() {
     }
 
     if (added > 0) {
-      console.log(`[proxy] Loaded ${added} proxies from cache`)
+      Logger.info(`[proxy] Loaded ${added} proxies from cache`)
     }
   } catch (err) {
-    console.warn("[proxy] Failed to read proxy cache file:", err.message)
+    Logger.warn("[proxy] Failed to read proxy cache file: " + err.message)
   }
 }
 
+/**
+ * Log current size of proxy pool
+ */
 function logProxyPool() {
   if (proxyAgents.length === 0) {
-    console.warn("[proxy] Proxy pool is empty, requests will go direct")
+    Logger.warn("[proxy] Proxy pool is empty, requests will go direct")
   } else {
-    console.log("[proxy] Proxy pool size:", proxyAgents.length)
+    Logger.info("[proxy] Proxy pool size: " + proxyAgents.length)
   }
 }
 
-// Helper to detect Roblox API URLs
+/**
+ * Check if a URL is a Roblox URL
+ * @param {string} url 
+ * @returns {boolean}
+ */
 function isRobloxUrl(url) {
   if (typeof url !== "string") return false
   return /(^https?:\/\/)?([^.]+\.)*roblox\.com(\/|$)/i.test(url)
 }
 
+/**
+ * Check if an error is a network or TLS error (retryable)
+ * @param {Error} err 
+ * @returns {boolean}
+ */
 function isNetworkOrTlsError(err) {
   if (!err) return false
 
@@ -151,6 +177,10 @@ function isNetworkOrTlsError(err) {
   return false
 }
 
+/**
+ * Remove a proxy agent from the pool
+ * @param {any} agent 
+ */
 function removeProxyAgent(agent) {
   if (!agent) return
   const index = proxyAgents.indexOf(agent)
@@ -160,7 +190,7 @@ function removeProxyAgent(agent) {
 
   if (proxyAgents.length === 0) {
     nextProxyIndex = 0
-    console.warn("[proxy] All proxy agents removed, no proxies left in pool")
+    Logger.warn("[proxy] All proxy agents removed, no proxies left in pool")
     return
   }
 
@@ -169,6 +199,10 @@ function removeProxyAgent(agent) {
   }
 }
 
+/**
+ * Get the next proxy agent in round-robin
+ * @returns {any} Proxy Agent or undefined
+ */
 function getNextProxyAgent() {
   if (proxyAgents.length === 0) return undefined
   const agent = proxyAgents[nextProxyIndex]
@@ -181,6 +215,11 @@ function getNextProxyAgent() {
 loadProxiesFromCache()
 logProxyPool()
 
+/**
+ * Make an HTTP request using a proxy
+ * @param {import('axios').AxiosRequestConfig} config 
+ * @returns {Promise<import('axios').AxiosResponse>}
+ */
 async function request(config) {
   let attempt = 0
 
@@ -225,9 +264,9 @@ async function request(config) {
       const duration = Date.now() - attemptStart
       const status = err && err.response && err.response.status
 
-      console.warn(
-        "[proxy] request error",
-        {
+      Logger.warn(
+        "[proxy] request error " +
+        JSON.stringify({
           method,
           url,
           status,
@@ -235,21 +274,21 @@ async function request(config) {
           duration,
           code: err && err.code,
           message: err && err.message ? err.message : err,
-        }
+        })
       )
 
       if ((status === 407 || status === 427) && proxyAgent) {
-        console.warn(`[proxy] Got ${status} through proxy, removing bad proxy and retrying`)
+        Logger.warn(`[proxy] Got ${status} through proxy, removing bad proxy and retrying`)
         removeProxyAgent(proxyAgent)
 
         if (proxyAgents.length > 0) {
           continue
         }
       } else if (proxyAgent && isNetworkOrTlsError(err)) {
-        console.warn("[proxy] Network/TLS error through proxy, removing proxy and retrying", {
+        Logger.warn("[proxy] Network/TLS error through proxy, removing proxy and retrying " + JSON.stringify({
           code: err.code,
           message: err.message,
-        })
+        }))
         removeProxyAgent(proxyAgent)
 
         if (proxyAgents.length > 0) {
@@ -262,6 +301,12 @@ async function request(config) {
   }
 }
 
+/**
+ * Helper to perform GET request with proxy
+ * @param {string} url 
+ * @param {import('axios').AxiosRequestConfig} [options] 
+ * @returns {Promise<any>} Response Data
+ */
 async function get(url, options = {}) {
   const res = await request({
     method: "GET",
@@ -272,6 +317,13 @@ async function get(url, options = {}) {
   return res.data
 }
 
+/**
+ * Helper to perform POST request with proxy
+ * @param {string} url 
+ * @param {any} data 
+ * @param {import('axios').AxiosRequestConfig} [options] 
+ * @returns {Promise<any>} Response Data
+ */
 async function post(url, data, options = {}) {
   const res = await request({
     method: "POST",
@@ -283,6 +335,16 @@ async function post(url, data, options = {}) {
   return res.data
 }
 
+/**
+ * Batch GET requests with concurrency control and retries
+ * @param {string[]} urls 
+ * @param {import('axios').AxiosRequestConfig} [options] 
+ * @param {number} [maxRetries] 
+ * @param {number} [maxConcurrent] 
+ * @param {number} [perAttemptTimeoutMs] 
+ * @param {boolean} [protect429] 
+ * @returns {Promise<any[]>}
+ */
 async function batchGet(
   urls,
   options = {},
@@ -352,42 +414,42 @@ async function batchGet(
             }
           }
         } catch (parseErr) {
-          console.warn("[proxy] Failed to parse Retry-After header", {
+          Logger.warn("[proxy] Failed to parse Retry-After header " + JSON.stringify({
             url,
             attempt: attemptLabel,
             error: parseErr && parseErr.message ? parseErr.message : parseErr,
-          })
+          }))
         }
 
-        console.warn(
-          "[proxy] batchGet 429, backing off",
-          { url, attempt: attemptLabel, backoff }
+        Logger.warn(
+          "[proxy] batchGet 429, backing off " +
+          JSON.stringify({ url, attempt: attemptLabel, backoff })
         )
         await sleep(backoff)
         return getWithRetry(url, attempt + 1)
       }
 
       if (attempt < maxRetries) {
-        console.warn(
-          "[proxy] batchGet attempt failed, retrying",
-          {
+        Logger.warn(
+          "[proxy] batchGet attempt failed, retrying " +
+          JSON.stringify({
             url,
             attempt: attemptLabel,
             status,
             message: err && err.message ? err.message : err,
-          }
+          })
         )
         return getWithRetry(url, attempt + 1)
       }
 
-      console.warn(
-        "[proxy] batchGet giving up after attempts",
-        {
+      Logger.warn(
+        "[proxy] batchGet giving up after attempts " +
+        JSON.stringify({
           url,
           attempts: attemptLabel,
           status,
           message: err && err.message ? err.message : err,
-        }
+        })
       )
       throw err
     }

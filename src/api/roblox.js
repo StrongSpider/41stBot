@@ -5,6 +5,7 @@ const path = require('path')
 const fs = require('fs')
 
 const proxy = require('./proxy.js')
+const Logger = require('./logger.js')
 const axios = require('axios')
 
 const config = require('../../config.json')
@@ -76,10 +77,10 @@ function ensureDiskCacheLoaded() {
  */
 function persistDiskCache() {
   try { fs.writeFileSync(USERNAMES_FILE, JSON.stringify(diskUsernames, null, 2), 'utf8') } catch (e) {
-    console.error('roblox.js persist error (usernames):', e && e.message ? e.message : String(e))
+    Logger.error('roblox.js persist error (usernames): ' + (e && e.message ? e.message : String(e)))
   }
   try { fs.writeFileSync(USER_IDS_FILE, JSON.stringify(diskUserIds, null, 2), 'utf8') } catch (e) {
-    console.error('roblox.js persist error (userIds):', e && e.message ? e.message : String(e))
+    Logger.error('roblox.js persist error (userIds): ' + (e && e.message ? e.message : String(e)))
   }
 }
 
@@ -133,7 +134,7 @@ const getUsernameFromId = async function (id) {
   // API fallback
   try {
     const uname = await noblox.getUsernameFromId(idNum)
-    console.log('roblox.js fetched username from API:', uname, '(' + idNum + ')')
+    Logger.info('roblox.js fetched username from API: ' + uname + ' (' + idNum + ')')
 
     usernameCache.set(idNum, uname)
     userIdCache.set(uname, idNum)
@@ -175,7 +176,7 @@ const getIdFromUsername = async function (username) {
   // API fallback
   try {
     const idNum = await noblox.getIdFromUsername(uname)
-    console.log('roblox.js fetched id from API:', uname, '(' + idNum + ')')
+    Logger.info('roblox.js fetched id from API: ' + uname + ' (' + idNum + ')')
 
     usernameCache.set(idNum, uname)
     userIdCache.set(uname, idNum)
@@ -190,9 +191,9 @@ const getIdFromUsername = async function (username) {
 }
 
 /**
- * Get place details for a list of place IDs
+ * Get place details (name) for a list of place IDs
  * @param {number[]} placeIds
- * @returns {Promise<Map<number, string>>}
+ * @returns {Promise<Map<number, string>>} Map of PlaceID -> PlaceName
  */
 const getPlaceDetails = async function (placeIds) {
   const ids = [...new Set(placeIds.filter(id => Number.isFinite(Number(id))))]
@@ -215,13 +216,18 @@ const getPlaceDetails = async function (placeIds) {
         }
       }
     } catch (err) {
-      console.warn(`[getPlaceDetails] Failed to fetch chunk starting at index ${i}:`, err.message)
+      Logger.warn(`[getPlaceDetails] Failed to fetch chunk starting at index ${i}: ` + err.message)
     }
   }
 
   return nameMap
 }
 
+/**
+ * Get friend, follower, and following counts for a user
+ * @param {number|string} robloxId 
+ * @returns {Promise<{friendCount: number, followingCount: number, followerCount: number}>}
+ */
 const getConnections = async function (robloxId) {
   const friendCount = await noblox.getFriendCount(robloxId)
   const followingCount = await noblox.getFollowingCount(robloxId)
@@ -235,6 +241,11 @@ const getConnections = async function (robloxId) {
 }
 
 // Gamepasses: only GAR gamepasses
+/**
+ * Get count of GAR gamepasses owned by user
+ * @param {number|string} robloxId 
+ * @returns {Promise<number>} Count of GAR gamepasses
+ */
 const getUserGamepasses = async function (robloxId) {
   const userId = Number(robloxId)
   if (!Number.isFinite(userId)) {
@@ -276,16 +287,16 @@ const getUserGamepasses = async function (robloxId) {
           err.response.headers['retry-after']
 
         if (status === 429) {
-          console.warn(
+          Logger.warn(
             `[gamepasses] GAR passes 429 for game ${GAR_GAME_ID} attempt=${attempt}, ` +
             `retry-after=${retryAfterHeader ?? 'none'}, retrying immediately`
           )
           continue
         }
 
-        console.warn(
-          `[gamepasses] GAR passes request failed for game ${GAR_GAME_ID} attempt=${attempt}:`,
-          err && err.message ? err.message : err
+        Logger.warn(
+          `[gamepasses] GAR passes request failed for game ${GAR_GAME_ID} attempt=${attempt}: ` +
+          (err && err.message ? err.message : err)
         )
         if (attempt >= maxAttempts) {
           throw err
@@ -346,16 +357,16 @@ const getUserGamepasses = async function (robloxId) {
               err.response.headers['retry-after']
 
             if (status === 429) {
-              console.warn(
+              Logger.warn(
                 `[gamepasses] ownership 429 for user ${userId} passId=${passId} attempt=${attempt}, ` +
                 `retry-after=${retryAfterHeader ?? 'none'}, retrying immediately`
               )
               continue
             }
 
-            console.warn(
-              `[gamepasses] ownership request failed for user ${userId} passId=${passId} attempt=${attempt}:`,
-              err && err.message ? err.message : err
+            Logger.warn(
+              `[gamepasses] ownership request failed for user ${userId} passId=${passId} attempt=${attempt}: ` +
+              (err && err.message ? err.message : err)
             )
             if (attempt >= maxAttemptsOwnership) {
               break
@@ -378,6 +389,11 @@ const getUserGamepasses = async function (robloxId) {
   return garGamepasses
 }
 
+/**
+ * Check if a user's inventory is viewable
+ * @param {number|string} robloxId 
+ * @returns {Promise<boolean>}
+ */
 const canViewInventory = async function (robloxId) {
   const url = `https://inventory.roblox.com/v1/users/${robloxId}/can-view-inventory`
 
@@ -399,16 +415,16 @@ const canViewInventory = async function (robloxId) {
         err.response.headers['retry-after']
 
       if (status === 429) {
-        console.warn(
+        Logger.warn(
           `[gamepasses] GAR passes 429 for game ${GAR_GAME_ID} attempt=${attempt}, ` +
           `retry-after=${retryAfterHeader ?? 'none'}, retrying immediately`
         )
         continue
       }
 
-      console.warn(
-        `[gamepasses] GAR passes request failed for game ${GAR_GAME_ID} attempt=${attempt}:`,
-        err && err.message ? err.message : err
+      Logger.warn(
+        `[gamepasses] GAR passes request failed for game ${GAR_GAME_ID} attempt=${attempt}: ` +
+        (err && err.message ? err.message : err)
       )
       if (attempt >= maxAttempts) {
         throw err

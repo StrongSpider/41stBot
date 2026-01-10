@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, CommandInteraction, ContainerBuilder, ComponentType, TextInputStyle, TextInputBuilder, ModalBuilder, ButtonStyle, MessageFlags, ActionRowBuilder, ButtonBuilder } = require('discord.js');
 const database = require('../../api/database.js');
 const customization = require('../../../config.json');
+const Logger = require('../../api/logger.js');
 
 const DISCORD_TIMEOUT = 300000; // 5 minutes
 const ITEMS_PER_PAGE = 9;
@@ -388,7 +389,7 @@ module.exports = {
                     return await i.deferUpdate();
                 }
             } catch (err) {
-                console.error(err);
+                Logger.error(err);
                 try { await i.reply({ content: 'An error occurred handling the form.', flags: MessageFlags.Ephemeral }); } catch { }
             }
         };
@@ -537,7 +538,7 @@ module.exports = {
                     return await i.deferUpdate();
                 }
             } catch (err) {
-                console.error(err);
+                Logger.error(err);
                 try { await i.reply({ content: 'An error occurred handling the button.', flags: MessageFlags.Ephemeral }); } catch { }
             }
         });

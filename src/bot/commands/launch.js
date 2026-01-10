@@ -22,7 +22,8 @@ module.exports = {
         try {
             await interaction.reply({ content: 'Launching 41st Portal...', flags: MessageFlags.Ephemeral });
         } catch (e) {
-            console.error('Failed to reply to launch interaction', e);
+            const Logger = require('../../api/logger');
+            Logger.error('Failed to reply to launch interaction', e);
         }
     }
 };

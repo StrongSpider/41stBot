@@ -24,7 +24,17 @@ module.exports = {
 	 * @param {import('discord.js').ChatInputCommandInteraction} interaction
 	 */
 	async execute(interaction) {
-		const pick = LINES[Math.floor(Math.random() * LINES.length)]
-		await interaction.reply('Pong! ' + pick)
+		try {
+			const pick = LINES[Math.floor(Math.random() * LINES.length)]
+			await interaction.reply('Pong! ' + pick)
+		} catch (error) {
+			const Logger = require('../../api/logger')
+			Logger.error('ping command error:', error)
+			if (interaction.replied || interaction.deferred) {
+				await interaction.followUp({ content: 'There was an error executing this command!', ephemeral: true })
+			} else {
+				await interaction.reply({ content: 'There was an error executing this command!', ephemeral: true })
+			}
+		}
 	}
 }

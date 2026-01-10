@@ -18,6 +18,9 @@ module.exports = {
                 .setDescription("The reason why this place is considered suspicious")
                 .setRequired(true)),
 
+    /**
+     * @param {import('discord.js').ChatInputCommandInteraction} interaction
+     */
     async execute(interaction) {
         const placeId = interaction.options.getInteger("place_id");
         const reason = interaction.options.getString("reason");
@@ -30,7 +33,8 @@ module.exports = {
                 flags: MessageFlags.Ephemeral
             });
         } catch (error) {
-            console.error('[ERROR] add-suspicious-place execute:', error);
+            const Logger = require('../../api/logger');
+            Logger.error('[ERROR] add-suspicious-place execute:', error);
 
             const msg = error && error.message ? error.message : "Unknown error";
             return await interaction.reply({

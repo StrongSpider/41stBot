@@ -19,7 +19,7 @@ const AuthenticationEvent = new EventEmitter()
 const ActiveAuthentications = new Map() // key: String(robloxId) -> { discordId, robloxId, token }
 
 /**
- * Build a 7 word token using crypto grade randomness
+ * Build a 7 word token using crypto randomness
  */
 function makeToken() {
     const words = []
@@ -55,9 +55,7 @@ async function StartAuthentication(discord_id, roblox_id) {
     // One time success handler
     AuthenticationEvent.once(successEvent, () => {
         ActiveAuthentications.delete(key)
-        // Persist the link, best effort
         try { database.upsertRobloxId(discord_id, roblox_id) } catch { }
-        // Clean up any stale listeners for safety
         AuthenticationEvent.removeAllListeners(successEvent)
     })
 

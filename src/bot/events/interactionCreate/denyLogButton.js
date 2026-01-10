@@ -6,6 +6,9 @@ const { DISCORD_OFFICER_ROLE_ID, DISCORD_FFCNC_ROLE_ID, DISCORD_ERT_OFFICER_ROLE
 const database = require('../../../api/database.js')
 const webhook = require('../../../api/webhook.js')
 
+/**
+ * @param {import('discord.js').ButtonInteraction} interaction
+ */
 module.exports = async function denyLogButton(interaction) {
     try {
         if (!interaction?.isButton?.()) return

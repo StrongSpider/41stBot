@@ -6,6 +6,7 @@ const quota = require('../../api/quota.js')
 const config = require('../../../config.json');
 const database = require('../../api/database.js')
 const roblox = require('../../api/roblox.js')
+const Logger = require('../../api/logger.js')
 
 /** 
  * Run the weekly purge flow:
@@ -386,9 +387,10 @@ module.exports = {
             // Dump company role IDs (from config) to console for verification
             try {
                 const ids = Object.keys(config.COMPANY_DISCORD_ROLES || {})
-                console.log('COMPANY_DISCORD_ROLES IDs:', ids.join(', '))
+                Logger.info('COMPANY_DISCORD_ROLES IDs: ' + ids.join(', '))
             } catch { }
         } catch (err) {
+            Logger.error(err)
             const msg = err instanceof Error && err.message ? err.message : 'Unknown error'
             const safe = 'Purge failed. ' + msg
             if (interaction.deferred || interaction.replied) {

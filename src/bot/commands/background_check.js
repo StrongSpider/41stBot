@@ -5,6 +5,7 @@ const { SlashCommandBuilder, ContainerBuilder, MessageFlags, ComponentType } = r
 const backgroundCheck = require("../../api/backgroundCheck.js");
 const customization = require("../../../config.json");
 const ui = require("../utils/bgCheckUI.js");
+const Logger = require("../../api/logger.js");
 
 const COLLECTOR_MS = 10 * 60 * 1000;
 const ACCENT_COLOR = customization.ACCENT_COLOR;
@@ -237,7 +238,7 @@ module.exports = {
                     payload: await ui.buildBadgesContainer(result, ACCENT_COLOR)
                 })
             };
-    
+
             const collector = sent.createMessageComponentCollector({
                 componentType: ComponentType.Button,
                 time: COLLECTOR_MS
@@ -271,9 +272,9 @@ module.exports = {
                         return i.reply({ content: res.payload, flags: MessageFlags.Ephemeral }).catch(() => { });
                     }
 
-                    return i.reply({ components: [res.payload], flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2 }).catch(e => { console.log(e); });
+                    return i.reply({ components: [res.payload], flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2 }).catch(e => { Logger.error(e); });
                 } catch (e) {
-                    console.log(e);
+                    Logger.error(e);
                     return i.reply({ content: "Failed to load further information.", flags: MessageFlags.Ephemeral }).catch(() => { });
                 }
             });

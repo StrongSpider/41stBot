@@ -4,6 +4,9 @@ const { EmbedBuilder, TextChannel } = require('discord.js')
 const { DISCORD_CHANNEL_IDS, EMBED_COLOR } = require('../../../../config.json')
 const database = require('../../../api/database.js')
 
+/**
+ * @param {import('discord.js').GuildMember} member
+ */
 module.exports = async function welcomeMessage(member) {
   try {
     if (!member || !member.user) return
@@ -29,7 +32,7 @@ module.exports = async function welcomeMessage(member) {
       console.error('WELCOME_CHANNEL not found or not a text channel:', channelId)
       return
     }
-    
+
     const embed = new EmbedBuilder()
       .setTitle('Welcome to 41st Elite Corps!')
       .setDescription('Follow instructions from your host.\nWhen you are ready, run the `/verify` command in this channel.')

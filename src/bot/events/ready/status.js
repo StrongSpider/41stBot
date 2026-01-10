@@ -2,6 +2,7 @@
 
 const { Client, ActivityType } = require('discord.js')
 const { listAllTimeEvents } = require('../../../api/database.js')
+const Logger = require('../../../api/logger.js')
 
 const INTERVAL_MS = 15 * 60 * 1000
 
@@ -15,12 +16,12 @@ async function updateEventStatus(client) {
   let events
   try { events = await listAllTimeEvents() } catch (err) {
     const msg = err && err.message ? err.message : String(err)
-    console.error('[eventStatus] Failed to list events:', msg)
+    Logger.error('[eventStatus] Failed to list events: ' + msg)
     return
   }
 
   if (!Array.isArray(events)) {
-    console.error('[eventStatus] listAllTimeEvents did not return an array')
+    Logger.error('[eventStatus] listAllTimeEvents did not return an array')
     return
   }
 
@@ -33,7 +34,7 @@ async function updateEventStatus(client) {
     })
   } catch (err) {
     const msg = err && err.message ? err.message : String(err)
-    console.error('[eventStatus] Failed to set presence:', msg)
+    Logger.error('[eventStatus] Failed to set presence: ' + msg)
   }
 }
 
@@ -47,6 +48,6 @@ module.exports = async function handleEventStatusReady(client) {
   if (client.__eventStatusInterval) clearInterval(client.__eventStatusInterval)
 
   client.__eventStatusInterval = setInterval(() => {
-    updateEventStatus(client).catch(() => {})
+    updateEventStatus(client).catch(() => { })
   }, INTERVAL_MS)
 }
