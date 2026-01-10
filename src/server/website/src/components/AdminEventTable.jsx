@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Search, Filter, Trash2, Edit2, Check, X } from 'lucide-react';
-import api from '@/api/axios';
+import ApiService from '@/services/api';
 
 export default function AdminEventTable({ events, refreshEvents, mode }) {
     const [search, setSearch] = useState('');
@@ -38,11 +38,17 @@ export default function AdminEventTable({ events, refreshEvents, mode }) {
 
     const handleSaveEdit = async () => {
         try {
-            const endpoint = mode === 'weekly' ? `/weekly/${editingId}` : `/all-time/${editingId}`;
-            await api.patch(endpoint, {
-                type: editForm.type,
-                message: editForm.message
-            });
+            if (mode === 'weekly') {
+                await ApiService.events.updateWeekly(editingId, {
+                    type: editForm.type,
+                    message: editForm.message
+                });
+            } else {
+                await ApiService.events.updateAllTime(editingId, {
+                    type: editForm.type,
+                    message: editForm.message
+                });
+            }
             setEditingId(null);
             refreshEvents();
         } catch (error) {
@@ -54,8 +60,11 @@ export default function AdminEventTable({ events, refreshEvents, mode }) {
     const handleDelete = async (id) => {
         if (!confirm('Are you sure you want to delete this event?')) return;
         try {
-            const endpoint = mode === 'weekly' ? `/weekly/${id}` : `/all-time/${id}`;
-            await api.delete(endpoint);
+            if (mode === 'weekly') {
+                await ApiService.events.deleteWeekly(id);
+            } else {
+                await ApiService.events.deleteAllTime(id);
+            }
             refreshEvents();
         } catch (error) {
             console.error('Delete failed', error);

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { DiscordSDK } from '@discord/embedded-app-sdk';
-import axios from '../api/axios'; // Ensure this points to your axios instance
+import ApiService from '@/services/api';
 
 const DiscordActivityContext = createContext(null);
 
@@ -32,7 +32,7 @@ export const DiscordActivityProvider = ({ children }) => {
         const initSdk = async () => {
             try {
                 // 1. Fetch Client ID
-                const { data: { clientId } } = await axios.get('/auth/client-id');
+                const { clientId } = await ApiService.auth.getClientId();
 
                 // 2. Init SDK
                 const sdk = new DiscordSDK(clientId);
@@ -41,7 +41,7 @@ export const DiscordActivityProvider = ({ children }) => {
 
                 // 2.5 Check if we already have a session
                 try {
-                    const { data: user } = await axios.get('/auth/me');
+                    const user = await ApiService.auth.getMe();
                     if (user && user.id) {
                         setActivityUser(user);
                         setIsLoaded(true);
@@ -64,14 +64,14 @@ export const DiscordActivityProvider = ({ children }) => {
                 setAuthCode(code);
 
                 // 4. Send code to backend to establish session
-                const authResp = await axios.post('/auth/activity', { code });
+                const authData = await ApiService.auth.updateActivity(code);
 
-                if (authResp.data.success) {
+                if (authData.success) {
                     // Update session user for pure backend calls
                     // setActivityUser(authResp.data.user);
 
                     // 5. Authenticate with Discord Client using the access token
-                    const { access_token } = authResp.data;
+                    const { access_token } = authData;
                     const authResult = await sdk.commands.authenticate({
                         access_token
                     });
@@ -82,7 +82,7 @@ export const DiscordActivityProvider = ({ children }) => {
                         // Actually, authResult.user is the raw discord user.
                         // Let's stick to the backend user which has the roles computed, 
                         // effectively confirming we are "logged in" both sides.
-                        setActivityUser(authResp.data.user);
+                        setActivityUser(authData.user);
                     }
                 }
 

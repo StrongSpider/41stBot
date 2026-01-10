@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import api from '@/api/axios';
+import ApiService from '@/services/api';
 import useAuth from '@/hooks/useAuth';
 
 export default function useEvents(mode = 'weekly') {
@@ -19,8 +19,9 @@ export default function useEvents(mode = 'weekly') {
         setLoading(true);
         setError(null);
         try {
-            const endpoint = mode === 'weekly' ? '/weekly' : '/all-time';
-            const { data } = await api.get(endpoint);
+            const data = mode === 'weekly'
+                ? await ApiService.events.getWeekly()
+                : await ApiService.events.getAllTime();
             setEvents(data);
         } catch (err) {
             console.error('Failed to fetch events', err);

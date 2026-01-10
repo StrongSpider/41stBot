@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import api from '@/api/axios';
+import ApiService from '@/services/api';
 
 const AuthContext = createContext({
     user: null,
@@ -15,7 +15,7 @@ export function AuthProvider({ children }) {
 
     const checkAuth = async () => {
         try {
-            const { data } = await api.get('/auth/me');
+            const data = await ApiService.auth.getMe();
             setUser(data);
         } catch (error) {
             setUser(null);
@@ -34,7 +34,7 @@ export function AuthProvider({ children }) {
 
     const logout = async () => {
         try {
-            await api.post('/auth/logout');
+            await ApiService.auth.logout();
             setUser(null);
             window.location.reload();
         } catch (error) {

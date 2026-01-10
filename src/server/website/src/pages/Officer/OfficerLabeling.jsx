@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import ApiService from '@/services/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,13 +29,12 @@ export default function OfficerLabeling() {
         const fetchExamples = async () => {
             try {
                 // Fetch both examples in parallel
-                const [realRes, altRes] = await Promise.all([
-                    fetch(`/api/candidates?forceId=${REAL_EXAMPLE_ID}`),
-                    fetch(`/api/candidates?forceId=${ALT_EXAMPLE_ID}`)
+                const [realData, altData] = await Promise.all([
+                    ApiService.candidates.get(REAL_EXAMPLE_ID),
+                    ApiService.candidates.get(ALT_EXAMPLE_ID)
                 ]);
 
-                const realData = await realRes.json();
-                const altData = await altRes.json();
+
 
                 setExamples({
                     real: realData.candidate ? { ...realData.candidate, username: "Real Example" } : null,
@@ -53,10 +53,12 @@ export default function OfficerLabeling() {
         setError(null);
         try {
             // Backend now handles auth via session
-            const res = await fetch('/api/candidates');
-            if (res.status === 401) throw new Error('Unauthorized - Please log in');
-            if (!res.ok) throw new Error('Failed to fetch candidate');
-            const data = await res.json();
+            // Backend now handles auth via session
+            const data = await ApiService.candidates.get();
+            if (!data) throw new Error('Unauth or No Data'); // Service should throw or return data.
+            // ApiService.candidates.get uses api.get which throws on 401.
+            // But my service returns res.data.
+            // So data is the response body.
             setCandidate(data.candidate);
         } catch (err) {
             setError(err.message);
@@ -74,21 +76,12 @@ export default function OfficerLabeling() {
         setSubmitting(true);
 
         try {
-            const res = await fetch('/api/labels', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    targetRobloxId: candidate.robloxId,
-                    officerDiscordId: user?.id, // Send from Auth Context
-                    label: label
-                })
+            await ApiService.candidates.submitLabel({
+                targetRobloxId: candidate.robloxId,
+                officerDiscordId: user?.id,
+                label: label
             });
 
-            const json = await res.json();
-            if (!res.ok) {
-                console.error("Vote failed:", json);
-                throw new Error(json.error || 'Failed to submit vote');
-            }
             fetchCandidate();
         } catch (err) {
             console.error(err);
