@@ -3,6 +3,7 @@
 const axios = require("axios")
 const fs = require("fs")
 const path = require("path")
+const Logger = require("./api/logger")
 const config = require("../config.json")
 
 const WEBSHARE_API_KEY = config.WEBSHARE_API_KEY
@@ -15,22 +16,32 @@ const WEBSHARE_PORT = config.WEBSHARE_PORT
 const CACHE_DIR = path.join(__dirname, "./cache")
 const PROXY_CACHE_FILE = path.join(CACHE_DIR, "webshare_proxies.json")
 
+const logger = new Logger('ProxyUpdater', 'UPDATER')
+
 if (!WEBSHARE_API_KEY || !WEBSHARE_PROXY_LIST_URL) {
-  console.error("[proxy-update] WEBSHARE_API_KEY and WEBSHARE_PROXY_LIST_URL must be set in config.json")
+  logger.error("WEBSHARE_API_KEY and WEBSHARE_PROXY_LIST_URL must be set in config.json")
   process.exit(1)
 }
 
+/**
+ * Ensure the cache directory exists
+ */
 function ensureCacheDir() {
   try {
     if (!fs.existsSync(CACHE_DIR)) {
       fs.mkdirSync(CACHE_DIR, { recursive: true })
     }
   } catch (err) {
-    console.error("[proxy-update] Failed to ensure cache dir:", err.message)
+    logger.error("Failed to ensure cache dir:", err.message)
     process.exit(1)
   }
 }
 
+/**
+ * Fetch all pages of proxies from the Webshare API
+ * @param {number} maxPages Maximum number of pages to fetch
+ * @returns {Promise<string[]>} Array of proxy URLs
+ */
 async function fetchAllProxies(maxPages = 4) {
   const urls = []
 
@@ -44,11 +55,11 @@ async function fetchAllProxies(maxPages = 4) {
 
       const results = response.data && response.data.results
       if (!Array.isArray(results) || results.length === 0) {
-        console.log(`[proxy-update] No results on page ${page}, stopping pagination`)
+        logger.info(`No results on page ${page}, stopping pagination`)
         break
       }
 
-      console.log(`[proxy-update] Loaded ${results.length} proxies from API page ${page}`)
+      logger.info(`Loaded ${results.length} proxies from API page ${page}`)
 
       for (const p of results) {
         const username = p.username || WEBSHARE_USERNAME
@@ -62,17 +73,20 @@ async function fetchAllProxies(maxPages = 4) {
         urls.push(url)
       }
     } catch (err) {
-      console.error("[proxy-update] Failed to fetch Webshare proxy list page", page, ":", err.message)
+      logger.error("Failed to fetch Webshare proxy list page", page, ":", err.message)
       break
     }
   }
 
   // Deduplicate
   const unique = Array.from(new Set(urls))
-  console.log(`[proxy-update] Total unique proxies collected: ${unique.length}`)
+  logger.info(`Total unique proxies collected: ${unique.length}`)
   return unique
 }
 
+/**
+ * Main entry point for the proxy updater script
+ */
 async function main() {
   ensureCacheDir()
 
@@ -80,14 +94,14 @@ async function main() {
 
   try {
     fs.writeFileSync(PROXY_CACHE_FILE, JSON.stringify(urls, null, 2), "utf8")
-    console.log(`[proxy-update] Wrote ${urls.length} proxies to ${PROXY_CACHE_FILE}`)
+    logger.info(`Wrote ${urls.length} proxies to ${PROXY_CACHE_FILE}`)
   } catch (err) {
-    console.error("[proxy-update] Failed to write proxy cache file:", err.message)
+    logger.error("Failed to write proxy cache file:", err.message)
     process.exit(1)
   }
 }
 
 main().catch(err => {
-  console.error("[proxy-update] Unhandled error:", err)
+  logger.error("Unhandled error:", err)
   process.exit(1)
 })

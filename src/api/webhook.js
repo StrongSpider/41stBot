@@ -3,13 +3,16 @@
 const { WebhookClient, EmbedBuilder } = require('discord.js')
 const { ADMIN_LOGS_WEBHOOK_URL } = require('../../config.json')
 const roblox = require('./roblox.js')
+const Logger = require('./logger.js')
+
+const logger = new Logger('Webhook', 'SHARED')
 
 // Webhook client
 let webhookClient = null
 try {
   webhookClient = ADMIN_LOGS_WEBHOOK_URL ? new WebhookClient({ url: ADMIN_LOGS_WEBHOOK_URL }) : null
 } catch (e) {
-  console.error('webhook.js: failed to init WebhookClient:', e && e.message ? e.message : String(e))
+  logger.error('failed to init WebhookClient:', e)
   webhookClient = null
 }
 
@@ -67,7 +70,7 @@ async function safeUsername(id) {
 async function safeSend(payload) {
   if (!webhookClient) return
   try { await webhookClient.send(payload) } catch (e) {
-    console.error('webhook.js: send failed:', e && e.message ? e.message : String(e))
+    logger.error('send failed:', e)
   }
 }
 

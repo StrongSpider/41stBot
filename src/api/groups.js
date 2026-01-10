@@ -3,6 +3,7 @@
 const noblox = require('noblox.js')
 const database = require('./database.js')
 const proxy = require('./proxy.js')
+const Logger = require('./logger.js')
 
 const GROUPS_BASE_URL = 'https://groups.roblox.com/v1'
 
@@ -11,6 +12,7 @@ const GROUPS_BASE_URL = 'https://groups.roblox.com/v1'
  * @param {number|string} robloxId
  */
 const getGroupInformation = async function (robloxId) {
+    const logger = new Logger('Groups', 'API')
     const groups = await noblox.getGroups(robloxId)
 
     const results = []
@@ -61,7 +63,7 @@ const getGroupInformation = async function (robloxId) {
 
             const groupData = proxyRes.find((g) => g.groupId == group.Id)
             if (!groupData) {
-                console.warn(`[groups] Could not find proxy result for group ${group.Id}`)
+                logger.warn(`Could not find proxy result for group ${group.Id}`)
                 // Fallback: assume not base rank or handle error? 
                 // For now, push without IsBaseRank or default false?
                 // Original code would crash or fail if find returns undefined.
@@ -88,7 +90,7 @@ const getGroupInformation = async function (robloxId) {
                     await database.createGroup(group.Id, dbRoles, twoMonthsFromNow)
                 }
             } catch (err) {
-                console.error(`[groups] Failed to save group ${group.Id} to database:`, err)
+                logger.error(`Failed to save group ${group.Id} to database:`, err)
             }
         }
     }

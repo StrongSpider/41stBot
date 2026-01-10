@@ -3,11 +3,12 @@
 const { Client, Collection, GatewayIntentBits, Partials } = require('discord.js')
 const path = require('path')
 const fs = require('fs')
+const Logger = require('../api/logger.js')
 
 const { BOT_TOKEN } = require('../../config.json')
 
 if (!BOT_TOKEN || typeof BOT_TOKEN !== 'string' || BOT_TOKEN.trim().length === 0) {
-  console.error('BOT_TOKEN is missing in config.json')
+  Logger.error('BOT_TOKEN is missing in config.json')
   process.exit(1)
 }
 
@@ -48,18 +49,18 @@ function loadCommands() {
           client.commands.set(mod.data.name, mod)
           count++
         } else {
-          console.warn('[WARN] Command file missing data or execute:', filePath)
+          Logger.warn('[WARN] Command file missing data or execute: ' + filePath)
         }
       } catch (e) {
         const msg = e && e.message ? e.message : String(e)
-        console.error('[ERROR] Failed to load command', filePath, '-', msg)
+        Logger.error('[ERROR] Failed to load command ' + filePath + ' - ' + msg)
       }
     }
   } catch (e) {
     const msg = e && e.message ? e.message : String(e)
-    console.error('[ERROR] Failed to scan commands directory:', msg)
+    Logger.error('[ERROR] Failed to scan commands directory: ' + msg)
   }
-  console.log('Loaded commands:', count)
+  Logger.info('Loaded commands: ' + count)
 }
 
 /**
@@ -84,17 +85,17 @@ function loadEventHandlers() {
           try {
             const fn = require(filePath)
             if (typeof fn === 'function') return fn
-            console.warn('[WARN] Event file does not export a function:', filePath)
+            Logger.warn('[WARN] Event file does not export a function: ' + filePath)
             return null
           } catch (e) {
             const msg = e && e.message ? e.message : String(e)
-            console.error('[ERROR] Failed to load event file', filePath, '-', msg)
+            Logger.error('[ERROR] Failed to load event file ' + filePath + ' - ' + msg)
             return null
           }
         }).filter(Boolean)
       } catch (e) {
         const msg = e && e.message ? e.message : String(e)
-        console.error('[ERROR] Failed to read event folder', folderPath, '-', msg)
+        Logger.error('[ERROR] Failed to read event folder ' + folderPath + ' - ' + msg)
         handlers = []
       }
 
@@ -104,7 +105,7 @@ function loadEventHandlers() {
         for (const handler of handlers) {
           try { await handler(...args) } catch (e) {
             const msg = e && e.message ? e.message : String(e)
-            console.error('[ERROR] Event handler for', eventName, 'threw:', msg)
+            Logger.error('[ERROR] Event handler for ' + eventName + ' threw: ' + msg)
           }
         }
       })
@@ -113,9 +114,9 @@ function loadEventHandlers() {
     }
   } catch (e) {
     const msg = e && e.message ? e.message : String(e)
-    console.error('[ERROR] Failed to scan events directory:', msg)
+    Logger.error('[ERROR] Failed to scan events directory: ' + msg)
   }
-  console.log('Loaded event handlers:', totalEvents)
+  Logger.info('Loaded event handlers: ' + totalEvents)
 }
 
 // Bootstrap

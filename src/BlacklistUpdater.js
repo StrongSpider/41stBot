@@ -1,6 +1,7 @@
 
 
 const { updateCache } = require('./api/blacklists')
+const Logger = require('./api/logger')
 const config = require('../config.json')
 
 // Board ID for the Trello blacklist board. Prefer config, fall back to env.
@@ -12,23 +13,27 @@ if (!BLACKLIST_BOARD_ID) {
 
 const ONE_HOUR_MS = 60 * 60 * 1000
 
+/**
+ * Run a single update cycle for the blacklist cache.
+ */
 async function runUpdateOnce() {
+  const logger = new Logger('BlacklistUpdater', 'UPDATER')
   const start = new Date()
-  console.log(`[BlacklistUpdater] Starting cache update at ${start.toISOString()}`)
+  logger.info(`Starting cache update at ${start.toISOString()}`)
 
   try {
     const cache = await updateCache(BLACKLIST_BOARD_ID)
-    console.log(
-      `[BlacklistUpdater] Cache updated successfully at ${cache.updatedAt} for board ${cache.boardId}`
+    logger.info(
+      `Cache updated successfully at ${cache.updatedAt} for board ${cache.boardId}`
     )
   } catch (err) {
-    console.error('[BlacklistUpdater] Error updating cache:', err && err.stack ? err.stack : err)
+    logger.error('Error updating cache:', err && err.stack ? err.stack : err)
   }
 }
 
 // Handle unhandled promise rejections so the process does not crash silently
 process.on('unhandledRejection', err => {
-  console.error('[BlacklistUpdater] Unhandled rejection:', err && err.stack ? err.stack : err)
+  new Logger('BlacklistUpdater', 'UPDATER').error('Unhandled rejection:', err && err.stack ? err.stack : err)
 })
 
 // Run immediately on start

@@ -2,19 +2,21 @@
 
 const database = require('./database.js')
 const proxy = require('./proxy.js')
+const Logger = require('./logger.js')
 const axios = require('axios')
 const https = require('https')
 
 const BADGES_DEBUG = false
+const logger = new Logger('Badges', 'API')
 
 function debugLog(...args) {
     if (!BADGES_DEBUG) return
-    console.log(...args)
+    logger.debug(...args)
 }
 
 function debugWarn(...args) {
     if (!BADGES_DEBUG) return
-    console.warn(...args)
+    logger.warn(...args)
 }
 
 /**

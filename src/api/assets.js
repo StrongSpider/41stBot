@@ -1,16 +1,18 @@
 'use strict'
 
 const database = require('./database.js')
+const Logger = require('./logger.js')
 const config = require('../../config.json')
 const { default: axios } = require('axios')
 
 const https = require('https')
 
 const DEBUG_ASSETS = false
+const logger = new Logger('Assets', 'API')
 
 function debugAssets(...args) {
   if (!DEBUG_ASSETS) return
-  console.log('[assets debug]', ...args)
+  logger.debug(...args)
 }
 
 /**
@@ -147,8 +149,8 @@ const getAssetsInformation = async function (robloxId, options) {
 
         if (status === 429) {
           debugAssets('inventory 429 received', { userId, attempt, retryAfter: retryAfterHeader })
-          console.warn(
-            `[assets] inventory 429 for user ${userId} attempt=${attempt}, ` +
+          logger.warn(
+            `inventory 429 for user ${userId} attempt=${attempt}, ` +
             `retry-after=${retryAfterHeader ?? 'none'}, retrying immediately`
           )
           continue
@@ -158,8 +160,8 @@ const getAssetsInformation = async function (robloxId, options) {
           throw new Error("Inventory private")
         }
 
-        console.warn(
-          `[assets] inventory request failed for user ${userId} attempt=${attempt}:`,
+        logger.warn(
+          `inventory request failed for user ${userId} attempt=${attempt}:`,
           err && err.message ? err.message : err
         )
         if (attempt >= maxAttempts) {

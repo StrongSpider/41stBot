@@ -1,6 +1,11 @@
 'use strict'
+const Logger = require('../../../api/logger.js')
 
+/**
+ * @param {import('discord.js').AutocompleteInteraction} interaction
+ */
 module.exports = async function autocompleteHandler(interaction) {
+    const logger = new Logger('Autocomplete', 'BOT')
     try {
         if (!interaction || typeof interaction.isAutocomplete !== 'function') return
         if (!interaction.isAutocomplete()) return
@@ -16,7 +21,7 @@ module.exports = async function autocompleteHandler(interaction) {
         const commands = interaction.client && interaction.client.commands
         const command = commands && typeof commands.get === 'function' ? commands.get(name) : null
         if (!command) {
-            console.error('autocomplete: no command found for ' + String(name))
+            logger.error('no command found for ' + String(name))
             return
         }
 
@@ -26,6 +31,6 @@ module.exports = async function autocompleteHandler(interaction) {
     } catch (err) {
         const msg = err && err.message ? err.message : String(err)
         const name = interaction && interaction.commandName ? interaction.commandName : 'unknown'
-        console.error('autocomplete error for ' + String(name) + ': ' + msg)
+        logger.error('error for ' + String(name) + ': ' + msg)
     }
 }

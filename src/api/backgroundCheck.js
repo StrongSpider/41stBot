@@ -9,6 +9,7 @@ const assets = require('./assets.js');
 const badge = require('./badge.js');
 const groupsApi = require('./groups.js');
 const database = require('./database.js');
+const Logger = require('./logger.js');
 
 const { ROBLOX_ASSET_TYPES, XTRACKER_API_KEY, ROBLOX_COOKIE } = require('../../config.json');
 
@@ -22,6 +23,8 @@ const http = axios.create({
     timeout: REQUEST_TIMEOUT_MS,
     httpsAgent: defaultHttpsAgent
 });
+
+const logger = new Logger('BackgroundCheck', 'API');
 
 // Roblox-only axios client (ensures ROBLOX_COOKIE is only sent to Roblox domains)
 const ROBLOX_COOKIE_HEADER = `.ROBLOSECURITY=${ROBLOX_COOKIE}`;
@@ -102,7 +105,7 @@ async function fetchInventoryValue(robloxId) {
             return rolimonsResponse.data.value;
         }
     } catch (e) {
-        console.log('[backgroundCheck] Rolimons fetch failed:', e.message);
+        logger.warn('Rolimons fetch failed:', e.message);
     }
     return null;
 }
@@ -132,7 +135,7 @@ async function fetchAllFavoriteGames(robloxId) {
             cursor = String(next);
             pages++;
         } catch (e) {
-            console.log('[backgroundCheck] Favorites fetch failed:', e.message);
+            logger.warn('Favorites fetch failed:', e.message);
             return null;
         }
     }
@@ -166,7 +169,7 @@ async function fetchXTrackerData(robloxId) {
         }
         return response.data;
     } catch (e) {
-        console.log('[backgroundCheck] xTracker fetch failed:', e.message);
+        logger.warn('xTracker fetch failed:', e.message);
         return null;
     }
 }

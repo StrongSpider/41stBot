@@ -1,6 +1,7 @@
 'use strict'
 
 const { WebhookClient, EmbedBuilder } = require('discord.js')
+const Logger = require('./api/logger.js')
 const noblox = require('noblox.js')
 
 const { ROBLOX_GROUP_ID, ROBLOX_GROUP_GUARDING_RANKS, ROBLOX_COOKIE, ROBLOX_PLACE_ID, GUARDING_TRACKER_WEBHOOK_URL, DISCORD_VIP_PING_ROLE_ID } = require('../config.json')
@@ -25,6 +26,8 @@ const { ROBLOX_GROUP_ID, ROBLOX_GROUP_GUARDING_RANKS, ROBLOX_COOKIE, ROBLOX_PLAC
 const MINUTES_BETWEEN_CHECKS = 1
 const MINUTES_BETWEEN_PING = 60
 
+const logger = new Logger('GuardingTracker', 'BOT')
+
 let lastPing = 0
 
 // Loaded once from the group, objects like { userid, username, rank }
@@ -39,10 +42,10 @@ try {
   if (GUARDING_TRACKER_WEBHOOK_URL && typeof GUARDING_TRACKER_WEBHOOK_URL === 'string') {
     webhook = new WebhookClient({ url: GUARDING_TRACKER_WEBHOOK_URL })
   } else {
-    console.warn('GuardingTracker: GUARDING_TRACKER_WEBHOOK_URL is not set')
+    logger.warn('GUARDING_TRACKER_WEBHOOK_URL is not set')
   }
 } catch (e) {
-  console.error('GuardingTracker: failed to init webhook client:', e && e.message ? e.message : String(e))
+  logger.error('failed to init webhook client:', e && e.message ? e.message : String(e))
 }
 
 // Simple sleep helper
@@ -96,7 +99,7 @@ async function sendVipMessage(presence, action) {
     }
     await webhook.send({ embeds: [embed], content })
   } catch (e) {
-    console.error('GuardingTracker: webhook send failed:', e && e.message ? e.message : String(e))
+    logger.error('webhook send failed:', e && e.message ? e.message : String(e))
   }
 }
 
@@ -145,7 +148,7 @@ async function preloadVIPs() {
   VIP_USERS.length = 0
   for (const m of vipMembers) VIP_USERS.push(m)
 
-  console.log('GuardingTracker: loaded VIPs', VIP_USERS.length)
+  logger.info('loaded VIPs', VIP_USERS.length)
 }
 
 /**
@@ -159,7 +162,7 @@ async function runChecks() {
   try {
     presences = await noblox.getPresences(userIds)
   } catch (e) {
-    console.error('GuardingTracker: getPresences failed:', e && e.message ? e.message : String(e))
+    logger.error('getPresences failed:', e && e.message ? e.message : String(e))
     return
   }
 
@@ -189,7 +192,7 @@ async function runChecks() {
     }
   }
 
-  console.log('GuardingTracker: status snapshot', JSON.stringify(VIP_STATUS))
+  logger.info('status snapshot', JSON.stringify(VIP_STATUS))
 }
 
 /**
@@ -206,14 +209,14 @@ async function main() {
 
     while (true) {
       try { await runChecks() } catch (e) {
-        console.error('GuardingTracker: runChecks error:', e && e.message ? e.message : String(e))
+        logger.error('runChecks error:', e && e.message ? e.message : String(e))
       }
 
-      console.log('GuardingTracker: waiting', MINUTES_BETWEEN_CHECKS, 'minute before next check')
+      logger.info('waiting', MINUTES_BETWEEN_CHECKS, 'minute before next check')
       await sleep(MINUTES_BETWEEN_CHECKS * 60 * 1000)
     }
   } catch (err) {
-    console.error('GuardingTracker: fatal error:', err && err.message ? err.message : String(err))
+    logger.error('fatal error:', err && err.message ? err.message : String(err))
     process.exit(1)
   }
 }

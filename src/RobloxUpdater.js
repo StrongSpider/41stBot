@@ -1,6 +1,7 @@
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
 const { getRobloxIdByDiscord } = require('./api/database.js');
 const { getUsernameFromId } = require('noblox.js');
+const Logger = require('./api/logger.js');
 const { BOT_TOKEN } = require('../config.json');
 const path = require("path");
 const fs = require("fs");
@@ -17,11 +18,15 @@ const client = new Client({
     ]
 });
 
+/**
+ * Main loop to fetch and cache username/id mappings for all guild members
+ */
 const RequestLoop = async function () {
+    const logger = new Logger('RobloxUpdater', 'UPDATER');
     try {
         const guild = client.guilds.cache.get('691709718304915487');
         if (!guild) {
-            console.error('⚠️  Guild not found in cache.');
+            logger.error('Guild not found in cache.');
             return;
         }
 
@@ -39,14 +44,14 @@ const RequestLoop = async function () {
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 username = await getUsernameFromId(rid);
             } catch (err) {
-                console.warn(`Could not resolve username for RobloxID ${rid}:`, err.message);
+                logger.warn(`Could not resolve username for RobloxID ${rid}:`, err.message);
                 continue;
             }
 
             usernamesArr.push(username);
             useridsArr.push(rid);
 
-            console.log(`✅  Resolved ${username} (${rid}) for Discord ID ${discordId}`);
+            logger.info(`Resolved ${username} (${rid}) for Discord ID ${discordId}`);
         }
 
         fs.writeFileSync(
@@ -59,9 +64,9 @@ const RequestLoop = async function () {
             JSON.stringify(useridsArr, null, 2)
         );
 
-        console.log('✅  Cache files updated.');
+        logger.info('Cache files updated.');
     } catch (err) {
-        console.error('❌  Failed to update cache:', err);
+        logger.error('Failed to update cache:', err);
     }
 }
 

@@ -2,9 +2,14 @@
 
 const { DISCORD_FFCNC_ROLE_ID, DISCORD_HICOM_ROLE_ID, DISCORD_OFFICER_ROLE_ID, DISCORD_MINOR_OFFICER_ROLE_ID, DEVELOPER_DISCORD_USER_ID } = require('../../../../config.json')
 const { sendCommandReceived } = require('../../../api/webhook.js')
+const Logger = require('../../../api/logger.js')
 const { MessageFlags } = require('discord.js')
 
+/**
+ * @param {import('discord.js').ChatInputCommandInteraction | import('discord.js').ContextMenuCommandInteraction} interaction
+ */
 module.exports = async function commandHandler(interaction) {
+    const logger = new Logger('Command', 'BOT')
     try {
         if (!interaction || !(interaction.isChatInputCommand?.() || interaction.isContextMenuCommand?.())) return
 
@@ -20,14 +25,14 @@ module.exports = async function commandHandler(interaction) {
         try {
             const uname = interaction.user?.username || 'unknown'
             const uid = interaction.user?.id || 'unknown'
-            console.log('Received command:', interaction.commandName, 'from', uname, '(', uid, ')')
-            await sendCommandReceived(interaction.commandName, uname, uid)
+            logger.info('Received command:', interaction.commandName, 'from', uname, '(', uid, ')')
+            //await sendCommandReceived(interaction.commandName, uname, uid)
         } catch { }
 
         const cmds = interaction.client?.commands
         const command = cmds && typeof cmds.get === 'function' ? cmds.get(interaction.commandName) : null
         if (!command) {
-            console.error('No command matching', String(interaction.commandName), 'was found')
+            logger.error('No command matching', String(interaction.commandName), 'was found')
             return
         }
 
@@ -59,7 +64,7 @@ module.exports = async function commandHandler(interaction) {
         const uid = interaction?.user?.id
         const msg = error && error.message ? String(error.message) : 'Unknown error'
 
-        console.error(error)
+        logger.error(error)
         try {
             if (interaction?.replied || interaction?.deferred) {
                 await interaction.followUp({ content: msg, flags: MessageFlags.Ephemeral })
