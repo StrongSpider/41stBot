@@ -1,152 +1,65 @@
 {
     "BOT_TOKEN": "",
-    "BOT_CLIENT_ID": "1356490188259332107",
-    "BOT_GUILD_ID": "691709718304915487",
-    "GAR_BOT_USER_ID": "1099382225516118076",
+    "BOT_CLIENT_ID": "",
+    "BOT_GUILD_ID": "",
+    "GAR_BOT_USER_ID": "",
     "DISCORD_AUTH_CLIENT_SECRET": "",
     "DISCORD_AUTH_REDIRECT_URI": "",
-    "POSTGRES_USER": "postgres",
+    "POSTGRES_USER": "",
     "POSTGRES_PASSWORD": "",
-    "POSTGRES_HOST": "localhost",
-    "POSTGRES_PORT": 5432,
-    "POSTGRES_DATABASE": "41st",
-
+    "POSTGRES_HOST": "",
+    "POSTGRES_PORT": 0,
+    "POSTGRES_DATABASE": "",
     "PORTAL_SECRET": "",
-    "PORTAL_PORT": 8081,
-    "PORTAL_CORS_PORT": 5137,
-    "ROBLOX_GROUP_ID": 5810035,
-    "ROBLOX_GROUP_GUARDING_RANKS": [
-        "Company Officer",
-        "Company Commander",
-        "Captain Draa",
-        "Commander Buzz",
-        "Commander Gree"
-    ],
+    "PORTAL_PORT": 0,
+    "PORTAL_CORS_PORT": 0,
+    "ROBLOX_GROUP_ID": 0,
+    "GAR_GROUP_ID": 0,
+    "ROBLOX_GROUP_GUARDING_RANKS": [],
     "ROBLOX_COOKIE": "",
-    "ROBLOX_PLACE_ID": 4238077359,
-    "DEVELOPER_DISCORD_USER_ID": "343751662592065537",
-    "DISCORD_FFCNC_ROLE_ID": "864357575704969236",
-    "DISCORD_HICOM_ROLE_ID": "704883479086760017",
-    "DISCORD_OFFICER_ROLE_ID": "704883262937497730",
-    "DISCORD_MINOR_OFFICER_ROLE_ID": "1238333468610662410",
-    "DISCORD_ERT_OFFICER_ROLE_IDS": [
-        "692560911226896404",
-        "692945334124412968"
-    ],
-    "DISCORD_DEFAULT_QUOTA_ROLE_ID": "692486252360106074",
-    "DISCORD_PURGE_DEFCON_ROLE_ID": "984321461621751848",
-    "INACTIVITY_MANAGEMENT_ROLE_ID": "717918764997410866",
-    "INACTIVITY_NOTICE_ROLE_ID": "725582569965355018",
-    "EXEMPT_DISCORD_ROLE_ID": "965797901630574602",
+    "ROBLOX_PLACE_ID": 0,
+    "DEVELOPER_DISCORD_USER_ID": "",
+    "DISCORD_FFCNC_ROLE_ID": "",
+    "DISCORD_HICOM_ROLE_ID": "",
+    "DISCORD_OFFICER_ROLE_ID": "",
+    "DISCORD_MINOR_OFFICER_ROLE_ID": "",
+    "DISCORD_VIP_PING_ROLE_ID": "",
+    "DISCORD_ERT_OFFICER_ROLE_IDS": [],
+    "DISCORD_DEFAULT_QUOTA_ROLE_ID": "",
+    "DISCORD_PURGE_DEFCON_ROLE_ID": "",
+    "INACTIVITY_MANAGEMENT_ROLE_ID": "",
+    "INACTIVITY_NOTICE_ROLE_ID": "",
+    "EXEMPT_DISCORD_ROLE_ID": "",
     "DISCORD_MEDAL_ROLES": {
-        "PLATINUM_ROLE": "864286090294591488",
-        "GOLD_ROLE": "702372512285196328",
-        "SILVER_ROLE": "702372515280060518",
-        "BRONZE_ROLE": "702372246584426497"
+        "PLATINUM_ROLE": "",
+        "GOLD_ROLE": "",
+        "SILVER_ROLE": "",
+        "BRONZE_ROLE": ""
     },
-    "UNIT_ROLES": [
-        {
-            "unit": "Trooper",
-            "roles": [
-                "848302937725730826",
-                "1154927405077635184",
-                "701926686299652146",
-                "1236806451209437297",
-                "798704341954330634"
-            ]
-        },
-        {
-            "unit": "Green Company",
-            "roles": [
-                "973428151273279518",
-                "778019588771545148",
-                "1333810234434781237",
-                "1236805329438904441",
-                "778019081457631247"
-            ]
-        },
-        {
-            "unit": "Sarlacc Battalion",
-            "roles": [
-                "873474383493103646",
-                "760171582508892200",
-                "1236805633714425886",
-                "701588681546530887"
-            ]
-        },
-        {
-            "unit": "Ranger Platoon",
-            "roles": [
-                "905319033895800853",
-                "984627195169370122",
-                "1236805791806394431",
-                "701588399965864027"
-            ]
-        },
-        {
-            "unit": "Zeus Company",
-            "roles": [
-                "862766541383794708",
-                "993953061611507773",
-                "1236440479600607323",
-                "804026165194784769"
-            ]
-        },
-        {
-            "unit": "Access Roles",
-            "roles": [
-                "1060392520284131418",
-                "1060392564500475924",
-                "1060392464273379388",
-                "1069291634950406154"
-            ]
-        }
-    ],
-    "COMPANY_DISCORD_ROLES": {
-        "692486252360106074": "Trooper",
-        "1126260496564240454": "Trooper",
-        "692486250476732427": "Green Company",
-        "1106396097984872458": "Green Company",
-        "692486249998450740": "Sarlacc Battalion",
-        "1106406209340313700": "Sarlacc Battalion",
-        "692486251286364181": "Ranger Platoon",
-        "1107027338148978808": "Ranger Platoon",
-        "692486249386082334": "Zeus Company",
-        "1107027257555435690": "Zeus Company",
-        "864357575704969236": "FFCNC"
-    },
-    "RANK_DISCORD_ROLES": {
-        "704881591272472596": "41st Personnel",
-        "1128374465454145756": "Squad Leader",
-        "1128374387347816478": "Squad Leader",
-        "1128374008707043419": "Squad Leader",
-        "1128374067100143656": "Squad Leader",
-        "1128397547736662098": "Squad Leader",
-        "717566815697633311": "Company Sergeant",
-        "696567439433138236": "Company Lieutenant",
-        "991900568517873735": "Company Executive",
-        "692486248673050805": "Company Commander",
-        "722936411128332308": "Captain Draa",
-        "692486247893172246": "Commander Buzz",
-        "692486247339393055": "Commander Gree",
-        "742831287462658139": "Overseer",
-        "691860674883616889": "Overseer",
-        "1080538293696995368": "Overseer",
-        "691861042187206687": "Overseer",
-        "691715054546059344": "Supreme Chancellor"
-    },
+    "UNIT_ROLES": [],
+    "COMPANY_DISCORD_ROLES": {},
+    "RANK_DISCORD_ROLES": {},
     "DISCORD_CHANNEL_IDS": {
-        "COUNTER_RAID_LOGS": "714825306204274728",
-        "WELCOME_CHANNEL": "691720146548686899",
-        "MINOR_OFFICER_EVENT_LOGS": "717580007081377832",
-        "OFFICER_EVENT_LOGS": "691713219311435786",
-        "GAR_BOT_LOGS": "1096150281076617287"
+        "COUNTER_RAID_LOGS": "",
+        "WELCOME_CHANNEL": "",
+        "MINOR_OFFICER_EVENT_LOGS": "",
+        "OFFICER_EVENT_LOGS": "",
+        "GAR_BOT_LOGS": "",
+        "OFFICER_BOT_COMMANDS": ""
     },
-    "EMBED_COLOR": "DarkGreen",
-    "ACCENT_COLOR": 1659966,
+    "EMBED_COLOR": "",
+    "ACCENT_COLOR": 0,
     "ADMIN_LOGS_WEBHOOK_URL": "",
-    "GOOGLE_APP_URL": "",
-    "GOOGLE_WEBHOOK_SECRET": "",
-    "GOOGLE_DEPLOYMENT_ID": "",
-    "GUARDING_TRACKER_WEBHOOK_URL": ""
+    "GUARDING_TRACKER_WEBHOOK_URL": "",
+    "WEBSHARE_USERNAME": "",
+    "WEBSHARE_PASSWORD": "",
+    "WEBSHARE_HOST": "",
+    "WEBSHARE_PORT": "",
+    "WEBSHARE_PROXY_LIST_URL": "",
+    "WEBSHARE_API_KEY": "",
+    "ROBLOX_ASSET_TYPES": {
+        "DEVELOPMENT": [],
+        "AVATAR": []
+    },
+    "XTRACKER_API_KEY": ""
 }
