@@ -177,7 +177,7 @@ function getNextProxyAgent() {
 }
 
 // Initialize proxies once at module load
-initProxiesFromConfig()
+// initProxiesFromConfig() // DISABLED: Only use proxies from the json file
 loadProxiesFromCache()
 logProxyPool()
 
@@ -238,8 +238,8 @@ async function request(config) {
         }
       )
 
-      if (status === 407 && proxyAgent) {
-        console.warn("[proxy] Got 407 Proxy Authentication Required, removing bad proxy and retrying")
+      if ((status === 407 || status === 427) && proxyAgent) {
+        console.warn(`[proxy] Got ${status} through proxy, removing bad proxy and retrying`)
         removeProxyAgent(proxyAgent)
 
         if (proxyAgents.length > 0) {

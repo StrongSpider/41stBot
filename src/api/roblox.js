@@ -86,6 +86,14 @@ function persistDiskCache() {
 const INVENTORY_BASE_URL = 'https://inventory.roblox.com/v2'
 const GAMES_BASE_URL = 'https://games.roblox.com/v1'
 
+const ROBLOX_COOKIE_HEADER = `.ROBLOSECURITY=${config.ROBLOX_COOKIE}`;
+const robloxHttp = axios.create({
+  baseURL: GAMES_BASE_URL,
+  headers: {
+    Cookie: ROBLOX_COOKIE_HEADER
+  }
+});
+
 /**
  * Simple sleep helper.
  * @param {number} ms
@@ -179,6 +187,39 @@ const getIdFromUsername = async function (username) {
   } catch {
     throw new Error('User not found')
   }
+}
+
+/**
+ * Get place details for a list of place IDs
+ * @param {number[]} placeIds
+ * @returns {Promise<Map<number, string>>}
+ */
+const getPlaceDetails = async function (placeIds) {
+  const ids = [...new Set(placeIds.filter(id => Number.isFinite(Number(id))))]
+  if (ids.length === 0) return new Map()
+
+  const nameMap = new Map()
+  const chunkSize = 50 // Generally safer for long URLs
+
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const chunk = ids.slice(i, i + chunkSize)
+    const query = chunk.map(id => `placeIds=${id}`).join('&')
+    const url = `/games/multiget-place-details?${query}`
+
+    try {
+      const res = await robloxHttp.get(url)
+      const dataArr = Array.isArray(res.data) ? res.data : []
+      for (const game of dataArr) {
+        if (game && game.placeId && game.name) {
+          nameMap.set(Number(game.placeId), String(game.name))
+        }
+      }
+    } catch (err) {
+      console.warn(`[getPlaceDetails] Failed to fetch chunk starting at index ${i}:`, err.message)
+    }
+  }
+
+  return nameMap
 }
 
 const getConnections = async function (robloxId) {
@@ -386,5 +427,6 @@ module.exports = {
   getConnections,
 
   getUserGamepasses,
-  canViewInventory
+  canViewInventory,
+  getPlaceDetails
 }

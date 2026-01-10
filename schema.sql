@@ -105,4 +105,45 @@ CREATE TABLE IF NOT EXISTS role_quotas (
   purges     boolean NOT NULL DEFAULT false
 );
 
+-- 11) Badges (per-user badge data as JSONB)
+CREATE TABLE IF NOT EXISTS badges (
+  robloxid bigint PRIMARY KEY REFERENCES roblox_ids(robloxid) ON UPDATE CASCADE ON DELETE CASCADE,
+  data jsonb NOT NULL DEFAULT '[]'::jsonb
+);
+
+-- 12) Assets (per-user asset data as JSONB)
+CREATE TABLE IF NOT EXISTS assets (
+  robloxid bigint PRIMARY KEY REFERENCES roblox_ids(robloxid) ON UPDATE CASCADE ON DELETE CASCADE,
+  data jsonb NOT NULL DEFAULT '[]'::jsonb
+);
+
+-- 13) Groups (cached group information)
+CREATE TABLE IF NOT EXISTS groups (
+  groupid text PRIMARY KEY,
+  roles jsonb NOT NULL,
+  expires timestamptz NOT NULL
+);
+CREATE INDEX IF NOT EXISTS groups_expires_idx ON groups (expires);
+
+-- 14) Suspicious Places (flagged place IDs for background checks)
+CREATE TABLE IF NOT EXISTS suspicious_places (
+  placeid bigint PRIMARY KEY,
+  reason text NOT NULL,
+  added_at timestamptz NOT NULL DEFAULT NOW(),
+  added_by text
+);
+CREATE INDEX IF NOT EXISTS suspicious_places_added_at_idx ON suspicious_places (added_at);
+
+-- 15) Officer Labels (AI training data)
+CREATE TABLE IF NOT EXISTS officer_labels (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  target_roblox_id bigint NOT NULL,
+  officer_discord_id text NOT NULL,
+  label text NOT NULL CHECK (label IN ('REAL', 'LIKELY_REAL', 'LIKELY_ALT', 'ALT')),
+  created_at timestamptz NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS officer_labels_target_idx ON officer_labels (target_roblox_id);
+CREATE INDEX IF NOT EXISTS officer_labels_officer_idx ON officer_labels (officer_discord_id);
+CREATE INDEX IF NOT EXISTS officer_labels_created_at_idx ON officer_labels (created_at);
+
 COMMIT;

@@ -16,14 +16,14 @@ app.use(session({
     cookie: { secure: false }       // set true if you serve over https
 }));
 
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '50mb' }));
 
 app.use(cors({
     origin: 'http://localhost:' + PORTAL_CORS_PORT,
     credentials: true
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 
 // React app setup will be registered after API routes to ensure precedence
 

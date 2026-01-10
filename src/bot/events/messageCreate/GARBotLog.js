@@ -68,8 +68,10 @@ module.exports = async function garBotLog(message) {
             // Member was kicked from the Roblox group – remove from Discord guild
             try {
                 await discordMember.kick(`Removed from group by ${message.mentions.users.first() ? message.mentions.users.first().username : 'an unknown user'}`)
+                await message.react('✅').catch(() => { })
                 console.log('GARBotLog: kicked guild member', discordId, 'for Roblox id', targetRobloxId)
             } catch (e) {
+                await message.react('❌').catch(() => { })
                 console.error('GARBotLog: failed to kick', discordId, '-', e && e.message ? e.message : e)
             }
             return

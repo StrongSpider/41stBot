@@ -55,19 +55,21 @@ module.exports = {
                 await sendEventDeleteWebhook({ eventId: eventId, changedBy: discordUserId })
 
                 // Delete event message
-                if (event.message) {
-                    // Extract channelId and messageId from jump URL
-                    const parts = event.message.split('/')
-                    const channelId = parts[parts.length - 2]
-                    const messageId = parts[parts.length - 1]
-
-                    const channel = await interaction.guild.channels.fetch(channelId)
-
-                    const originalMessage = await channel.messages.fetch(messageId)
-
-                    await originalMessage.delete()
-                }
-
+                try {
+                    if (event.message) {
+                        // Extract channelId and messageId from jump URL
+                        const parts = event.message.split('/')
+                        const channelId = parts[parts.length - 2]
+                        const messageId = parts[parts.length - 1]
+    
+                        const channel = await interaction.guild.channels.fetch(channelId)
+    
+                        const originalMessage = await channel.messages.fetch(messageId)
+    
+                        await originalMessage.delete()
+                    }
+                } catch {}
+                
                 await interaction.editReply({ content: "✅ **Event Removed Successfully**" })
             } catch {
                 await interaction.editReply({ content: "<:warning:1297618648810393630> `Failed to delete event`", components: [] })

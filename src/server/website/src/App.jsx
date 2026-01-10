@@ -7,6 +7,7 @@ import Home from '@/pages/Home';
 import Statistics from '@/pages/Statistics';
 import AdminDashboard from '@/pages/Admin/Dashboard';
 import OfficerDashboard from '@/pages/Officer/Dashboard';
+import OfficerLabeling from '@/pages/Officer/OfficerLabeling';
 
 import { DiscordActivityProvider } from '@/context/DiscordActivityContext';
 
@@ -32,6 +33,7 @@ function App() {
             {/* Officer Routes */}
             <Route path="/officer" element={<OfficerLayout />}>
               <Route index element={<OfficerDashboard />} />
+              <Route path="labeling" element={<OfficerLabeling />} />
             </Route>
 
             {/* Fallback */}

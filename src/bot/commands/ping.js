@@ -11,7 +11,8 @@ const LINES = [
 	'Ranger Platoon diffs everyone else ngl',
 	'12/12/24 never forget',
 	'9/3/25 always remember',
-	'FUCK YOU <@999736048596816014>'
+	'12/22/25 forever in my heart',
+	'FUCK YOU <@999736048596816014>',
 ]
 
 module.exports = {

@@ -118,6 +118,8 @@ const INACTIVITY_TABLE = 'inactivity';
 const BADGES_TABLE = 'badges';
 const ASSETS_TABLE = 'assets';
 const GROUPS_TABLE = 'groups';
+const SUSPICIOUS_PLACES_TABLE = 'suspicious_places';
+const OFFICER_LABELS_TABLE = 'officer_labels';
 
 // ----------------------------------------
 // Types (JSDoc)
@@ -1527,6 +1529,167 @@ async function listGroups() {
 }
 
 // ======================================================================
+// Suspicious Places
+// ======================================================================
+
+/**
+ * Get all suspicious place IDs.
+ * @returns {Promise<Array<{placeId:number, reason:string, addedAt:string, addedBy:string|null}>>}
+ */
+async function getSuspiciousPlaces() {
+  const res = await pool.query(
+    `SELECT placeid, reason, added_at, added_by FROM ${SUSPICIOUS_PLACES_TABLE} ORDER BY added_at DESC`
+  );
+  return res.rows.map(row => ({
+    placeId: Number(row.placeid),
+    reason: String(row.reason),
+    addedAt: row.added_at ? new Date(row.added_at).toISOString() : new Date().toISOString(),
+    addedBy: row.added_by ? String(row.added_by) : null
+  }));
+}
+
+/**
+ * Add a place to the suspicious places list.
+ * @param {number|string} placeId
+ * @param {string} reason
+ * @param {string} [addedBy]
+ * @returns {Promise<void>}
+ */
+async function addSuspiciousPlace(placeId, reason, addedBy) {
+  await pool.query(
+    `INSERT INTO ${SUSPICIOUS_PLACES_TABLE} (placeid, reason, added_by)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (placeid) DO UPDATE SET reason = EXCLUDED.reason, added_by = EXCLUDED.added_by`,
+    [Number(placeId), String(reason), addedBy ? String(addedBy) : null]
+  );
+}
+
+/**
+ * Remove a place from the suspicious places list.
+ * @param {number|string} placeId
+ * @returns {Promise<void>}
+ */
+async function removeSuspiciousPlace(placeId) {
+  await pool.query(
+    `DELETE FROM ${SUSPICIOUS_PLACES_TABLE} WHERE placeid = $1`,
+    [Number(placeId)]
+  );
+}
+
+/**
+ * Check if a place is marked as suspicious.
+ * @param {number|string} placeId
+ * @returns {Promise<{isSuspicious:boolean, reason:string|null}>}
+ */
+async function isSuspiciousPlace(placeId) {
+  const res = await pool.query(
+    `SELECT reason FROM ${SUSPICIOUS_PLACES_TABLE} WHERE placeid = $1`,
+    [Number(placeId)]
+  );
+  if (!res.rows[0]) {
+    return { isSuspicious: false, reason: null };
+  }
+  return {
+    isSuspicious: true,
+    reason: String(res.rows[0].reason)
+  };
+}
+
+/**
+ * Get all user badges data for analysis.
+ * Returns all badges from all users.
+ * @returns {Promise<Array<{robloxId:number, badges:Badge[]}>>}
+ */
+async function getAllUserBadgesData() {
+  const res = await pool.query(
+    `SELECT robloxid, data FROM ${BADGES_TABLE}`
+  );
+  return res.rows.map(r => ({
+    robloxId: Number(r.robloxid),
+    badges: normalizeBadges(r.data)
+  }));
+}
+
+// ======================================================================
+// Officer Labels (AI Training Data)
+// ======================================================================
+
+/**
+ * Add a new officer label.
+ * @param {number|string} targetRobloxId
+ * @param {string} officerDiscordId
+ * @param {string} label
+ * @returns {Promise<string>} The new label ID
+ */
+async function addOfficerLabel(targetRobloxId, officerDiscordId, label) {
+  const res = await pool.query(
+    `INSERT INTO ${OFFICER_LABELS_TABLE} (target_roblox_id, officer_discord_id, label)
+     VALUES ($1, $2, $3)
+     RETURNING id`,
+    [toNumOrNull(targetRobloxId), String(officerDiscordId), label]
+  );
+  return res.rows[0].id;
+}
+
+/**
+ * Get labels for a specific user (or all if not specified).
+ * @param {number|string} [targetRobloxId]
+ * @returns {Promise<Array>}
+ */
+async function getOfficerLabels(targetRobloxId) {
+  let query = `SELECT * FROM ${OFFICER_LABELS_TABLE}`;
+  let params = [];
+
+  if (targetRobloxId) {
+    query += ` WHERE target_roblox_id = $1`;
+    params.push(Number(targetRobloxId));
+  }
+
+  query += ` ORDER BY created_at DESC`;
+
+  const res = await pool.query(query, params);
+  return res.rows.map(r => ({
+    id: r.id,
+    targetRobloxId: Number(r.target_roblox_id),
+    officerDiscordId: String(r.officer_discord_id),
+    label: r.label,
+    featuresSnapshot: r.features_snapshot,
+    createdAt: r.created_at
+  }));
+}
+/**
+ * Get all user badges data for analysis.
+  const res = await pool.query(
+    `SELECT robloxid, data FROM ${BADGES_TABLE}`
+  );
+  return res.rows.map(row => ({
+    robloxId: Number(row.robloxid),
+    badges: normalizeBadges(row.data)
+  }));
+}
+
+/**
+ * Get a random user ID from the database, excluding those already labeled by a specific officer.
+ * @param {string} [officerDiscordId] - If provided, excludes users this officer has already labeled.
+ * @returns {Promise<number|null>}
+ */
+async function getRandomUser(officerDiscordId) {
+  // Use ASSETS_TABLE instead of ROBLOX_IDS_TABLE as per user request to target inventory database
+  let query = `SELECT robloxid FROM ${ASSETS_TABLE}`;
+  const params = [];
+
+  if (officerDiscordId) {
+    query += ` WHERE robloxid::numeric NOT IN (SELECT target_roblox_id FROM ${OFFICER_LABELS_TABLE} WHERE officer_discord_id = $1)`;
+    params.push(String(officerDiscordId));
+  }
+
+  query += ` ORDER BY RANDOM() LIMIT 1`;
+
+  const res = await pool.query(query, params);
+  return res.rows[0] ? Number(res.rows[0].robloxid) : null;
+}
+
+// ======================================================================
 // Admin / Maintenance
 // ======================================================================
 
@@ -1660,7 +1823,9 @@ module.exports = {
   getAllTimeEventsBatch,
 
   getDiscordIdsBatch,
+  getDiscordIdsBatch,
   getAllUsers,
+  getRandomUser,
 
   // badges
   getUserBadges,
@@ -1690,4 +1855,15 @@ module.exports = {
   updateGroup,
   deleteGroup,
   listGroups,
+
+  // suspicious places
+  getSuspiciousPlaces,
+  addSuspiciousPlace,
+  removeSuspiciousPlace,
+  isSuspiciousPlace,
+  getAllUserBadgesData,
+
+  // officer labels
+  addOfficerLabel,
+  getOfficerLabels,
 };
