@@ -29,7 +29,7 @@ async function setRoleQuota(roleId, quotaEP, eventCaps, overwrites, exclusive, p
        overwrites = EXCLUDED.overwrites,
        exclusive  = EXCLUDED.exclusive,
        purges     = EXCLUDED.purges`,
-        [roleId, Number(quotaEP), eventCapsJson, String(overwrites), String(exclusive), Boolean(purges)]
+        [roleId, Number(quotaEP), eventCapsJson, overwrites ? String(overwrites) : null, exclusive ? String(exclusive) : null, Boolean(purges)]
     );
 }
 
@@ -48,8 +48,8 @@ async function getRoleQuota(roleId) {
         roleId: String(res.rows[0].roleid),
         quotaEP: Number(res.rows[0].quotaep),
         eventCaps: normalizeEventCaps(res.rows[0].eventcaps),
-        overwrites: String(res.rows[0].overwrites ?? ''),
-        exclusive: String(res.rows[0].exclusive ?? ''),
+        overwrites: (res.rows[0].overwrites && res.rows[0].overwrites !== 'null') ? String(res.rows[0].overwrites) : null,
+        exclusive: (res.rows[0].exclusive && res.rows[0].exclusive !== 'null') ? String(res.rows[0].exclusive) : null,
         purges: Boolean(res.rows[0].purges)
     };
 }
@@ -66,8 +66,8 @@ async function listRoleQuotas() {
         roleId: String(row.roleid),
         quotaEP: Number(row.quotaep),
         eventCaps: normalizeEventCaps(row.eventcaps),
-        overwrites: String(row.overwrites ?? ''),
-        exclusive: String(row.exclusive ?? ''),
+        overwrites: (row.overwrites && row.overwrites !== 'null') ? String(row.overwrites) : null,
+        exclusive: (row.exclusive && row.exclusive !== 'null') ? String(row.exclusive) : null,
         purges: Boolean(row.purges)
     }));
 }

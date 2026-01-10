@@ -16,7 +16,7 @@ async function getGroup(groupId) {
     );
     if (!res.rows[0]) return null;
     return {
-        groupid: String(res.rows[0].groupid),
+        groupid: res.rows[0].groupid ? String(res.rows[0].groupid) : null,
         roles: normalizeGroupRoles(res.rows[0].roles),
         expires: ensureTimestamp(res.rows[0].expires)
     };
@@ -89,7 +89,7 @@ async function deleteGroup(groupId) {
 async function listGroups() {
     const res = await pool.query(`SELECT groupid, roles, expires FROM ${GROUPS_TABLE}`);
     return res.rows.map(row => ({
-        groupid: String(row.groupid),
+        groupid: row.groupid ? String(row.groupid) : null,
         roles: normalizeGroupRoles(row.roles),
         expires: ensureTimestamp(row.expires)
     }));

@@ -77,8 +77,8 @@ async function getAllUsers() {
         `SELECT robloxid, discordid FROM ${ROBLOX_IDS_TABLE}`
     );
     return res.rows.map(r => ({
-        robloxId: String(r.robloxid),
-        discordId: String(r.discordid)
+        robloxId: r.robloxid ? String(r.robloxid) : null,
+        discordId: r.discordid ? String(r.discordid) : null
     }));
 }
 
@@ -96,7 +96,7 @@ async function getDiscordIdsBatch(robloxIds) {
     const map = new Map(res.rows.map(r => [String(r.robloxid), String(r.discordid)]));
     return robloxIds.map(rid => ({
         robloxId: rid,
-        discordId: map.get(rid) || null
+        discordId: map.get(String(rid)) || null
     }));
 }
 

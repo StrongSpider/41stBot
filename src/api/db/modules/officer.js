@@ -67,7 +67,7 @@ async function isSuspiciousPlace(placeId) {
     }
     return {
         isSuspicious: true,
-        reason: String(res.rows[0].reason)
+        reason: (res.rows[0].reason && res.rows[0].reason !== 'null') ? String(res.rows[0].reason) : null
     };
 }
 
