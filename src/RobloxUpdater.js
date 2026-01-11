@@ -51,7 +51,7 @@ const RequestLoop = async function () {
             usernamesArr.push(username);
             useridsArr.push(rid);
 
-            logger.info(`Resolved ${username} (${rid}) for Discord ID ${discordId}`);
+            logger.debug(`Resolved ${username} (${rid}) for Discord ID ${discordId}`);
         }
 
         fs.writeFileSync(
@@ -64,7 +64,7 @@ const RequestLoop = async function () {
             JSON.stringify(useridsArr, null, 2)
         );
 
-        logger.info('Cache files updated.');
+        logger.debug('Cache files updated.');
     } catch (err) {
         logger.error('Failed to update cache:', err);
     }

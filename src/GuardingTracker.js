@@ -192,7 +192,7 @@ async function runChecks() {
     }
   }
 
-  logger.info('status snapshot', JSON.stringify(VIP_STATUS))
+  logger.debug('status snapshot', VIP_STATUS)
 }
 
 /**
@@ -212,7 +212,7 @@ async function main() {
         logger.error('runChecks error:', e && e.message ? e.message : String(e))
       }
 
-      logger.info('waiting', MINUTES_BETWEEN_CHECKS, 'minute before next check')
+      logger.debug('waiting', MINUTES_BETWEEN_CHECKS, 'minute before next check')
       await sleep(MINUTES_BETWEEN_CHECKS * 60 * 1000)
     }
   } catch (err) {
