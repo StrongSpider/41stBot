@@ -33,19 +33,27 @@ module.exports = async function getMembers() {
         const data = []
         for (const member of guild.members.cache.values()) {
             if (member.user.bot) continue
+            let robloxId = null
 
             let fallbackName = member.nickname || member.user.username
             fallbackName = fallbackName.replace(/\[IN\]/g, '').replace(/\s+/g, '')
 
             let name = fallbackName
             try {
-                const robloxId = await database.getRobloxIdByDiscord(member.user.id)
+                robloxId = await database.getRobloxIdByDiscord(member.user.id)
+
+                // Normalize to a number when possible
+                if (typeof robloxId === 'string') {
+                    const n = Number(robloxId)
+                    if (Number.isFinite(n)) robloxId = n
+                }
+
                 if (robloxId) {
                     const fetchedName = await roblox.getUsernameFromId(robloxId)
                     if (fetchedName) name = fetchedName
                 }
             } catch (e) {
-                // ignore lookup failures and keep fallbackName
+                // ignore lookup failures and keep fallbackName/robloxId
             }
 
             const roles = Object.entries(roleMap)
@@ -56,6 +64,7 @@ module.exports = async function getMembers() {
             data.push({
                 id: member.user.id,
                 username: name,
+                robloxId,
                 roles
             })
         }
