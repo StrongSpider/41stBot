@@ -23,7 +23,7 @@ router.get('/usernames', MembersController.getUsernames);
 router.get('/member/:id', MembersController.getOne);
 
 // === Events Routes ===
-router.get('/all-time', ensureAuth, EventsController.getAllTime); // /api/all-time (legacy mapped)
+router.get('/all-time', EventsController.getAllTime); // /api/all-time (legacy mapped)
 router.patch('/all-time/:id', ensureAuth, EventsController.patchAllTime);
 router.delete('/all-time/:id', ensureAuth, EventsController.deleteAllTime);
 
