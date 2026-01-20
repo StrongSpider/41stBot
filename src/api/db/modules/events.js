@@ -2,8 +2,6 @@
 
 const { pool } = require('../connection');
 const { ensureTimestamp, toId, toNumOrNull, assertSafeEventType } = require('../utils');
-const { getUsernameFromId } = require('../../roblox');
-
 const {
     WEEKLY_EVENTS_TABLE,
     ALL_TIME_EVENTS_TABLE,
@@ -92,6 +90,7 @@ async function _idToUsernameSafe(id) {
     const n = Number(id);
     if (!isFinite(n) || n === -1) return '';
     try {
+        const { getUsernameFromId } = require('../../roblox');
         const name = await getUsernameFromId(n);
         return name || '';
     } catch {

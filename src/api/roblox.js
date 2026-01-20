@@ -1,88 +1,16 @@
 'use strict'
 
 const noblox = require('noblox.js')
-const path = require('path')
-const fs = require('fs')
-
 const proxy = require('./proxy.js')
 const Logger = require('./logger.js')
 const axios = require('axios')
 
 const config = require('../../config.json')
 
-// In-memory caches
+// DB cache
+const db = require('./db')
 
-/** Maps numeric Roblox user id -> username */
-const usernameCache = new Map()
-/** Maps username -> numeric Roblox user id */
-const userIdCache = new Map()
-
-// Disk cache
-
-/**
- * We maintain two parallel arrays on disk to keep a simple
- * cache that survives restarts. Reads happen once per process. Writes are
- * best effort and only occur when we add new entries.
- */
-const CACHE_DIR = path.join(__dirname, '../cache')
-const USERNAMES_FILE = path.join(CACHE_DIR, 'usernames.json')
-const USER_IDS_FILE = path.join(CACHE_DIR, 'userIds.json')
-
-let diskLoaded = false
-let diskUsernames = []
-let diskUserIds = []
-
-/**
- * Ensure the on-disk cache is loaded into memory exactly once
- * Creates empty files if missing and tolerates partial or invalid JSON
- */
-function ensureDiskCacheLoaded() {
-  if (diskLoaded) return
-
-  try { fs.mkdirSync(CACHE_DIR, { recursive: true }) } catch { }
-
-  try {
-    const a = fs.existsSync(USERNAMES_FILE) ? fs.readFileSync(USERNAMES_FILE, 'utf8') : '[]'
-    const b = fs.existsSync(USER_IDS_FILE) ? fs.readFileSync(USER_IDS_FILE, 'utf8') : '[]'
-    const parsedNames = JSON.parse(a)
-    const parsedIds = JSON.parse(b)
-
-    // Guard against non-array or mismatched lengths
-    const names = Array.isArray(parsedNames) ? parsedNames : []
-    const ids = Array.isArray(parsedIds) ? parsedIds : []
-    const n = Math.min(names.length, ids.length)
-    diskUsernames = names.slice(0, n)
-    diskUserIds = ids.slice(0, n)
-
-    // Seed the in-memory maps for quick hits later
-    for (let i = 0; i < n; i++) {
-      const idNum = Number(diskUserIds[i])
-      const uname = String(diskUsernames[i])
-      if (Number.isFinite(idNum) && uname) {
-        usernameCache.set(idNum, uname)
-        userIdCache.set(uname, idNum)
-      }
-    }
-  } catch {
-    diskUsernames = []
-    diskUserIds = []
-  }
-
-  diskLoaded = true
-}
-
-/**
- * Persist the current disk arrays to JSON files
- * Best effort only. Failures are logged to console and ignored.
- */
-function persistDiskCache() {
-  try { fs.writeFileSync(USERNAMES_FILE, JSON.stringify(diskUsernames, null, 2), 'utf8') } catch (e) {
-    Logger.error('roblox.js persist error (usernames): ' + (e && e.message ? e.message : String(e)))
-  }
-  try { fs.writeFileSync(USER_IDS_FILE, JSON.stringify(diskUserIds, null, 2), 'utf8') } catch (e) {
-    Logger.error('roblox.js persist error (userIds): ' + (e && e.message ? e.message : String(e)))
-  }
-}
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
 
 const INVENTORY_BASE_URL = 'https://inventory.roblox.com/v2'
 const GAMES_BASE_URL = 'https://games.roblox.com/v1'
@@ -104,31 +32,27 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-// Public API
-
 /**
  * Get a Roblox username from a numeric user id
- * Uses in-memory map, then disk cache, then the Roblox API. On a miss, the
- * result is written back to both caches.
+ * Uses DB cache, then the Roblox API. On a miss, the
+ * result is written back to DB.
  * @param {number|string} id Roblox user id
  * @returns {Promise<string>} username
  */
 const getUsernameFromId = async function (id) {
-  ensureDiskCacheLoaded()
-
   const idNum = Number(id)
   if (!Number.isFinite(idNum) || idNum <= 0) throw new Error('Invalid Roblox user id')
 
-  // Fast path: in-memory map
-  if (usernameCache.has(idNum)) return usernameCache.get(idNum)
-
-  // Disk arrays
-  const index = diskUserIds.indexOf(idNum)
-  if (index !== -1) {
-    const uname = String(diskUsernames[index])
-    usernameCache.set(idNum, uname)
-    userIdCache.set(uname, idNum)
-    return uname
+  // Check DB
+  try {
+    const cached = await db.getUserById(idNum)
+    if (cached) {
+      if (Date.now() - new Date(cached.updatedAt).getTime() < CACHE_TTL_MS) {
+        return cached.username
+      }
+    }
+  } catch (err) {
+    Logger.error('roblox.js DB read error (getUsernameFromId): ' + err.message)
   }
 
   // API fallback
@@ -136,12 +60,13 @@ const getUsernameFromId = async function (id) {
     const uname = await noblox.getUsernameFromId(idNum)
     Logger.info('roblox.js fetched username from API: ' + uname + ' (' + idNum + ')')
 
-    usernameCache.set(idNum, uname)
-    userIdCache.set(uname, idNum)
+    // Update DB
+    try {
+      await db.upsertUser(idNum, uname)
+    } catch (err) {
+      Logger.error('roblox.js DB write error (upsertUser): ' + err.message)
+    }
 
-    diskUsernames.push(uname)
-    diskUserIds.push(idNum)
-    persistDiskCache()
     return uname
   } catch {
     throw new Error('User not found')
@@ -150,27 +75,25 @@ const getUsernameFromId = async function (id) {
 
 /**
  * Get a Roblox user id from a username
- * Uses in-memory map, then disk cache, then the Roblox API. On a miss, the
- * result is written back to both caches.
+ * Uses DB cache, then the Roblox API. On a miss, the
+ * result is written back to DB.
  * @param {string} username Roblox username
  * @returns {Promise<number>} numeric user id
  */
 const getIdFromUsername = async function (username) {
-  ensureDiskCacheLoaded()
-
   const uname = String(username || '').trim()
   if (!uname) throw new Error('Invalid Roblox username')
 
-  // Fast path: in-memory map
-  if (userIdCache.has(uname)) return userIdCache.get(uname)
-
-  // Disk arrays
-  const index = diskUsernames.indexOf(uname)
-  if (index !== -1) {
-    const idNum = Number(diskUserIds[index])
-    usernameCache.set(idNum, uname)
-    userIdCache.set(uname, idNum)
-    return idNum
+  // Check DB
+  try {
+    const cached = await db.getUserByUsername(uname)
+    if (cached) {
+      if (Date.now() - new Date(cached.updatedAt).getTime() < CACHE_TTL_MS) {
+        return cached.robloxId
+      }
+    }
+  } catch (err) {
+    Logger.error('roblox.js DB read error (getIdFromUsername): ' + err.message)
   }
 
   // API fallback
@@ -178,12 +101,13 @@ const getIdFromUsername = async function (username) {
     const idNum = await noblox.getIdFromUsername(uname)
     Logger.info('roblox.js fetched id from API: ' + uname + ' (' + idNum + ')')
 
-    usernameCache.set(idNum, uname)
-    userIdCache.set(uname, idNum)
+    // Update DB
+    try {
+      await db.upsertUser(idNum, uname)
+    } catch (err) {
+      Logger.error('roblox.js DB write error (upsertUser): ' + err.message)
+    }
 
-    diskUsernames.push(uname)
-    diskUserIds.push(idNum)
-    persistDiskCache()
     return idNum
   } catch {
     throw new Error('User not found')

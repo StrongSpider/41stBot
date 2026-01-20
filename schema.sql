@@ -146,4 +146,14 @@ CREATE INDEX IF NOT EXISTS officer_labels_target_idx ON officer_labels (target_r
 CREATE INDEX IF NOT EXISTS officer_labels_officer_idx ON officer_labels (officer_discord_id);
 CREATE INDEX IF NOT EXISTS officer_labels_created_at_idx ON officer_labels (created_at);
 
+-- 16) Roblox User Cache (Shared username cache)
+CREATE TABLE IF NOT EXISTS roblox_user_cache (
+  robloxid bigint PRIMARY KEY,
+  username text NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT NOW()
+);
+-- No index needed specifically for updated_at unless we do bulk cleanup often, 
+-- but might be good for 'getOutdatedUsers'
+CREATE INDEX IF NOT EXISTS roblox_user_cache_updated_at_idx ON roblox_user_cache (updated_at);
+
 COMMIT;
