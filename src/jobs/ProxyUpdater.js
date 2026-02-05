@@ -3,8 +3,8 @@
 const axios = require("axios")
 const fs = require("fs")
 const path = require("path")
-const Logger = require("./api/logger")
-const config = require("../config.json")
+const Logger = require("../api/logger")
+const config = require("../../config.json")
 
 const WEBSHARE_API_KEY = config.WEBSHARE_API_KEY
 const WEBSHARE_PROXY_LIST_URL = config.WEBSHARE_PROXY_LIST_URL
@@ -13,7 +13,7 @@ const WEBSHARE_PASSWORD = config.WEBSHARE_PASSWORD
 const WEBSHARE_HOST = config.WEBSHARE_HOST
 const WEBSHARE_PORT = config.WEBSHARE_PORT
 
-const CACHE_DIR = path.join(__dirname, "./cache")
+const CACHE_DIR = path.join(__dirname, "..", "cache")
 const PROXY_CACHE_FILE = path.join(CACHE_DIR, "webshare_proxies.json")
 
 const logger = new Logger('ProxyUpdater', 'UPDATER')

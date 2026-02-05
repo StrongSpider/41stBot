@@ -1,10 +1,10 @@
 'use strict'
 
 const { WebhookClient, EmbedBuilder } = require('discord.js')
-const Logger = require('./api/logger.js')
+const Logger = require('../api/logger.js')
 const noblox = require('noblox.js')
 
-const { ROBLOX_GROUP_ID, ROBLOX_GROUP_GUARDING_RANKS, ROBLOX_COOKIE, ROBLOX_PLACE_ID, GUARDING_TRACKER_WEBHOOK_URL, DISCORD_VIP_PING_ROLE_ID } = require('../config.json')
+const { ROBLOX_GROUP_ID, ROBLOX_GROUP_GUARDING_RANKS, ROBLOX_COOKIE, ROBLOX_PLACE_ID, GUARDING_TRACKER_WEBHOOK_URL, DISCORD_VIP_PING_ROLE_ID } = require('../../config.json')
 
 /**
  * GuardingTracker

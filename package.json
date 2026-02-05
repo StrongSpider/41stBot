@@ -7,12 +7,14 @@
     "deploy": "node src/bot/deploy.js",
     "bot": "node src/bot/index.js",
     "server": "node src/server/index.js",
-    "tracker": "node src/GuardingTracker.js",
-    "updater": "node src/RobloxUpdater.js",
+    "tracker": "node src/jobs/GuardingTracker.js",
+    "updater": "node src/jobs/RobloxUpdater.js",
     "dev": "NODE_ENV=development node src/server/index.js",
     "build": "cd src/server/website && npm run build",
     "start": "NODE_ENV=production node src/server/index.js",
-    "test": "jest"
+    "test": "jest",
+    "proxy-updater": "node src/jobs/ProxyUpdater.js",
+    "blacklist-updater": "node src/jobs/BlacklistUpdater.js"
   },
   "author": "spiider.dev",
   "license": "ISC",

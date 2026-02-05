@@ -1,8 +1,8 @@
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
-const { getRobloxIdByDiscord } = require('./api/database.js');
+const { getRobloxIdByDiscord } = require('../api/database.js');
 const { getUsernameFromId } = require('noblox.js');
-const Logger = require('./api/logger.js');
-const { BOT_TOKEN } = require('../config.json');
+const Logger = require('../api/logger.js');
+const { BOT_TOKEN } = require('../../config.json');
 const path = require("path");
 const fs = require("fs");
 
@@ -55,12 +55,12 @@ const RequestLoop = async function () {
         }
 
         fs.writeFileSync(
-            path.join(__dirname, '.', 'cache', 'usernames.json'),
+            path.join(__dirname, '..', 'cache', 'usernames.json'),
             JSON.stringify(usernamesArr, null, 2)
         );
 
         fs.writeFileSync(
-            path.join(__dirname, '.', 'cache', 'userIds.json'),
+            path.join(__dirname, '..', 'cache', 'userIds.json'),
             JSON.stringify(useridsArr, null, 2)
         );
 

@@ -1,8 +1,6 @@
-
-
-const { updateCache } = require('./api/blacklists')
-const Logger = require('./api/logger')
-const config = require('../config.json')
+const { updateCache } = require('../api/blacklists')
+const Logger = require('../api/logger')
+const config = require('../../config.json')
 
 // Board ID for the Trello blacklist board. Prefer config, fall back to env.
 const BLACKLIST_BOARD_ID = config.BLACKLIST_BOARD_ID
