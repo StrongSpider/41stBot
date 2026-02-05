@@ -4,6 +4,7 @@ const noblox = require('noblox.js')
 const proxy = require('./proxy.js')
 const Logger = require('./logger.js')
 const axios = require('axios')
+const cookieManager = require('./cookieManager.js')
 
 const config = require('../../config.json')
 
@@ -15,13 +16,16 @@ const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
 const INVENTORY_BASE_URL = 'https://inventory.roblox.com/v2'
 const GAMES_BASE_URL = 'https://games.roblox.com/v1'
 
-const ROBLOX_COOKIE_HEADER = `.ROBLOSECURITY=${config.ROBLOX_COOKIE}`;
+// Use cookie manager for dynamic cookie updates
 const robloxHttp = axios.create({
   baseURL: GAMES_BASE_URL,
   headers: {
-    Cookie: ROBLOX_COOKIE_HEADER
+    Cookie: cookieManager.getCookieHeader()
   }
 });
+
+// Attach response interceptor to handle Set-Cookie headers
+cookieManager.attachResponseInterceptor(robloxHttp);
 
 /**
  * Simple sleep helper.

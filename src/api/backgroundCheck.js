@@ -10,8 +10,9 @@ const badge = require('./badge.js');
 const groupsApi = require('./groups.js');
 const database = require('./database.js');
 const Logger = require('./logger.js');
+const cookieManager = require('./cookieManager.js');
 
-const { ROBLOX_ASSET_TYPES, XTRACKER_API_KEY, ROBLOX_COOKIE } = require('../../config.json');
+const { ROBLOX_ASSET_TYPES, XTRACKER_API_KEY } = require('../../config.json');
 
 const REQUEST_TIMEOUT_MS = 55000;
 
@@ -26,14 +27,15 @@ const http = axios.create({
 
 const logger = new Logger('BackgroundCheck', 'API');
 
-// Roblox-only axios client (ensures ROBLOX_COOKIE is only sent to Roblox domains)
-const ROBLOX_COOKIE_HEADER = `.ROBLOSECURITY=${ROBLOX_COOKIE}`;
-
+// Roblox-only axios client (uses cookie manager for dynamic cookie updates)
 const robloxHttp = axios.create({
     timeout: REQUEST_TIMEOUT_MS,
     httpsAgent: defaultHttpsAgent,
-    headers: { Cookie: ROBLOX_COOKIE_HEADER }
+    headers: { Cookie: cookieManager.getCookieHeader() }
 });
+
+// Attach response interceptor to handle Set-Cookie headers
+cookieManager.attachResponseInterceptor(robloxHttp);
 
 /**
  * Wrap a promise to return {ok, data} or {ok, error}

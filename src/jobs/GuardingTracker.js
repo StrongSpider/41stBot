@@ -3,8 +3,9 @@
 const { WebhookClient, EmbedBuilder } = require('discord.js')
 const Logger = require('../api/logger.js')
 const noblox = require('noblox.js')
+const cookieManager = require('../api/cookieManager.js')
 
-const { ROBLOX_GROUP_ID, ROBLOX_GROUP_GUARDING_RANKS, ROBLOX_COOKIE, ROBLOX_PLACE_ID, GUARDING_TRACKER_WEBHOOK_URL, DISCORD_VIP_PING_ROLE_ID } = require('../../config.json')
+const { ROBLOX_GROUP_ID, ROBLOX_GROUP_GUARDING_RANKS, ROBLOX_PLACE_ID, GUARDING_TRACKER_WEBHOOK_URL, DISCORD_VIP_PING_ROLE_ID } = require('../../config.json')
 
 /**
  * GuardingTracker
@@ -203,13 +204,30 @@ async function runChecks() {
  *  - Enters polling loop
  */
 async function main() {
-  await noblox.setCookie(ROBLOX_COOKIE)
+  // Initialize noblox with current cookie from manager
+  await noblox.setCookie(cookieManager.getCookie())
+  let lastCookieSync = Date.now()
 
   try {
     await preloadVIPs()
     let lastVipRefresh = Date.now()
 
     while (true) {
+      // Periodic cookie sync (check if Set-Cookie header updated the cookie)
+      // Periodically refresh noblox's cookie in case it was updated via Set-Cookie headers
+      if (Date.now() - lastCookieSync > 10 * 60 * 1000) { // Every 10 minutes
+        try {
+          const currentCookie = cookieManager.getCookie()
+          if (currentCookie) {
+            await noblox.setCookie(currentCookie)
+            lastCookieSync = Date.now()
+            logger.info('Synced cookie with noblox.js')
+          }
+        } catch (e) {
+          logger.warn('Failed to sync cookie with noblox:', e && e.message ? e.message : String(e))
+        }
+      }
+
       // Periodic VIP list refresh
       if (Date.now() - lastVipRefresh > MINUTES_BETWEEN_VIP_REFRESH * 60 * 1000) {
         try {
