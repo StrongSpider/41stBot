@@ -8,6 +8,7 @@ import Statistics from '@/pages/Statistics';
 import AdminDashboard from '@/pages/Admin/Dashboard';
 import OfficerDashboard from '@/pages/Officer/Dashboard';
 import OfficerLabeling from '@/pages/Officer/OfficerLabeling';
+import DinoGame from '@/components/DinoGame';
 
 import { DiscordActivityProvider } from '@/context/DiscordActivityContext';
 
@@ -18,11 +19,10 @@ function App() {
         <AuthProvider>
           <Routes>
             {/* Public Routes */}
+            <Route path="/activity" element={<DinoGame />} />
             <Route element={<PublicLayout />}>
               <Route path="/" element={<Home />} />
               <Route path="/statistics" element={<Statistics />} />
-              {/* Force Statistics for Activity for now, handled via conditional redirect or just direct map */}
-              <Route path="/activity" element={<Statistics />} />
             </Route>
 
             {/* Admin Routes */}

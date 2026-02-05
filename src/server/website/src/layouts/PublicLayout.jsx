@@ -7,7 +7,7 @@ export default function PublicLayout() {
     const location = useLocation();
 
     if (isEmbedded && location.pathname === '/') {
-        return <Navigate to="/statistics" replace />;
+        return <Navigate to="/activity" replace />;
     }
 
     return (

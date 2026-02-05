@@ -3,6 +3,8 @@ import useAuth from '@/hooks/useAuth';
 import useEvents from '@/hooks/useEvents';
 import EventList from '@/components/EventList';
 import { Loader2 } from 'lucide-react';
+import { useDiscordActivity } from '@/context/DiscordActivityContext';
+import DinoGame from '@/components/DinoGame';
 
 export default function Home() {
     const { user, login, loading: authLoading } = useAuth();
@@ -15,6 +17,12 @@ export default function Home() {
                 <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
             </div>
         );
+    }
+
+    // Discord Activity Bypass
+    const { isEmbedded } = useDiscordActivity();
+    if (isEmbedded) {
+        return <DinoGame />;
     }
 
     if (!user) {

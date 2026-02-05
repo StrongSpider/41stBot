@@ -16,10 +16,18 @@ export const DiscordActivityProvider = ({ children }) => {
     const didInit = React.useRef(false);
 
     useEffect(() => {
-        // Check if running in iframe (simple check for now)
-        // Or checking specific query params usually present in Activites
+        // Robust check for embedded environment
+        // 1. Iframe check
         const inIframe = window.self !== window.top;
-        if (!inIframe) {
+        // 2. Query Param check (Discord injects params)
+        const params = new URLSearchParams(window.location.search);
+        const hasDiscordParams = params.has('frame_id') || params.has('instance_id') || params.has('platform');
+        // 3. Path check
+        const isActivityPath = window.location.pathname.startsWith('/activity');
+
+        const isEnvEmbedded = inIframe || hasDiscordParams || isActivityPath;
+
+        if (!isEnvEmbedded) {
             setIsLoaded(true);
             return;
         }
@@ -93,7 +101,14 @@ export const DiscordActivityProvider = ({ children }) => {
             }
         };
 
-        initSdk();
+        // Only init SDK if strictly needed (iframe or params)
+        // If just /activity path but no iframe/params (e.g. browser test), we skip SDK to avoid freeze/error
+        if (inIframe || hasDiscordParams) {
+            initSdk();
+        } else {
+            // Browser accessing /activity directly
+            setIsLoaded(true);
+        }
     }, []);
 
     return (

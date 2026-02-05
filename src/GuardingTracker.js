@@ -25,6 +25,7 @@ const { ROBLOX_GROUP_ID, ROBLOX_GROUP_GUARDING_RANKS, ROBLOX_COOKIE, ROBLOX_PLAC
 // Minutes between presence checks
 const MINUTES_BETWEEN_CHECKS = 1
 const MINUTES_BETWEEN_PING = 60
+const MINUTES_BETWEEN_VIP_REFRESH = 30
 
 const logger = new Logger('GuardingTracker', 'BOT')
 
@@ -206,8 +207,20 @@ async function main() {
 
   try {
     await preloadVIPs()
+    let lastVipRefresh = Date.now()
 
     while (true) {
+      // Periodic VIP list refresh
+      if (Date.now() - lastVipRefresh > MINUTES_BETWEEN_VIP_REFRESH * 60 * 1000) {
+        try {
+          logger.info('Refreshing VIP list...')
+          await preloadVIPs()
+          lastVipRefresh = Date.now()
+        } catch (e) {
+          logger.error('Failed to refresh VIP list:', e && e.message ? e.message : String(e))
+        }
+      }
+
       try { await runChecks() } catch (e) {
         logger.error('runChecks error:', e && e.message ? e.message : String(e))
       }
