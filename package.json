@@ -13,8 +13,7 @@
     "build": "cd src/server/website && npm run build",
     "start": "NODE_ENV=production node src/server/index.js",
     "test": "jest",
-    "proxy-updater": "node src/jobs/ProxyUpdater.js",
-    "blacklist-updater": "node src/jobs/BlacklistUpdater.js"
+    "proxy-updater": "node src/jobs/ProxyUpdater.js"
   },
   "author": "spiider.dev",
   "license": "ISC",
