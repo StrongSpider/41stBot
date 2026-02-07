@@ -25,13 +25,10 @@
     "discord.js": "^14.25.1",
     "express": "^5.1.0",
     "express-session": "^1.18.1",
-    "firebase": "^11.6.0",
-    "firebase-admin": "^13.3.0",
     "https-proxy-agent": "^7.0.6",
     "noblox.js": "^6.2.0",
     "pg": "^8.16.0",
-    "querystring": "^0.2.1",
-    "vega": "^6.2.0"
+    "querystring": "^0.2.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.6",
