@@ -1,6 +1,8 @@
 'use strict'
 
-const { COMPANY_DISCORD_ROLES, EMBED_COLOR } = require('../../../config.json')
+const config = require('../../../config.json')
+const { COMPANY: COMPANY_DISCORD_ROLES } = config.DISCORD.ROLES
+const { EMBED_COLOR } = config.GENERAL
 const { SlashCommandBuilder, EmbedBuilder, PermissionsBitField, MessageFlags } = require('discord.js')
 const { sendClearWeek } = require('../../api/webhook.js')
 const database = require('../../api/database.js')

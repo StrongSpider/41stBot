@@ -1,12 +1,13 @@
 'use strict'
 
 const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, UserSelectMenuBuilder, MessageFlags } = require('discord.js')
-const { DISCORD_OFFICER_ROLE_ID, DISCORD_MINOR_OFFICER_ROLE_ID, DISCORD_CHANNEL_IDS, DISCORD_HICOM_ROLE_ID } = require('../../../config.json')
+const config = require('../../../config.json')
+const { OFFICER: DISCORD_OFFICER_ROLE_ID, MINOR_OFFICER: DISCORD_MINOR_OFFICER_ROLE_ID, HICOM: DISCORD_HICOM_ROLE_ID } = config.DISCORD.ROLES
+const { CHANNELS: DISCORD_CHANNEL_IDS } = config.DISCORD
 const { getIdFromUsername, getUsernameFromId } = require('../../api/roblox.js')
 const { sendEventCreateWebhook } = require('../../api/webhook.js')
 const database = require('../../api/database.js')
 const Logger = require('../../api/logger.js')
-
 
 // Note: Good luck! This command was a hacked together mess. I got AI to do a refactorization of it so hopefully its cleaner but, its AI code so who knows. - spiider
 
@@ -430,6 +431,7 @@ module.exports = {
                 const supervisorId = currentResolvedSupervisor ? currentResolvedSupervisor.robloxId : -1
 
                 let officerMsg = null
+                console.log(targetChannel)
                 if (hasOfficer && targetChannel) {
                     officerMsg = await targetChannel.send({ content: `${currentSummaryText}` })
                     debugTiming('officer: officer channel message sent', timingStart)

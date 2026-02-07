@@ -3,7 +3,9 @@ const roblox = require('../../api/roblox.js');
 const Logger = require('../../api/logger.js');
 const getMembers = require('../services/getMembers.js');
 
-const { COMPANY_DISCORD_ROLES, BOT_TOKEN, BOT_GUILD_ID, RANK_DISCORD_ROLES } = require('../../../config.json');
+const config = require('../../../config.json');
+const { TOKEN: BOT_TOKEN, GUILD_ID: BOT_GUILD_ID } = config.DISCORD.BOT;
+const { COMPANY: COMPANY_DISCORD_ROLES, RANK: RANK_DISCORD_ROLES } = config.DISCORD.ROLES;
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
 
 const MembersController = {

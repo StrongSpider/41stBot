@@ -5,7 +5,10 @@ const Logger = require('../api/logger.js')
 const noblox = require('noblox.js')
 const cookieManager = require('../api/cookieManager.js')
 
-const { ROBLOX_GROUP_ID, ROBLOX_GROUP_GUARDING_RANKS, ROBLOX_PLACE_ID, GUARDING_TRACKER_WEBHOOK_URL, DISCORD_VIP_PING_ROLE_ID } = require('../../config.json')
+const config = require('../../config.json')
+const { GROUP_ID: ROBLOX_GROUP_ID, GROUP_GUARDING_RANKS: ROBLOX_GROUP_GUARDING_RANKS, PLACE_ID: ROBLOX_PLACE_ID } = config.ROBLOX
+const { GUARDING_TRACKER: GUARDING_TRACKER_WEBHOOK_URL } = config.DISCORD.WEBHOOKS
+const { VIP_PING: DISCORD_VIP_PING_ROLE_ID } = config.DISCORD.ROLES
 
 /**
  * GuardingTracker

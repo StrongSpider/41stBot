@@ -1,7 +1,8 @@
 'use strict'
 
 const { WebhookClient, EmbedBuilder } = require('discord.js')
-const { ADMIN_LOGS_WEBHOOK_URL } = require('../../config.json')
+const config = require('../../config.json')
+const { ADMIN_LOGS: ADMIN_LOGS_WEBHOOK_URL } = config.DISCORD.WEBHOOKS
 
 // Colors for console
 const COLORS = {

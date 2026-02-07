@@ -92,11 +92,11 @@ const getAssetsInformation = async function (robloxId, options) {
 
   const existingIds = new Set(existingMap.keys())
 
-  const devTypes = Array.isArray(config.ROBLOX_ASSET_TYPES && config.ROBLOX_ASSET_TYPES.DEVELOPMENT)
-    ? config.ROBLOX_ASSET_TYPES.DEVELOPMENT
+  const devTypes = Array.isArray(config.ROBLOX.ASSET_TYPES && config.ROBLOX.ASSET_TYPES.DEVELOPMENT)
+    ? config.ROBLOX.ASSET_TYPES.DEVELOPMENT
     : []
-  const avatarTypes = Array.isArray(config.ROBLOX_ASSET_TYPES && config.ROBLOX_ASSET_TYPES.AVATAR)
-    ? config.ROBLOX_ASSET_TYPES.AVATAR
+  const avatarTypes = Array.isArray(config.ROBLOX.ASSET_TYPES && config.ROBLOX.ASSET_TYPES.AVATAR)
+    ? config.ROBLOX.ASSET_TYPES.AVATAR
     : []
   const allTypes = [...devTypes, ...avatarTypes].filter(t => typeof t === 'string' && t)
   debugAssets('devTypes:', devTypes, 'avatarTypes:', avatarTypes, 'allTypes:', allTypes)

@@ -1,7 +1,8 @@
 'use strict';
 
 const { Pool } = require('pg');
-const { POSTGRES_DATABASE, POSTGRES_HOST, POSTGRES_PASSWORD, POSTGRES_PORT, POSTGRES_USER } = require('../../../config.json');
+const config = require('../../../config.json');
+const { DATABASE: POSTGRES_DATABASE, HOST: POSTGRES_HOST, PASSWORD: POSTGRES_PASSWORD, PORT: POSTGRES_PORT, USER: POSTGRES_USER } = config.POSTGRES;
 
 /** @type {Pool} */
 const pool = new Pool({

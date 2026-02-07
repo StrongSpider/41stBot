@@ -4,7 +4,8 @@ const { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ActionRowBuilder, Butt
 const { StartAuthentication, ConfirmAuthentication } = require('../../api/authenticator.js')
 const { getIdFromUsername, getPlayerInfo, getUsernameFromId } = require('noblox.js')
 const { getRobloxIdByDiscord } = require('../../api/database.js')
-const { EMBED_COLOR } = require('../../../config.json')
+const config = require('../../../config.json')
+const { EMBED_COLOR } = config.GENERAL
 
 module.exports = {
   permission: 'ALL',

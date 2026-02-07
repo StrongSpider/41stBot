@@ -85,7 +85,7 @@ async function fetchSortedQuotas() {
 async function generatePage(pageIdx) {
     const quotas = await fetchSortedQuotas();
     const selectionContainer = new ContainerBuilder()
-        .setAccentColor(customization.ACCENT_COLOR)
+        .setAccentColor(customization.GENERAL.ACCENT_COLOR)
         .addTextDisplayComponents(textDisplay => textDisplay.setContent('### Role Quotas'))
         .addSeparatorComponents(separator => separator);
 
@@ -136,7 +136,7 @@ async function generatePage(pageIdx) {
  */
 async function generateEdit(config) {
     const selectionContainer = new ContainerBuilder()
-        .setAccentColor(customization.ACCENT_COLOR)
+        .setAccentColor(customization.GENERAL.ACCENT_COLOR)
         .addTextDisplayComponents(textDisplay => textDisplay.setContent(`### Configure Role Quota\n\n**Role:** <@&${config.roleId}>`))
         .addSeparatorComponents(separator => separator)
         .addSectionComponents(section =>

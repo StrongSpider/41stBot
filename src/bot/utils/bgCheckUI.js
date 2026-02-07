@@ -489,7 +489,7 @@ function buildInventoryContainer(result, accentColor) {
         counts[type] = (counts[type] || 0) + 1;
     }
 
-    const devTypes = customization.ROBLOX_ASSET_TYPES.DEVELOPMENT;
+    const devTypes = customization.ROBLOX.ASSET_TYPES.DEVELOPMENT;
     const devLines = [];
     let devTotal = 0;
     for (const type of devTypes) {

@@ -2,7 +2,8 @@ const { Client, GatewayIntentBits, Partials } = require('discord.js');
 const { getRobloxIdByDiscord } = require('../api/database.js');
 const { getUsernameFromId } = require('noblox.js');
 const Logger = require('../api/logger.js');
-const { BOT_TOKEN } = require('../../config.json');
+const config = require('../../config.json');
+const { TOKEN: BOT_TOKEN } = config.DISCORD.BOT;
 const path = require("path");
 const fs = require("fs");
 
@@ -24,7 +25,7 @@ const client = new Client({
 const RequestLoop = async function () {
     const logger = new Logger('RobloxUpdater', 'UPDATER');
     try {
-        const guild = client.guilds.cache.get('691709718304915487');
+        const guild = client.guilds.cache.get(config.DISCORD.BOT.GUILD_ID);
         if (!guild) {
             logger.error('Guild not found in cache.');
             return;
@@ -70,7 +71,7 @@ const RequestLoop = async function () {
     }
 }
 
-client.on('ready', () => {
+client.on('clientReady', () => {
     RequestLoop();
     setInterval(RequestLoop, 10 * 60 * 1000);
 });

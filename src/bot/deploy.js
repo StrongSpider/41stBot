@@ -1,5 +1,6 @@
 const { REST, Routes } = require('discord.js');
-const { BOT_CLIENT_ID, BOT_GUILD_ID, BOT_TOKEN } = require('../../config.json');
+const config = require('../../config.json');
+const { CLIENT_ID: BOT_CLIENT_ID, GUILD_ID: BOT_GUILD_ID, TOKEN: BOT_TOKEN } = config.DISCORD.BOT;
 const fs = require('node:fs');
 const path = require('node:path');
 const Logger = require('../api/logger.js');

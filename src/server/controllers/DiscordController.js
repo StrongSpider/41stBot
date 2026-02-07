@@ -1,4 +1,5 @@
-const { BOT_TOKEN, BOT_GUILD_ID } = require('../../../config.json');
+const config = require('../../../config.json');
+const { TOKEN: BOT_TOKEN, GUILD_ID: BOT_GUILD_ID } = config.DISCORD.BOT;
 const { Client, GatewayIntentBits } = require('discord.js');
 const Logger = require('../../api/logger.js');
 

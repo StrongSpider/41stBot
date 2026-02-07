@@ -3,7 +3,10 @@
 const { ButtonBuilder, ActionRowBuilder, ButtonStyle } = require('discord.js')
 const { sendEventCreateWebhook } = require('../../../api/webhook.js')
 const database = require('../../../api/database.js')
-const { DISCORD_CHANNEL_IDS, DISCORD_ERT_OFFICER_ROLE_IDS, DISCORD_HICOM_ROLE_ID, DEVELOPER_DISCORD_USER_ID } = require('../../../../config.json')
+const config = require('../../../../config.json')
+const { CHANNELS: DISCORD_CHANNEL_IDS } = config.DISCORD
+const { ERT_OFFICER: DISCORD_ERT_OFFICER_ROLE_IDS, HICOM: DISCORD_HICOM_ROLE_ID } = config.DISCORD.ROLES
+const { DEVELOPER_USER_ID: DEVELOPER_DISCORD_USER_ID } = config.DISCORD.BOT
 
 /**
  * Build the approval buttons used by approvers

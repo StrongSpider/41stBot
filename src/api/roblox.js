@@ -6,8 +6,6 @@ const Logger = require('./logger.js')
 const axios = require('axios')
 const cookieManager = require('./cookieManager.js')
 
-const config = require('../../config.json')
-
 // DB cache
 const db = require('./db')
 

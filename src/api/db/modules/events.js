@@ -126,18 +126,18 @@ async function indexEventForUser(robloxId, eventId) {
     const rid = toId(robloxId);
     await pool.query(
         `INSERT INTO ${WEEKLY_EVENTS_INDEX_TABLE} (robloxid, events)
-     VALUES ($1, ARRAY[$2])
+     VALUES ($1, ARRAY[$2::uuid])
      ON CONFLICT (robloxid) DO UPDATE
-       SET events = array_append(${WEEKLY_EVENTS_INDEX_TABLE}.events, $2)
-     WHERE NOT (${WEEKLY_EVENTS_INDEX_TABLE}.events @> ARRAY[$2])`,
+       SET events = array_append(${WEEKLY_EVENTS_INDEX_TABLE}.events, $2::uuid)
+     WHERE NOT (${WEEKLY_EVENTS_INDEX_TABLE}.events @> ARRAY[$2::uuid])`,
         [rid, String(eventId)]
     );
     await pool.query(
         `INSERT INTO ${ALL_TIME_EVENTS_INDEX_TABLE} (robloxid, events)
-     VALUES ($1, ARRAY[$2])
+     VALUES ($1, ARRAY[$2::uuid])
      ON CONFLICT (robloxid) DO UPDATE
-       SET events = array_append(${ALL_TIME_EVENTS_INDEX_TABLE}.events, $2)
-     WHERE NOT (${ALL_TIME_EVENTS_INDEX_TABLE}.events @> ARRAY[$2])`,
+       SET events = array_append(${ALL_TIME_EVENTS_INDEX_TABLE}.events, $2::uuid)
+     WHERE NOT (${ALL_TIME_EVENTS_INDEX_TABLE}.events @> ARRAY[$2::uuid])`,
         [rid, String(eventId)]
     );
 }
@@ -151,11 +151,11 @@ async function indexEventForUser(robloxId, eventId) {
 async function unindexEventForUser(robloxId, eventId) {
     const rid = toId(robloxId);
     await pool.query(
-        `UPDATE ${WEEKLY_EVENTS_INDEX_TABLE} SET events = array_remove(events, $2) WHERE robloxid = $1`,
+        `UPDATE ${WEEKLY_EVENTS_INDEX_TABLE} SET events = array_remove(events, $2::uuid) WHERE robloxid = $1`,
         [rid, String(eventId)]
     );
     await pool.query(
-        `UPDATE ${ALL_TIME_EVENTS_INDEX_TABLE} SET events = array_remove(events, $2) WHERE robloxid = $1`,
+        `UPDATE ${ALL_TIME_EVENTS_INDEX_TABLE} SET events = array_remove(events, $2::uuid) WHERE robloxid = $1`,
         [rid, String(eventId)]
     );
 }

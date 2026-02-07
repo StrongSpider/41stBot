@@ -1,7 +1,9 @@
 'use strict'
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js')
-const { EMBED_COLOR, ROBLOX_GROUP_ID } = require('../../../config.json')
+const config = require('../../../config.json')
+const { EMBED_COLOR } = config.GENERAL
+const { GROUP_ID: ROBLOX_GROUP_ID } = config.ROBLOX
 const axios = require('axios')
 
 // Hardcoded company role names to check for

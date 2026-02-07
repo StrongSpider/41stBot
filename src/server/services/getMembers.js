@@ -1,5 +1,6 @@
 const { Client, GatewayIntentBits, Partials, PermissionsBitField } = require('discord.js')
-const { BOT_TOKEN, BOT_GUILD_ID } = require('../../../config.json')
+const config = require('../../../config.json')
+const { TOKEN: BOT_TOKEN, GUILD_ID: BOT_GUILD_ID } = config.DISCORD.BOT
 
 const database = require('../../api/database.js')
 const roblox = require('../../api/roblox.js')

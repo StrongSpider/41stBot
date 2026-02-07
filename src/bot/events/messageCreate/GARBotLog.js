@@ -1,7 +1,10 @@
 'use strict'
 
 const database = require('../../../api/database.js')
-const { DISCORD_CHANNEL_IDS, UNIT_ROLES } = require('../../../../config.json')
+const config = require('../../../../config.json')
+const { DISCORD } = config
+const { CHANNELS: DISCORD_CHANNEL_IDS, ROLES } = DISCORD
+const UNIT_ROLES = ROLES.UNIT
 
 /** Small delay helper used to rate-limit role changes */
 const sleep = ms => new Promise(r => setTimeout(r, ms))

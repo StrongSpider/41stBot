@@ -1,7 +1,10 @@
 const axios = require('axios').default;
 const qs = require('querystring');
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
-const { BOT_TOKEN, BOT_CLIENT_ID, DISCORD_AUTH_CLIENT_SECRET, DISCORD_AUTH_REDIRECT_URI, BOT_GUILD_ID, DEVELOPER_DISCORD_USER_ID, DISCORD_HICOM_ROLE_ID, DISCORD_OFFICER_ROLE_ID } = require('../../../config.json');
+const config = require('../../../config.json');
+const { TOKEN: BOT_TOKEN, CLIENT_ID: BOT_CLIENT_ID, GUILD_ID: BOT_GUILD_ID, DEVELOPER_USER_ID: DEVELOPER_DISCORD_USER_ID } = config.DISCORD.BOT;
+const { CLIENT_SECRET: DISCORD_AUTH_CLIENT_SECRET, REDIRECT_URI: DISCORD_AUTH_REDIRECT_URI } = config.DISCORD.AUTH;
+const { HICOM: DISCORD_HICOM_ROLE_ID, OFFICER: DISCORD_OFFICER_ROLE_ID } = config.DISCORD.ROLES;
 const Logger = require('../../api/logger.js');
 
 const AuthController = {
@@ -169,7 +172,7 @@ const AuthController = {
     },
 
     getClientId: (req, res) => {
-        const { BOT_CLIENT_ID } = require('../../../config.json');
+        const { CLIENT_ID: BOT_CLIENT_ID } = require('../../../config.json').DISCORD.BOT;
         res.json({ clientId: BOT_CLIENT_ID });
     }
 };

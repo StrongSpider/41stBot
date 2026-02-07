@@ -9,7 +9,7 @@ const config = require('../../config.json')
 const logger = new Logger('CookieManager', 'API')
 
 // In-memory cookie storage
-let currentCookie = config.ROBLOX_COOKIE || ''
+let currentCookie = config.ROBLOX.COOKIE || ''
 
 // Path to persist cookie updates
 const COOKIE_CACHE_PATH = path.join(__dirname, '../../.cookie_cache')
@@ -31,7 +31,7 @@ function initCookie() {
             logger.warn('Failed to load cached cookie:', e.message)
         }
     }
-    
+
     // Fall back to config
     if (currentCookie) {
         logger.info('Using cookie from config.json')
@@ -68,14 +68,14 @@ function updateCookie(newCookie) {
     }
 
     const trimmed = newCookie.trim()
-    
+
     // Basic validation: new cookie should be different and not empty
     if (!trimmed || trimmed === currentCookie) {
         return false
     }
 
     currentCookie = trimmed
-    
+
     // Persist to cache file
     try {
         fs.writeFileSync(COOKIE_CACHE_PATH, currentCookie, 'utf-8')

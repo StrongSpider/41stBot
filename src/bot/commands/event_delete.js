@@ -1,7 +1,9 @@
 'use strict'
 
 const { SlashCommandBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } = require('discord.js')
-const { DISCORD_HICOM_ROLE_ID, DISCORD_OFFICER_ROLE_ID, DEVELOPER_DISCORD_USER_ID } = require('../../../config.json')
+const config = require('../../../config.json')
+const { HICOM: DISCORD_HICOM_ROLE_ID, OFFICER: DISCORD_OFFICER_ROLE_ID } = config.DISCORD.ROLES
+const { DEVELOPER_USER_ID: DEVELOPER_DISCORD_USER_ID } = config.DISCORD.BOT
 const { getIdFromUsername, getUsernameFromId } = require('../../api/roblox.js')
 const { sendEventUpdateWebhook, sendEventDeleteWebhook } = require('../../api/webhook.js')
 const database = require('../../api/database.js')

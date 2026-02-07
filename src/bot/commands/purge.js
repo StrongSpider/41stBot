@@ -41,7 +41,7 @@ function shortCompany(label) {
  */
 function buildCompanyRoleMap() {
     const map = {}
-    const src = config.COMPANY_DISCORD_ROLES || {}
+    const src = config.DISCORD.ROLES.COMPANY || {}
     for (const [roleId, label] of Object.entries(src)) {
         const k = shortCompany(label)
         if (k) map[roleId] = k
@@ -163,17 +163,17 @@ module.exports = {
                 return
             }
 
-            const GROUP_NAME = config.GROUP_NAME || '41st'
-            const TROOPER_LABEL = config.TROOPER_RANK_LABEL || 'Trooper (10)'
-            const EXEMPT_ROLE_IDS = [config.EXEMPT_DISCORD_ROLE_ID]
-            const PURGE_DEFCON_ROLE_ID = config.DISCORD_PURGE_DEFCON_ROLE_ID
-            const SL_PLUS_ROLE_IDS = config.RANK_DISCORD_ROLES ? Object.keys(config.RANK_DISCORD_ROLES).filter(id => id !== '704881591272472596') : []
-            const GAR_BOT_USER_ID = config.GAR_BOT_USER_ID || null
+            const GROUP_NAME = config.GENERAL.GROUP_NAME || '41st'
+            const TROOPER_LABEL = config.GENERAL.TROOPER_RANK_LABEL || 'Trooper (10)'
+            const EXEMPT_ROLE_IDS = [config.DISCORD.ROLES.EXEMPT]
+            const PURGE_DEFCON_ROLE_ID = config.DISCORD.ROLES.PURGE_DEFCON
+            const SL_PLUS_ROLE_IDS = config.DISCORD.ROLES.RANK ? Object.keys(config.DISCORD.ROLES.RANK).filter(id => id !== '704881591272472596') : []
+            const GAR_BOT_USER_ID = config.DISCORD.BOT.GAR_USER_ID || null
 
             // Flatten unit roles from config for removal after demotions
             const UNIT_ROLES = []
-            if (Array.isArray(config.UNIT_ROLES)) {
-                for (const unit of config.UNIT_ROLES) {
+            if (Array.isArray(config.DISCORD.ROLES.UNIT)) {
+                for (const unit of config.DISCORD.ROLES.UNIT) {
                     if (Array.isArray(unit.roles)) for (const role of unit.roles) UNIT_ROLES.push(role)
                 }
             }
@@ -386,7 +386,7 @@ module.exports = {
 
             // Dump company role IDs (from config) to console for verification
             try {
-                const ids = Object.keys(config.COMPANY_DISCORD_ROLES || {})
+                const ids = Object.keys(config.DISCORD.ROLES.COMPANY || {})
                 Logger.info('COMPANY_DISCORD_ROLES IDs: ' + ids.join(', '))
             } catch { }
         } catch (err) {

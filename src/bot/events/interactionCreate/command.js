@@ -1,6 +1,8 @@
 'use strict'
 
-const { DISCORD_FFCNC_ROLE_ID, DISCORD_HICOM_ROLE_ID, DISCORD_OFFICER_ROLE_ID, DISCORD_MINOR_OFFICER_ROLE_ID, DEVELOPER_DISCORD_USER_ID, DISCORD_CMOTW_ROLE_ID } = require('../../../../config.json')
+const config = require('../../../../config.json')
+const { FFCNC: DISCORD_FFCNC_ROLE_ID, HICOM: DISCORD_HICOM_ROLE_ID, OFFICER: DISCORD_OFFICER_ROLE_ID, MINOR_OFFICER: DISCORD_MINOR_OFFICER_ROLE_ID, CMOTW: DISCORD_CMOTW_ROLE_ID } = config.DISCORD.ROLES
+const { DEVELOPER_USER_ID: DEVELOPER_DISCORD_USER_ID } = config.DISCORD.BOT
 const { sendCommandReceived } = require('../../../api/webhook.js')
 const Logger = require('../../../api/logger.js')
 const { MessageFlags } = require('discord.js')

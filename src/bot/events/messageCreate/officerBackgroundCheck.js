@@ -3,7 +3,9 @@
 const { ContainerBuilder, MessageFlags, ComponentType } = require('discord.js');
 const backgroundCheck = require('../../../api/backgroundCheck.js');
 const ui = require('../../utils/bgCheckUI.js');
-const { DISCORD_CHANNEL_IDS, ACCENT_COLOR } = require('../../../../config.json');
+const config = require('../../../../config.json')
+const { CHANNELS: DISCORD_CHANNEL_IDS } = config.DISCORD
+const { ACCENT_COLOR } = config.GENERAL;
 
 const COLLECTOR_MS = 10 * 60 * 1000;
 

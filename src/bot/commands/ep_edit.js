@@ -3,7 +3,8 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require("discord.js");
 const { sendEPUpdateWebhook } = require("../../api/webhook.js");
 const { getIdFromUsername } = require("../../api/roblox.js");
-const { EMBED_COLOR } = require('../../../config.json');
+const config = require('../../../config.json')
+const { EMBED_COLOR } = config.GENERAL;
 const database = require("../../api/database.js");
 const Logger = require("../../api/logger.js");
 const path = require("path");

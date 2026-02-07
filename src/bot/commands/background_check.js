@@ -3,12 +3,12 @@
 const { SlashCommandBuilder, ContainerBuilder, MessageFlags, ComponentType } = require("discord.js");
 
 const backgroundCheck = require("../../api/backgroundCheck.js");
-const customization = require("../../../config.json");
+const config = require("../../../config.json");
 const ui = require("../utils/bgCheckUI.js");
 const Logger = require("../../api/logger.js");
 
 const COLLECTOR_MS = 10 * 60 * 1000;
-const ACCENT_COLOR = customization.ACCENT_COLOR;
+const ACCENT_COLOR = config.GENERAL.ACCENT_COLOR;
 
 module.exports = {
     permission: "OFFICER",
@@ -44,7 +44,7 @@ module.exports = {
                     ? `User has **${result.xTracker.evidenceCount}** xTracker submissions in the last year.`
                     : "User was not found on the xTracker database";
 
-            const selectionContainer = new ContainerBuilder().setAccentColor(customization.ACCENT_COLOR);
+            const selectionContainer = new ContainerBuilder().setAccentColor(config.GENERAL.ACCENT_COLOR);
 
             selectionContainer.addTextDisplayComponents(td =>
                 td.setContent(

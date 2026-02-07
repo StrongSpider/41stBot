@@ -1,4 +1,6 @@
-const { PORTAL_PORT, PORTAL_CORS_PORT, PORTAL_SECRET } = require('../../config.json');
+const config = require('../../config.json')
+const { PORTAL = config.PORTAL } = config;
+const { PORT: PORTAL_PORT, CORS_PORT: PORTAL_CORS_PORT, SECRET: PORTAL_SECRET } = PORTAL;
 const Logger = require('../api/logger.js');
 const session = require('express-session');
 const bodyParser = require('body-parser');

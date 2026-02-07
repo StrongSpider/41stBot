@@ -20,7 +20,11 @@ jest.mock('discord.js', () => ({
 
 // Mock config to avoid missing property errors
 jest.mock('../../config.json', () => ({
-    ADMIN_LOGS_WEBHOOK_URL: 'https://discord.com/api/webhooks/mock'
+    DISCORD: {
+        WEBHOOKS: {
+            ADMIN_LOGS: 'https://discord.com/api/webhooks/mock'
+        }
+    }
 }))
 
 describe('Logger', () => {

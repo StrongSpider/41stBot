@@ -1,7 +1,8 @@
 'use strict'
 
 const { SlashCommandBuilder, MessageFlags } = require('discord.js')
-const { DISCORD_MEDAL_ROLES } = require('../../../config.json');
+const config = require('../../../config.json')
+const { MEDAL: DISCORD_MEDAL_ROLES } = config.DISCORD.ROLES;
 const database = require('../../api/database.js')
 
 /**

@@ -1,4 +1,5 @@
-const { DISCORD_PURGE_DEFCON_ROLE_ID, DISCORD_DEFAULT_QUOTA_ROLE_ID } = require('../../config.json');
+const config = require('../../config.json')
+const { PURGE_DEFCON: DISCORD_PURGE_DEFCON_ROLE_ID, DEFAULT_QUOTA: DISCORD_DEFAULT_QUOTA_ROLE_ID } = config.DISCORD.ROLES;
 const { getRoleQuota, getCurrentEventPoints, getWeeklyEventIdsForUser, getWeeklyEventsBatch, getRobloxIdByDiscord } = require('./database');
 
 /**

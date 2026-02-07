@@ -1,6 +1,9 @@
 'use strict'
 
-const { EMBED_COLOR, INACTIVITY_MANAGEMENT_ROLE_ID, DEVELOPER_DISCORD_USER_ID } = require('../../../config.json');
+const config = require('../../../config.json')
+const { EMBED_COLOR } = config.GENERAL
+const { INACTIVITY_MANAGEMENT: INACTIVITY_MANAGEMENT_ROLE_ID } = config.DISCORD.ROLES
+const { DEVELOPER_USER_ID: DEVELOPER_DISCORD_USER_ID } = config.DISCORD.BOT;
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js')
 const database = require('../../api/database.js')
 

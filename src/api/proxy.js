@@ -8,13 +8,13 @@ const Logger = require("./logger.js")
 
 const config = require("../../config.json")
 
-const WEBSHARE_API_KEY = config.WEBSHARE_API_KEY // used by updater script, not here
-const WEBSHARE_PROXIES = config.WEBSHARE_PROXIES // optional: array of full proxy URLs like "http://user:pass@host:port"
+const WEBSHARE_API_KEY = config.WEBSHARE.API_KEY // used by updater script, not here
+const WEBSHARE_PROXIES = config.WEBSHARE.PROXIES // optional: array of full proxy URLs like "http://user:pass@host:port"
 
-const WEBSHARE_USERNAME = config.WEBSHARE_USERNAME
-const WEBSHARE_PASSWORD = config.WEBSHARE_PASSWORD
-const WEBSHARE_HOST = config.WEBSHARE_HOST
-const WEBSHARE_PORT = config.WEBSHARE_PORT
+const WEBSHARE_USERNAME = config.WEBSHARE.USERNAME
+const WEBSHARE_PASSWORD = config.WEBSHARE.PASSWORD
+const WEBSHARE_HOST = config.WEBSHARE.HOST
+const WEBSHARE_PORT = config.WEBSHARE.PORT
 
 const DEFAULT_USER_AGENT =
   "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"

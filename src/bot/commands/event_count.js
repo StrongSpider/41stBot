@@ -1,7 +1,8 @@
 'use strict'
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js')
-const { EMBED_COLOR } = require('../../../config.json')
+const config = require('../../../config.json')
+const { EMBED_COLOR } = config.GENERAL
 const database = require('../../api/database')
 const roblox = require('../../api/roblox')
 

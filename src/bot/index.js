@@ -5,7 +5,8 @@ const path = require('path')
 const fs = require('fs')
 const Logger = require('../api/logger.js')
 
-const { BOT_TOKEN } = require('../../config.json')
+const config = require('../../config.json')
+const BOT_TOKEN = config.DISCORD.BOT.TOKEN
 
 if (!BOT_TOKEN || typeof BOT_TOKEN !== 'string' || BOT_TOKEN.trim().length === 0) {
   Logger.error('BOT_TOKEN is missing in config.json')

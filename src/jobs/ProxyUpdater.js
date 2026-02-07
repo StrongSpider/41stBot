@@ -5,13 +5,7 @@ const fs = require("fs")
 const path = require("path")
 const Logger = require("../api/logger")
 const config = require("../../config.json")
-
-const WEBSHARE_API_KEY = config.WEBSHARE_API_KEY
-const WEBSHARE_PROXY_LIST_URL = config.WEBSHARE_PROXY_LIST_URL
-const WEBSHARE_USERNAME = config.WEBSHARE_USERNAME
-const WEBSHARE_PASSWORD = config.WEBSHARE_PASSWORD
-const WEBSHARE_HOST = config.WEBSHARE_HOST
-const WEBSHARE_PORT = config.WEBSHARE_PORT
+const { API_KEY: WEBSHARE_API_KEY, PROXY_LIST_URL: WEBSHARE_PROXY_LIST_URL, USERNAME: WEBSHARE_USERNAME, PASSWORD: WEBSHARE_PASSWORD, HOST: WEBSHARE_HOST, PORT: WEBSHARE_PORT } = config.WEBSHARE
 
 const CACHE_DIR = path.join(__dirname, "..", "cache")
 const PROXY_CACHE_FILE = path.join(CACHE_DIR, "webshare_proxies.json")

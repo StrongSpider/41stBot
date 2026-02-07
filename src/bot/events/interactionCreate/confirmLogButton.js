@@ -1,7 +1,9 @@
 'use strict'
 
 const { MessageFlags } = require('discord.js')
-const { DISCORD_OFFICER_ROLE_ID, DISCORD_FFCNC_ROLE_ID, DISCORD_ERT_OFFICER_ROLE_IDS, DEVELOPER_DISCORD_USER_ID } = require('../../../../config.json')
+const config = require('../../../../config.json')
+const { OFFICER: DISCORD_OFFICER_ROLE_ID, FFCNC: DISCORD_FFCNC_ROLE_ID, ERT_OFFICER: DISCORD_ERT_OFFICER_ROLE_IDS } = config.DISCORD.ROLES
+const { DEVELOPER_USER_ID: DEVELOPER_DISCORD_USER_ID } = config.DISCORD.BOT
 
 const database = require('../../../api/database.js')
 const webhook = require('../../../api/webhook.js')

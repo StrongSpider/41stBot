@@ -12,7 +12,9 @@ const database = require('./database.js');
 const Logger = require('./logger.js');
 const cookieManager = require('./cookieManager.js');
 
-const { ROBLOX_ASSET_TYPES, XTRACKER_API_KEY } = require('../../config.json');
+const config = require('../../config.json')
+const { ASSET_TYPES: ROBLOX_ASSET_TYPES } = config.ROBLOX
+const { XTRACKER_API_KEY } = config.EXTERNAL;
 
 const REQUEST_TIMEOUT_MS = 55000;
 
