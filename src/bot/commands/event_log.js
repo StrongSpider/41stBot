@@ -431,7 +431,6 @@ module.exports = {
                 const supervisorId = currentResolvedSupervisor ? currentResolvedSupervisor.robloxId : -1
 
                 let officerMsg = null
-                console.log(targetChannel)
                 if (hasOfficer && targetChannel) {
                     officerMsg = await targetChannel.send({ content: `${currentSummaryText}` })
                     debugTiming('officer: officer channel message sent', timingStart)
