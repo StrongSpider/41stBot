@@ -32,11 +32,11 @@ CREATE TABLE IF NOT EXISTS inactivity (
 -- 4) Weekly events
 CREATE TABLE IF NOT EXISTS weekly_events (
   eventid    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  attendees  bigint[] NOT NULL,
+  attendees  bigint[] NOT NULL DEFAULT '{}',
   host       bigint   NOT NULL REFERENCES roblox_ids(robloxid) ON UPDATE CASCADE ON DELETE RESTRICT,
   supervisor bigint   NOT NULL REFERENCES roblox_ids(robloxid) ON UPDATE CASCADE ON DELETE RESTRICT,
   "timestamp" timestamptz NOT NULL,
-  type       text REFERENCES event_types(type) ON UPDATE CASCADE ON DELETE SET NULL,
+  type       text, -- Flexible text value
   message    text
 );
 
@@ -53,11 +53,11 @@ CREATE INDEX IF NOT EXISTS weekly_events_type_idx       ON weekly_events (type);
 -- 5) All-time events (mirror of weekly)
 CREATE TABLE IF NOT EXISTS all_time_events (
   eventid    uuid PRIMARY KEY,
-  attendees  bigint[] NOT NULL,
+  attendees  bigint[] NOT NULL DEFAULT '{}',
   host       bigint   NOT NULL REFERENCES roblox_ids(robloxid) ON UPDATE CASCADE ON DELETE RESTRICT,
   supervisor bigint   NOT NULL REFERENCES roblox_ids(robloxid) ON UPDATE CASCADE ON DELETE RESTRICT,
   "timestamp" timestamptz NOT NULL,
-  type       text REFERENCES event_types(type) ON UPDATE CASCADE ON DELETE SET NULL,
+  type       text, -- Flexible text value
   message    text
 );
 
