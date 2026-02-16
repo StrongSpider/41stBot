@@ -1,20 +1,17 @@
 'use strict';
 
-const backgroundCheck = require('../backgroundCheck');
+
 
 /**
  * Extract raw features for ML model
  * Returns a flat object of numerical features.
  * 
- * @param {number} robloxId
- * @returns {Promise<Object>} Feature object
+ * @param {Object} bgCheck - Background check result object
+ * @returns {Object} Feature object
  */
-async function extractFeatures(robloxId) {
-    // Fetch background check data (Hybrid: DB for heavy items, Live for others)
-    const bgCheck = await backgroundCheck.getAIBackgroundCheck(robloxId);
-
-    if (!bgCheck.success) {
-        throw new Error(`Background check failed: ${bgCheck.error}`);
+function extractFeatures(bgCheck) {
+    if (!bgCheck) {
+        throw new Error('Background check data is required for feature extraction');
     }
 
     const features = {
@@ -26,7 +23,7 @@ async function extractFeatures(robloxId) {
     };
 
     return {
-        robloxId,
+        robloxId: bgCheck.robloxId,
         username: bgCheck.username,
         features, // Flat object of numbers
         timestamp: new Date().toISOString(),

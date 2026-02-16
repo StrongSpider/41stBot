@@ -555,6 +555,89 @@ function buildInventoryContainer(result, accentColor) {
     return container;
 }
 
+
+function buildAIAnalysisContainer(result, accentColor) {
+    const prediction = result?.aiPrediction;
+    if (!prediction) {
+        return buildErrorContainer("AI Analysis", "No prediction data available.", accentColor);
+    }
+
+    const container = new ContainerBuilder().setAccentColor(accentColor);
+
+    // Header
+    container.addTextDisplayComponents(td =>
+        td.setContent(`## 🤖 AI Analysis: ${prediction.suspicionString} (${prediction.cumulativeScore}%)`)
+    );
+    container.addSeparatorComponents(sep => sep);
+
+    // Confidence
+    container.addTextDisplayComponents(td =>
+        td.setContent(`**Confidence:** ${prediction.confidence}%`)
+    );
+
+    // Context / Explanation
+    if (prediction.probability !== undefined) {
+        container.addTextDisplayComponents(td =>
+            td.setContent(`*Probability of being an alt/bot account: ${Math.round(prediction.probability * 100)}%*`)
+        );
+    }
+
+    // Recommendations
+    if (prediction.recommendation && prediction.recommendation.length > 0) {
+        container.addSeparatorComponents(sep => sep);
+        container.addTextDisplayComponents(td => td.setContent("### 💡 Recommendations"));
+
+        const recs = Array.isArray(prediction.recommendation) ? prediction.recommendation : [prediction.recommendation];
+        const recText = recs.map(r => `- ${r}`).join("\n");
+
+        for (const chunk of chunkText(recText, 3500)) {
+            container.addTextDisplayComponents(td => td.setContent(chunk));
+        }
+    }
+
+    // Contributors
+    if (prediction.contributors && prediction.contributors.length > 0) {
+        container.addSeparatorComponents(sep => sep);
+        container.addTextDisplayComponents(td => td.setContent("### 🔍 Detailed Risk Breakdown"));
+
+        const riskMap = {
+            badgeAvgTimeGap: { title: "Badge Acquisition Speed", desc: "User earns badges unusually fast, suggesting automation." },
+            badgeClusterCount: { title: "Badge Clustering", desc: "Many badges earned in rapid succession." },
+            suspiciousBadgePlaceCount: { title: "Suspicious Games", desc: "Detected activity in known farming games." },
+            accountAge: { title: "Account Age", desc: "Account is relatively new." },
+            friendCount: { title: "Social Graph", desc: "Low number of friends." },
+            groupCount: { title: "Community Participation", desc: "Low group membership count." },
+            inventoryCount: { title: "Asset Collection", desc: " sparse inventory often indicates a throwaway account." },
+            gamePassCount: { title: "Spending History", desc: "Lack of gamepass purchases." },
+            // Add other keys as needed based on featureExtractor.js
+        };
+
+        const lines = prediction.contributors.slice(0, 10).map(c => {
+            const info = riskMap[c.key] || { title: c.key, desc: "Contributes to risk score." };
+            const val = typeof c.rawVal === 'number' ? Math.round(c.rawVal * 100) / 100 : c.rawVal;
+
+            // Dynamic text based on contribution sign (positive = risky, negative = safe)
+            const isRisk = c.contribution > 0;
+            const icon = isRisk ? "⚠️" : "✅";
+            const impactText = isRisk ? "Increases Suspicion" : "Reduces Suspicion";
+
+            return `**${icon} ${info.title}**\n> ${info.desc}\n> *Value: ${val} | ${impactText}*`;
+        });
+
+        for (const chunk of chunkText(lines.join("\n\n"), 3500)) {
+            container.addTextDisplayComponents(td => td.setContent(chunk));
+        }
+    }
+
+    // Disclaimer
+    container.addSeparatorComponents(sep => sep);
+    container.addTextDisplayComponents(td =>
+        td.setContent("*AI predictions are probabilistic and may be incorrect. Always manually verify.*")
+    );
+
+    return container;
+}
+
 module.exports = {
     chunkText,
     asArray,
@@ -570,5 +653,6 @@ module.exports = {
     buildFavoritesContainer,
     buildBadgesContainer,
     buildXTrackerContainer,
-    buildInventoryContainer
+    buildInventoryContainer,
+    buildAIAnalysisContainer
 };

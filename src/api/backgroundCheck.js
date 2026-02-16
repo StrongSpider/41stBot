@@ -11,6 +11,7 @@ const groupsApi = require('./groups.js');
 const database = require('./database.js');
 const Logger = require('./logger.js');
 const cookieManager = require('./cookieManager.js');
+const inference = require('./ml/inference.js');
 
 const config = require('../../config.json');
 const { ASSET_TYPES: ROBLOX_ASSET_TYPES } = config.ROBLOX;
@@ -369,6 +370,68 @@ function generateBadgeGraph(badges, username, suspiciousPlaces = []) {
 }
 
 /**
+ * Generate AI Risk Visualization
+ * @param {Object} prediction - Prediction object from inference.js
+ * @returns {Buffer|null} PNG buffer
+ */
+function generateRiskVisual(prediction) {
+    if (!prediction) return null;
+
+    const width = 600;
+    const height = 150;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext("2d");
+
+    // Background
+    ctx.fillStyle = "#1a1a1a";
+    ctx.fillRect(0, 0, width, height);
+
+    // Title
+    ctx.font = "bold 20px sans-serif";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText("AI Suspicion Analysis", 20, 35);
+
+    // Score Bar (Gradient)
+    const barX = 20;
+    const barY = 60;
+    const barW = width - 40;
+    const barH = 30;
+
+    const grad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+    grad.addColorStop(0, "#4caf50"); // Green
+    grad.addColorStop(0.5, "#ffeb3b"); // Yellow
+    grad.addColorStop(1, "#f44336"); // Red
+
+    ctx.fillStyle = grad;
+    ctx.fillRect(barX, barY, barW, barH);
+
+    // Marker
+    const score = prediction.cumulativeScore || 0; // 0-100
+    const markerX = barX + (score / 100) * barW;
+
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.moveTo(markerX, barY - 5);
+    ctx.lineTo(markerX, barY + barH + 5);
+    ctx.stroke();
+
+    // Rating Text
+    ctx.font = "bold 24px sans-serif";
+    ctx.fillStyle = "#ffffff";
+    ctx.textAlign = "left";
+    ctx.fillText(`${prediction.suspicionString} (${score}%)`, 20, 130);
+
+    // Confidence Text
+    ctx.textAlign = "right";
+    ctx.font = "18px sans-serif";
+    ctx.fillStyle = "#aaaaaa";
+    ctx.fillText(`Confidence: ${prediction.confidence}%`, width - 20, 130);
+
+    return canvas.toBuffer("image/png");
+}
+
+/**
  * Perform a complete background check on a Roblox user
  *
  * IMPORTANT NOTE:
@@ -473,7 +536,7 @@ async function performBackgroundCheck(usernameOrId) {
 
     const elapsedMs = Date.now() - startTime;
 
-    return {
+    const finalResult = {
         success: true,
         robloxId,
         username,
@@ -517,6 +580,20 @@ async function performBackgroundCheck(usernameOrId) {
             suspiciousBadgePlaceCount: badgeSuspicious.suspicious.length
         }
     };
+
+    // Calculate AI Prediction using the data we just gathered
+    const predictionCheck = await safe('ai', () => inference.predictSuspicion(finalResult));
+
+    // Attach prediction
+    finalResult.aiPrediction = predictionCheck.ok ? predictionCheck.data : null;
+
+    // Attach visual
+    finalResult.riskVisual = (finalResult.aiPrediction) ? {
+        buffer: generateRiskVisual(finalResult.aiPrediction),
+        filename: `risk_visual_${username}.png`
+    } : null;
+
+    return finalResult;
 }
 
 /**
@@ -643,7 +720,7 @@ async function getAIBackgroundCheck(usernameOrId) {
 
     const elapsedMs = Date.now() - startTime;
 
-    return {
+    const finalResult = {
         success: true,
         robloxId,
         username,
@@ -685,6 +762,18 @@ async function getAIBackgroundCheck(usernameOrId) {
             suspiciousBadgePlaceCount: badgeSuspicious.suspicious.length
         }
     };
+
+    // Calculate AI Prediction
+    const predictionCheck = await safe('ai', () => inference.predictSuspicion(finalResult));
+    finalResult.aiPrediction = predictionCheck.ok ? predictionCheck.data : null;
+
+    // Attach visual
+    finalResult.riskVisual = (finalResult.aiPrediction) ? {
+        buffer: generateRiskVisual(finalResult.aiPrediction),
+        filename: `risk_visual_${username}.png`
+    } : null;
+
+    return finalResult;
 }
 
 
@@ -692,6 +781,7 @@ module.exports = {
     performBackgroundCheck,
     getAIBackgroundCheck,
     generateBadgeGraph,
+    generateRiskVisual,
     axiosRequest,
     PER_REQUEST_TIMEOUT_MS
 };

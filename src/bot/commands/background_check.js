@@ -53,6 +53,20 @@ module.exports = {
                 )
             );
 
+            // AI Prediction
+            if (result.aiPrediction) {
+                const title = "### 🤖 AI Analysis";
+                const score = result.aiPrediction.cumulativeScore;
+                const rating = result.aiPrediction.suspicionString;
+                const content = `**Rating:** ${rating} (${score}%)\n**Confidence:** ${result.aiPrediction.confidence}%`;
+
+                ui.addExpandableSection(selectionContainer, {
+                    title,
+                    content,
+                    customId: ui.makeCustomId("ai", result.robloxId, interaction.user.id)
+                });
+            }
+
             // Join Date
             {
                 const title = "### 📅 Join Date";
@@ -183,14 +197,26 @@ module.exports = {
                 );
             }
 
+            // Risk Visual
+            if (result.riskVisual) {
+                selectionContainer.addMediaGalleryComponents(gallery =>
+                    gallery.addItems(item =>
+                        item
+                            .setURL(`attachment://${result.riskVisual.filename}`)
+                            .setDescription("AI Risk Assessment")
+                    )
+                );
+            }
+
             const elapsedSeconds = (result.elapsedMs / 1000).toFixed(2);
             await interaction.editReply({ content: `Background check complete (took ${elapsedSeconds}s)` });
 
             const sent = await interaction.followUp({
                 components: [selectionContainer],
-                files: result.badgeGraph
-                    ? [{ attachment: result.badgeGraph.buffer, name: result.badgeGraph.filename }]
-                    : [],
+                files: [
+                    ...(result.badgeGraph ? [{ attachment: result.badgeGraph.buffer, name: result.badgeGraph.filename }] : []),
+                    ...(result.riskVisual ? [{ attachment: result.riskVisual.buffer, name: result.riskVisual.filename }] : [])
+                ],
                 flags: MessageFlags.IsComponentsV2,
                 fetchReply: true
             });
@@ -236,6 +262,10 @@ module.exports = {
                 badges: async () => ({
                     type: "components",
                     payload: await ui.buildBadgesContainer(result, ACCENT_COLOR)
+                }),
+                ai: async () => ({
+                    type: "components",
+                    payload: ui.buildAIAnalysisContainer(result, ACCENT_COLOR)
                 })
             };
 
