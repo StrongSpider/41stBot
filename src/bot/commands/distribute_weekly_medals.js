@@ -113,25 +113,25 @@ module.exports = {
 
         // Classify based on current medal role
         const roles = member.roles.cache
-        if (roles.has(DISCORD_MEDAL_ROLES.PLATINUM_ROLE)) noMedalUsers.push(discordId)
-        else if (roles.has(DISCORD_MEDAL_ROLES.GOLD_ROLE)) {
+        if (roles.has(DISCORD_MEDAL_ROLES.PLATINUM)) noMedalUsers.push(discordId)
+        else if (roles.has(DISCORD_MEDAL_ROLES.GOLD)) {
           try {
-            await member.roles.add(DISCORD_MEDAL_ROLES.PLATINUM_ROLE)
+            await member.roles.add(DISCORD_MEDAL_ROLES.PLATINUM)
           } catch { }
           platMedalUsers.push(discordId)
-        } else if (roles.has(DISCORD_MEDAL_ROLES.SILVER_ROLE)) {
+        } else if (roles.has(DISCORD_MEDAL_ROLES.SILVER)) {
           try {
-            await member.roles.add(DISCORD_MEDAL_ROLES.GOLD_ROLE)
+            await member.roles.add(DISCORD_MEDAL_ROLES.GOLD)
           } catch { }
           goldMedalUsers.push(discordId)
-        } else if (roles.has(DISCORD_MEDAL_ROLES.BRONZE_ROLE)) {
+        } else if (roles.has(DISCORD_MEDAL_ROLES.BRONZE)) {
           try {
-            await member.roles.add(DISCORD_MEDAL_ROLES.SILVER_ROLE)
+            await member.roles.add(DISCORD_MEDAL_ROLES.SILVER)
           } catch { }
           silverMedalUsers.push(discordId)
         } else {
           try {
-            await member.roles.add(DISCORD_MEDAL_ROLES.BRONZE_ROLE)
+            await member.roles.add(DISCORD_MEDAL_ROLES.BRONZE)
           } catch { }
           bronzeMedalUsers.push(discordId)
         }

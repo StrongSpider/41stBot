@@ -23,7 +23,7 @@ module.exports = async function welcomeMessage(member) {
       console.error('welcomeMessage db lookup failed:', msg)
     }
 
-    const channelId = DISCORD_CHANNEL_IDS && DISCORD_CHANNEL_IDS.WELCOME_CHANNEL
+    const channelId = DISCORD_CHANNEL_IDS && DISCORD_CHANNEL_IDS.WELCOME
     if (!channelId) {
       console.error('WELCOME_CHANNEL id is not configured')
       return

@@ -2,11 +2,11 @@ const database = require('../../api/database.js');
 const roblox = require('../../api/roblox.js');
 const webhook = require('../../api/webhook.js');
 const Logger = require('../../api/logger.js');
-const eventsData = require('../../../data/events.json');
 
 const EventsController = {
-    getEventTypes: (req, res) => {
-        res.json(eventsData);
+    getEventTypes: async (req, res) => {
+        const types = await database.getEventTypes();
+        res.json(types);
     },
 
     getAllTime: async (req, res) => {
