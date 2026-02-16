@@ -29,7 +29,6 @@ const getGroupInformation = async function (robloxId) {
             const roles = cached.roles
             // Calculate IsBaseRank
             // roles is ordered array of {id, rank}
-            // We need to find the index of the user's rank
             const userRoleIndex = roles.findIndex((r) => r.rank == group.Rank)
             const IsBaseRank = userRoleIndex !== -1 && userRoleIndex < 2
 
@@ -52,21 +51,9 @@ const getGroupInformation = async function (robloxId) {
             const isUpdate = item.isUpdate
 
             // Find result in proxy response
-            // proxy.batchGet returns array of objects, we assume order or some ID matching?
-            // roblox.js used: const roles = res.find((g) => g.groupId == group.Id).roles
-            // Let's assume proxy.batchGet returns objects with groupId if the URL structure allows it, 
-            // or we need to match by something.
-            // Looking at roblox.js: `const roles = res.find((g) => g.groupId == group.Id).roles`
-            // It seems proxy.batchGet parses the response and maybe injects groupId? 
-            // Or the response from Roblox contains groupId. 
-            // Roblox endpoint /v1/groups/{groupId}/roles returns { groupId: ..., roles: [...] }
-
             const groupData = proxyRes.find((g) => g.groupId == group.Id)
             if (!groupData) {
                 logger.warn(`Could not find proxy result for group ${group.Id}`)
-                // Fallback: assume not base rank or handle error? 
-                // For now, push without IsBaseRank or default false?
-                // Original code would crash or fail if find returns undefined.
                 continue
             }
 
@@ -79,7 +66,6 @@ const getGroupInformation = async function (robloxId) {
             results.push({ ...group, IsBaseRank })
 
             // Save to DB
-            // "make sure to save the index of the role object in the array and only copy over the id and rank of the role"
             // We map roles to { id, rank } preserving order.
             const dbRoles = roles.map(r => ({ id: String(r.id), rank: r.rank }))
 
