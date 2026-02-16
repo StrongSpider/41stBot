@@ -1,5 +1,3 @@
-'use strict'
-
 const { SlashCommandBuilder, MessageFlags } = require('discord.js')
 const database = require('../../api/database.js')
 
@@ -35,6 +33,7 @@ module.exports = {
                 .setName('type')
                 .setDescription('Event type string to remove')
                 .setRequired(true)
+                .setAutocomplete(true)
         ),
     /**
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
@@ -61,6 +60,23 @@ module.exports = {
             } else {
                 await interaction.reply({ content: safe, flags: MessageFlags.Ephemeral }).catch(() => { })
             }
+        }
+    },
+    /**
+     * @param {import('discord.js').AutocompleteInteraction} interaction
+     */
+    async autocomplete(interaction) {
+        try {
+            const focusedValue = interaction.options.getFocused()
+            const allTypes = await database.getEventTypes()
+            const filtered = allTypes.filter(choice => choice.toLowerCase().includes(focusedValue.toLowerCase()))
+            await interaction.respond(
+                filtered.slice(0, 25).map(choice => ({ name: choice, value: choice }))
+            )
+        } catch (error) {
+            console.error('Autocomplete error:', error)
+            // Autocomplete interactions must be responded to, even with empty list, or they hang/error on client
+            await interaction.respond([]).catch(() => { })
         }
     }
 }
