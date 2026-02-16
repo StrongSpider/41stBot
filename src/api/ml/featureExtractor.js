@@ -155,7 +155,8 @@ function analyzeGroupFeatures(bgCheck) {
 
     return {
         groupCount: groups.length,
-        groupBaseRankCount: baseRankCount
+        groupBaseRankCount: baseRankCount,
+        rankedGroupCount: groups.length - baseRankCount // Groups where rank > 0
     };
 }
 

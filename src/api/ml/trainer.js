@@ -216,9 +216,20 @@ function trainLogisticRegression(examples) {
     // 4. Package Result
     // formatted: { featureName: weight, ... }
     const weights = {};
+    const biases = require('./trainingConfig').biases || {};
+
     weights['__BIAS__'] = theta[0];
     for (let j = 0; j < n; j++) {
-        weights[featuresList[j]] = theta[j + 1];
+        const featureName = featuresList[j];
+        let learnedWeight = theta[j + 1];
+
+        // Apply manual bias configuration if exists
+        if (biases[featureName]) {
+            console.log(`  Applying manual bias to ${featureName}: ${learnedWeight.toFixed(4)} + ${biases[featureName]} = ${(learnedWeight + biases[featureName]).toFixed(4)}`);
+            learnedWeight += biases[featureName];
+        }
+
+        weights[featureName] = learnedWeight;
     }
 
     return {
