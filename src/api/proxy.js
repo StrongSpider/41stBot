@@ -350,7 +350,7 @@ async function batchGet(
   options = {},
   maxRetries = 2,
   maxConcurrent = 100,
-  perAttemptTimeoutMs = 30000,
+  perAttemptTimeoutMs = 5000,
   protect429 = false
 ) {
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
