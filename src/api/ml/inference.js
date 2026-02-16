@@ -26,60 +26,98 @@ async function predictSuspicion(robloxId) {
  * Calculate suspicion prediction from features and model
  */
 function calculatePrediction(features, model) {
-    const featureData = features.features;
-    const areaScores = {};
-    let totalWeightedScore = 0;
-    let totalWeight = 0;
-
-    // Calculate weighted score for each area
-    const areas = [
-        'badgeAnomalies',
-        'inventoryAnomalies',
-        'gamePassAnomalies',
-        'groupAnomalies',
-        'xTrackerEvidence',
-        'connectionAnomalies'
-    ];
-
-    for (const area of areas) {
-        if (!featureData[area]) continue;
-
-        const rawScore = featureData[area].score || 0;
-        const altWeight = model.weights[area]?.alt || 0;
-        const realWeight = model.weights[area]?.real || 0;
-
-        // Calculate how much this area suggests "alt" (difference between alt and real weights)
-        // Higher alt weight vs real weight = more suspicion
-        const suspicionMultiplier = Math.max(0, altWeight - realWeight);
-        const weightedScore = rawScore * (suspicionMultiplier / 10 + 1);
-
-        areaScores[area] = {
-            rawScore: Math.round(rawScore),
-            altWeight: Math.round(altWeight * 10) / 10,
-            realWeight: Math.round(realWeight * 10) / 10,
-            suspicionMultiplier: Math.round(suspicionMultiplier * 100) / 100,
-            weightedScore: Math.round(weightedScore),
-            details: featureData[area]
-        };
-
-        totalWeightedScore += weightedScore;
-        totalWeight += (suspicionMultiplier + 1);
+    if (model.type === 'logistic_regression' || model.version >= '2.0.0') {
+        return calculateLogisticPrediction(features, model);
     }
 
-    // Normalize cumulative score to 0-100
-    const cumulativeScore = totalWeight > 0 ? Math.min(100, (totalWeightedScore / totalWeight) * 2) : 0;
+    // Fallback for old models (should not happen if we retrained)
+    return {
+        cumulativeScore: 0,
+        rating: 0,
+        suspicionString: 'UNKNOWN',
+        confidence: 0,
+        areaScores: {},
+        recommendation: ['Model version mismatch - please retrain']
+    };
+}
 
-    // Convert to suspicion rating
-    const rating = scoreToRating(cumulativeScore);
+/**
+ * Prediction using Logistic Regression Model
+ */
+function calculateLogisticPrediction(features, model) {
+    const rawFeatures = features.features; // Flat object
+    const weights = model.weights;
+    const norm = model.normalization;
+
+    let z = weights['__BIAS__'] || 0;
+    const contributors = [];
+
+    // 1. Normalize and dot product
+    norm.features.forEach((key, index) => {
+        const rawVal = Number(rawFeatures[key]) || 0;
+        const min = norm.min[index];
+        const max = norm.max[index];
+        const weight = weights[key] || 0;
+
+        const range = max - min;
+        const normalizedVal = range === 0 ? 0 : (rawVal - min) / range;
+
+        const contribution = normalizedVal * weight;
+        z += contribution;
+
+        if (Math.abs(contribution) > 0.1) {
+            contributors.push({ key, contribution, weight, rawVal });
+        }
+    });
+
+    // 2. Sigmoid -> Probability
+    const probability = 1 / (1 + Math.exp(-z));
+
+    // 3. Map Probability to Rating (0-4)
+    // 0.0-0.2: Legit (0)
+    // 0.2-0.4: Likely Legit (1)
+    // 0.4-0.6: Suspicious (2)
+    // 0.6-0.8: Likely Alt (3)
+    // 0.8-1.0: Alt (4)
+    let rating = 0;
+    if (probability > 0.8) rating = 4;
+    else if (probability > 0.6) rating = 3;
+    else if (probability > 0.4) rating = 2;
+    else if (probability > 0.2) rating = 1;
+
+    // 4. Recommendations
+    const recommendations = getLogisticRecommendations(contributors, rating);
 
     return {
-        cumulativeScore: Math.round(cumulativeScore),
+        cumulativeScore: Math.round(probability * 100),
         rating,
         suspicionString: ratingToHumanReadable(rating),
-        confidence: calculateConfidence(model, areaScores),
-        areaScores,
-        recommendation: getRecommendation(rating, areaScores)
+        confidence: 100, // LR gives a specific probability, confidence in the *model* depends on training size
+        probability: probability,
+        contributors: contributors.sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution)).slice(0, 10),
+        recommendation: recommendations
     };
+}
+
+function getLogisticRecommendations(contributors, rating) {
+    const recs = [];
+
+    // Suggest based on top positive contributors (things making it look like an alt)
+    const topSuspicious = contributors
+        .filter(c => c.contribution > 0)
+        .sort((a, b) => b.contribution - a.contribution)
+        .slice(0, 3);
+
+    topSuspicious.forEach(c => {
+        recs.push(`Flag: High ${c.key} (${c.rawVal}) contributes to suspicion`);
+    });
+
+    if (rating >= 3) {
+        recs.push('ACTION: Manual review recommended');
+    }
+
+    if (recs.length === 0) recs.push('No significant suspicious indicators');
+    return recs;
 }
 
 /**
@@ -114,68 +152,16 @@ function ratingToHumanReadable(rating) {
 
 /**
  * Calculate confidence in prediction (0-100)
- * Higher confidence when: more training data, consistency across areas
  */
 function calculateConfidence(model, areaScores) {
-    const trainingExamples = model.trainingExamples || 0;
-
-    // Base confidence from training data: 0-50 based on how much data was used
-    const baseConfidence = Math.min(50, (trainingExamples / 100) * 50);
-
-    // Consistency bonus: areas agreeing raises confidence
-    const areaValues = Object.values(areaScores).map(a => a.weightedScore);
-    const variance = calculateVariance(areaValues);
-    const consistency = Math.max(0, 100 - variance);
-    const consistencyBonus = consistency * 0.5;
-
-    // Non-default model bonus
-    const modelBonus = model.isDefault ? 0 : 20;
-
-    return Math.min(100, Math.round(baseConfidence + consistencyBonus + modelBonus));
-}
-
-/**
- * Calculate variance of array of numbers
- */
-function calculateVariance(numbers) {
-    if (numbers.length === 0) return 0;
-    const mean = numbers.reduce((a, b) => a + b, 0) / numbers.length;
-    const squaredDiffs = numbers.map(n => Math.pow(n - mean, 2));
-    const variance = squaredDiffs.reduce((a, b) => a + b, 0) / numbers.length;
-    return Math.sqrt(variance); // Return standard deviation
+    return 100; // Placeholder for now
 }
 
 /**
  * Get recommendation based on rating and specific flags
  */
 function getRecommendation(rating, areaScores) {
-    const recommendations = [];
-
-    // Identify most suspicious areas
-    const sortedAreas = Object.entries(areaScores)
-        .filter(([, data]) => data.details.flagged)
-        .sort((a, b) => b[1].weightedScore - a[1].weightedScore);
-
-    // Recommend actions based on top suspicious areas
-    for (const [areaName, areaData] of sortedAreas.slice(0, 3)) {
-        if (areaData.details.flags && areaData.details.flags.length > 0) {
-            const topFlag = areaData.details.flags[0];
-            recommendations.push(`${topFlag}`);
-        }
-    }
-
-    // Action recommendations based on rating
-    if (rating >= 4) {
-        recommendations.push('ACTION: Recommend immediate manual review');
-        recommendations.push('ACTION: Consider adding to verification list');
-    } else if (rating === 3) {
-        recommendations.push('ACTION: Schedule for officer review');
-        recommendations.push('ACTION: Monitor for further suspicious activity');
-    } else if (rating === 2) {
-        recommendations.push('INFO: Monitor account for suspicious patterns');
-    }
-
-    return recommendations.length > 0 ? recommendations : ['No significant concerns'];
+    return []; // Replaced by getLogisticRecommendations
 }
 
 /**

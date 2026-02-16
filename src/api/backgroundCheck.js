@@ -12,26 +12,22 @@ const database = require('./database.js');
 const Logger = require('./logger.js');
 const cookieManager = require('./cookieManager.js');
 
-const config = require('../../config.json')
-const { ASSET_TYPES: ROBLOX_ASSET_TYPES } = config.ROBLOX
+const config = require('../../config.json');
+const { ASSET_TYPES: ROBLOX_ASSET_TYPES } = config.ROBLOX;
 const { XTRACKER_API_KEY } = config.EXTERNAL;
 
-const REQUEST_TIMEOUT_MS = 55000;
+const PER_REQUEST_TIMEOUT_MS = 5000;
 
 // Keep connections alive for long-running lookups
 const defaultHttpsAgent = new https.Agent({ keepAlive: true });
 
-// Shared axios client with a 55s timeout
+// Shared axios client (NO global timeout, per-request only)
 const http = axios.create({
-    timeout: REQUEST_TIMEOUT_MS,
     httpsAgent: defaultHttpsAgent
 });
 
-const logger = new Logger('BackgroundCheck', 'API');
-
 // Roblox-only axios client (uses cookie manager for dynamic cookie updates)
 const robloxHttp = axios.create({
-    timeout: REQUEST_TIMEOUT_MS,
     httpsAgent: defaultHttpsAgent,
     headers: { Cookie: cookieManager.getCookieHeader() }
 });
@@ -39,51 +35,78 @@ const robloxHttp = axios.create({
 // Attach response interceptor to handle Set-Cookie headers
 cookieManager.attachResponseInterceptor(robloxHttp);
 
+const logger = new Logger('BackgroundCheck', 'API');
+
+function toErrMsg(err) {
+    if (!err) return 'Unknown error';
+    if (typeof err === 'string') return err;
+    if (err instanceof Error && err.message) return err.message;
+    return String(err);
+}
+
 /**
- * Wrap a promise to return {ok, data} or {ok, error}
+ * Per-request hard timeout wrapper for axios requests.
+ * This attaches a 5s timeout to THIS request only, and aborts stalled sockets.
  */
-async function wrap(promise) {
+async function axiosRequest(client, label, config) {
+    const controller = new AbortController();
+
+    const timer = setTimeout(() => {
+        try {
+            controller.abort(new Error(`${label} timed out after ${PER_REQUEST_TIMEOUT_MS}ms`));
+        } catch {
+            controller.abort();
+        }
+    }, PER_REQUEST_TIMEOUT_MS);
+
     try {
-        const data = await Promise.resolve(promise);
-        return { ok: true, data };
-    } catch (err) {
-        return {
-            ok: false,
-            error: err instanceof Error && err.message ? err.message : String(err)
-        };
+        return await client.request({
+            ...config,
+            timeout: PER_REQUEST_TIMEOUT_MS,
+            signal: controller.signal
+        });
+    } finally {
+        clearTimeout(timer);
     }
 }
 
 /**
- * Add timeout to a promise
+ * Run a section safely so one failure does not block the whole check.
  */
-function withTimeout(promise, ms, label = 'request') {
-    let timer;
-    const timeout = new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
-    });
-    return Promise.race([
-        Promise.resolve(promise).finally(() => clearTimeout(timer)),
-        timeout
-    ]);
+async function safe(label, fn) {
+    try {
+        const data = await fn();
+        return { ok: true, data };
+    } catch (err) {
+        return { ok: false, error: `${label}: ${toErrMsg(err)}` };
+    }
 }
 
 /**
- * Fetch all game passes for a user with pagination
+ * Fetch all game passes for a user with pagination.
+ * Each page is a separate request with a 5s hard timeout.
+ * If any page fails or times out, the entire section fails.
  */
 async function fetchAllUserGamePasses(userId) {
     const all = [];
     let exclusiveStartId = "";
 
-    while (true) {
+    const MAX_PAGES = 200;
+    for (let pages = 0; pages < MAX_PAGES; pages++) {
         const url = `https://apis.roblox.com/game-passes/v1/users/${userId}/game-passes?count=100&exclusiveStartId=${exclusiveStartId}`;
-        const res = await robloxHttp.get(url);
-        const page = Array.isArray(res?.data?.gamePasses) ? res.data.gamePasses : [];
 
+        const res = await axiosRequest(
+            robloxHttp,
+            'gamepasses page',
+            { method: 'GET', url }
+        );
+
+        const page = Array.isArray(res?.data?.gamePasses) ? res.data.gamePasses : [];
         all.push(...page);
 
-        if (page.length === 100 && page[page.length - 1] && page[page.length - 1].gamePassId) {
-            exclusiveStartId = String(page[page.length - 1].gamePassId);
+        const last = page[page.length - 1];
+        if (page.length === 100 && last && last.gamePassId) {
+            exclusiveStartId = String(last.gamePassId);
             continue;
         }
 
@@ -94,61 +117,67 @@ async function fetchAllUserGamePasses(userId) {
 }
 
 /**
- * Fetch inventory value from Rolimons
+ * Fetch inventory value from Rolimons.
+ * Single request with a 5s hard timeout.
  */
 async function fetchInventoryValue(robloxId) {
     try {
-        const rolimonsResponse = await http.get(
-            `https://api.rolimons.com/players/v1/playerinfo/${robloxId}`,
+        const rolimonsAgent = new https.Agent({ keepAlive: true, family: 4 });
+
+        const res = await axiosRequest(
+            http,
+            'rolimons',
             {
-                httpsAgent: new https.Agent({ keepAlive: true, family: 4 }),
-                timeout: REQUEST_TIMEOUT_MS
+                method: 'GET',
+                url: `https://api.rolimons.com/players/v1/playerinfo/${robloxId}`,
+                httpsAgent: rolimonsAgent
             }
         );
-        if (rolimonsResponse.data && rolimonsResponse.data.success && typeof rolimonsResponse.data.value === 'number') {
-            return rolimonsResponse.data.value;
+
+        if (res.data && res.data.success && typeof res.data.value === 'number') {
+            return res.data.value;
         }
     } catch (e) {
-        logger.warn('Rolimons fetch failed:', e.message);
+        logger.warn('Rolimons fetch failed:', toErrMsg(e));
     }
+
     return null;
 }
 
 /**
- * Fetch all favorite games for a user (paginates through all results)
+ * Fetch all favorite games for a user.
+ * Each page is a separate request with a 5s hard timeout.
+ * If any page fails or times out, the entire section fails.
  */
 async function fetchAllFavoriteGames(robloxId) {
     let cursor = "";
     const all = [];
 
-    // Safety guard to avoid infinite loops if Roblox returns a bad cursor
     const MAX_PAGES = 500;
-    let pages = 0;
-
-    while (pages < MAX_PAGES) {
+    for (let pages = 0; pages < MAX_PAGES; pages++) {
         const url = `https://games.roblox.com/v2/users/${robloxId}/favorite/games?accessFilter=1&limit=100&sortOrder=Desc${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
 
-        try {
-            const res = await robloxHttp.get(url);
-            const data = Array.isArray(res?.data?.data) ? res.data.data : [];
-            all.push(...data);
+        const res = await axiosRequest(
+            robloxHttp,
+            'favorites page',
+            { method: 'GET', url }
+        );
 
-            const next = res?.data?.nextPageCursor;
-            if (!next) break;
+        const data = Array.isArray(res?.data?.data) ? res.data.data : [];
+        all.push(...data);
 
-            cursor = String(next);
-            pages++;
-        } catch (e) {
-            logger.warn('Favorites fetch failed:', e.message);
-            return null;
-        }
+        const next = res?.data?.nextPageCursor;
+        if (!next) break;
+
+        cursor = String(next);
     }
 
     return all;
 }
 
 /**
- * Fetch xTracker data for a user
+ * Fetch xTracker data for a user.
+ * Single request with a 5s hard timeout.
  */
 async function fetchXTrackerData(robloxId) {
     if (!XTRACKER_API_KEY) {
@@ -156,24 +185,27 @@ async function fetchXTrackerData(robloxId) {
     }
 
     try {
-        const response = await http.get(
-            `https://api.xtracker.xyz/api/registry/user?id=${robloxId}`,
+        const res = await axiosRequest(
+            http,
+            'xtracker',
             {
+                method: 'GET',
+                url: `https://api.xtracker.xyz/api/registry/user?id=${robloxId}`,
                 headers: {
-                    "Authorization": XTRACKER_API_KEY
+                    Authorization: XTRACKER_API_KEY
                 },
-                validateStatus: (status) => status === 200 || status === 404,
-                timeout: 5000
+                validateStatus: (status) => status === 200 || status === 404
             }
         );
 
         // 404 means clean record
-        if (response.status === 404) {
+        if (res.status === 404) {
             return null;
         }
-        return response.data;
+
+        return res.data;
     } catch (e) {
-        logger.warn('xTracker fetch failed:', e.message);
+        logger.warn('xTracker fetch failed:', toErrMsg(e));
         return null;
     }
 }
@@ -186,10 +218,8 @@ async function checkSuspiciousBadgePlaces(badges) {
         return { hasSuspicious: false, suspicious: [] };
     }
 
-    // Get unique place IDs from badges
     const placeIds = [...new Set(badges.map(b => Number(b.placeId)).filter(Number.isFinite))];
 
-    // Check each against database
     const suspicious = [];
     for (const placeId of placeIds) {
         const result = await database.isSuspiciousPlace(placeId);
@@ -219,10 +249,8 @@ function generateBadgeGraph(badges, username, suspiciousPlaces = []) {
         return null;
     }
 
-    // Create a set of suspicious place IDs for fast lookup
     const suspiciousPlaceIds = new Set(suspiciousPlaces.filter(s => s.reason === 'Badge Runner').map(s => s.placeId));
 
-    // Sort by awardedDate ascending
     const sorted = [...badges].sort((a, b) => a.awardedDate - b.awardedDate);
 
     const width = 1200;
@@ -235,30 +263,25 @@ function generateBadgeGraph(badges, username, suspiciousPlaces = []) {
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext("2d");
 
-    // Background
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, width, height);
 
-    // Title
     ctx.fillStyle = "white";
     ctx.font = "30px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
     ctx.fillText(`${username} • Badge Timeline`, width / 2, 15);
 
-    // Subtitle
     ctx.font = "20px sans-serif";
     ctx.fillText(`${sorted.length} total badges`, width / 2, 50);
 
     if (sorted.length > 0) {
-        // Build data
         const times = sorted.map(b => new Date(b.awardedDate * 1000).getTime());
         const minTime = Math.min(...times);
         const maxTime = Math.max(...times);
         const spanTime = maxTime - minTime || 1;
         const maxTotal = sorted.length;
 
-        // Helper to map time and total to canvas coords
         const xForTime = (t) =>
             marginLeft +
             ((t - minTime) / spanTime) *
@@ -269,7 +292,6 @@ function generateBadgeGraph(badges, username, suspiciousPlaces = []) {
             ((total - 1) / (maxTotal - 1 || 1)) *
             (height - marginTop - marginBottom);
 
-        // Grid - X (years)
         const minYear = new Date(minTime).getUTCFullYear();
         const maxYear = new Date(maxTime).getUTCFullYear();
         ctx.strokeStyle = "#222222";
@@ -292,7 +314,6 @@ function generateBadgeGraph(badges, username, suspiciousPlaces = []) {
             ctx.fillText(String(year), x, height - marginBottom + 5);
         }
 
-        // Grid - Y (totals)
         const steps = 6;
         ctx.textAlign = "right";
         ctx.textBaseline = "middle";
@@ -309,7 +330,6 @@ function generateBadgeGraph(badges, username, suspiciousPlaces = []) {
             ctx.fillText(String(total), marginLeft - 10, y);
         }
 
-        // Draw points
         for (let i = 0; i < sorted.length; i++) {
             const b = sorted[i];
             const t = new Date(b.awardedDate * 1000).getTime();
@@ -317,19 +337,16 @@ function generateBadgeGraph(badges, username, suspiciousPlaces = []) {
             const x = xForTime(t);
             const y = yForTotal(total);
 
-            // Check if this badge is from a suspicious place
             const isSuspicious = suspiciousPlaceIds.has(b.placeId);
 
             ctx.beginPath();
             ctx.arc(x, y, 3, 0, Math.PI * 2);
 
             if (isSuspicious) {
-                // Red for suspicious places
                 ctx.fillStyle = "rgba(255, 85, 85, 0.5)";
                 ctx.fill();
                 ctx.strokeStyle = "rgba(255, 85, 85, 1)";
             } else {
-                // Green for normal badges
                 ctx.fillStyle = "rgba(0, 255, 90, 0.35)";
                 ctx.fill();
                 ctx.strokeStyle = "rgba(0, 255, 90, 0.9)";
@@ -340,7 +357,6 @@ function generateBadgeGraph(badges, username, suspiciousPlaces = []) {
         }
     }
 
-    // Suspicious places warning at bottom center if any
     if (suspiciousPlaceIds.size > 0) {
         ctx.font = "14px sans-serif";
         ctx.fillStyle = "#ff5555";
@@ -354,19 +370,23 @@ function generateBadgeGraph(badges, username, suspiciousPlaces = []) {
 
 /**
  * Perform a complete background check on a Roblox user
- * 
+ *
+ * IMPORTANT NOTE:
+ * This module enforces 5s per-request timeouts for requests made in THIS file
+ * (Rolimons, xTracker, favorites/gamepasses pagination via robloxHttp/http).
+ * If roblox.js/assets.js/badge.js/groups.js internally make HTTP requests without per-request timeouts,
+ * you must update those modules similarly to guarantee the same 5s per-request rule everywhere.
+ *
  * @param {string|number} usernameOrId - Roblox username or ID
  * @returns {Promise<Object>} Background check results
  */
 async function performBackgroundCheck(usernameOrId) {
     const startTime = Date.now();
 
-    // Step 1: Resolve username to ID if needed
     let robloxId = Number(usernameOrId);
     let username = null;
 
     if (!Number.isFinite(robloxId)) {
-        // It's a username, resolve to ID
         username = String(usernameOrId);
         robloxId = await roblox.getIdFromUsername(username);
 
@@ -378,50 +398,45 @@ async function performBackgroundCheck(usernameOrId) {
             };
         }
     } else {
-        // It's an ID, get username
         username = await roblox.getUsernameFromId(robloxId);
     }
 
-    // Step 2: Run all data fetches in parallel
-    const [
-        profileRes,
-        connectionsRes,
-        groupsRes,
-        inventoryRes,
-        gamePassesRes,
-        inventoryValueRes,
-        xTrackerRes,
-        badgesRes,
-        favoritesRes
-    ] = await Promise.all([
-        wrap(withTimeout(roblox.getUserProfile(robloxId), REQUEST_TIMEOUT_MS, 'profile')),
-        wrap(withTimeout(roblox.getConnections(robloxId), REQUEST_TIMEOUT_MS, 'connections')),
-        wrap(withTimeout(groupsApi.getGroupInformation(robloxId), REQUEST_TIMEOUT_MS, 'groups')),
-        wrap(withTimeout(assets.getAssetsInformation(robloxId), REQUEST_TIMEOUT_MS, 'inventory')),
-        wrap(withTimeout(fetchAllUserGamePasses(robloxId), REQUEST_TIMEOUT_MS, 'gamepasses')),
-        wrap(fetchInventoryValue(robloxId)),
-        wrap(fetchXTrackerData(robloxId)),
-        wrap(withTimeout(badge.getUserBadges(robloxId), REQUEST_TIMEOUT_MS, 'badges')),
-        wrap(withTimeout(fetchAllFavoriteGames(robloxId), REQUEST_TIMEOUT_MS, 'favorites')),
-    ]);
+    const tasks = {
+        profile: () => safe('profile', () => roblox.getUserProfile(robloxId)),
+        connections: () => safe('connections', () => roblox.getConnections(robloxId)),
+        groups: () => safe('groups', () => groupsApi.getGroupInformation(robloxId)),
+        inventory: () => safe('inventory', () => assets.getAssetsInformation(robloxId)),
+        gamePasses: () => safe('gamepasses', () => fetchAllUserGamePasses(robloxId)),
+        inventoryValue: () => safe('rolimons', () => fetchInventoryValue(robloxId)),
+        xTracker: () => safe('xtracker', () => fetchXTrackerData(robloxId)),
+        badges: () => safe('badges', () => badge.getUserBadges(robloxId)),
+        favorites: () => safe('favorites', () => fetchAllFavoriteGames(robloxId))
+    };
 
-    // Step 3: Extract data or errors
-    const profile = profileRes.ok ? profileRes.data : { error: profileRes.error };
-    const connections = connectionsRes.ok ? connectionsRes.data : { error: connectionsRes.error };
-    const groups = groupsRes.ok && Array.isArray(groupsRes.data) ? groupsRes.data : (groupsRes.ok ? [] : { error: groupsRes.error });
-    const inventory = inventoryRes.ok && Array.isArray(inventoryRes.data) ? inventoryRes.data : (inventoryRes.ok ? [] : { error: inventoryRes.error });
-    const gamePasses = gamePassesRes.ok && Array.isArray(gamePassesRes.data) ? gamePassesRes.data : (gamePassesRes.ok ? [] : { error: gamePassesRes.error });
-    const inventoryValue = inventoryValueRes.ok ? inventoryValueRes.data : null;
-    const xTrackerData = xTrackerRes.ok ? xTrackerRes.data : null;
-    const badgesData = badgesRes.ok && Array.isArray(badgesRes.data) ? badgesRes.data : (badgesRes.ok ? [] : { error: badgesRes.error });
-    const favoritesCount = favoritesRes.ok ? favoritesRes.data : null;
+    const keys = Object.keys(tasks);
+    const settled = await Promise.allSettled(keys.map(k => tasks[k]()));
 
-    // Step 4: Check for suspicious badge places
+    const results = {};
+    for (let i = 0; i < keys.length; i++) {
+        const k = keys[i];
+        const r = settled[i];
+        results[k] = (r.status === 'fulfilled') ? r.value : { ok: false, error: `${k}: ${toErrMsg(r.reason)}` };
+    }
+
+    const profile = results.profile.ok ? results.profile.data : { error: results.profile.error };
+    const connections = results.connections.ok ? results.connections.data : { error: results.connections.error };
+    const groups = results.groups.ok && Array.isArray(results.groups.data) ? results.groups.data : (results.groups.ok ? [] : { error: results.groups.error });
+    const inventory = results.inventory.ok && Array.isArray(results.inventory.data) ? results.inventory.data : (results.inventory.ok ? [] : { error: results.inventory.error });
+    const gamePasses = results.gamePasses.ok && Array.isArray(results.gamePasses.data) ? results.gamePasses.data : (results.gamePasses.ok ? [] : { error: results.gamePasses.error });
+    const inventoryValue = results.inventoryValue.ok ? results.inventoryValue.data : null;
+    const xTrackerData = results.xTracker.ok ? results.xTracker.data : null;
+    const badgesData = results.badges.ok && Array.isArray(results.badges.data) ? results.badges.data : (results.badges.ok ? [] : { error: results.badges.error });
+    const favoritesData = results.favorites.ok ? results.favorites.data : null;
+
     const badgeSuspicious = Array.isArray(badgesData)
         ? await checkSuspiciousBadgePlaces(badgesData)
         : { hasSuspicious: false, suspicious: [] };
 
-    // Step 5: Compute stats
     const baseRankGroups = Array.isArray(groups) ? groups.filter(g => g.IsBaseRank) : [];
     const developmentItems = Array.isArray(inventory)
         ? inventory.filter(i => ROBLOX_ASSET_TYPES.DEVELOPMENT.find(type => type == i.type))
@@ -441,17 +456,16 @@ async function performBackgroundCheck(usernameOrId) {
         ? gamePasses.reduce((acc, gp) => acc + (typeof gp.price === "number" && !isCreatedByCheckedUser(gp) ? gp.price : 0), 0)
         : 0;
 
-    // Step 6: Process xTracker evidence
     let xTrackerEvidence = [];
     if (xTrackerData && xTrackerData.evidence) {
-        const year = 31556952000; // 1 year in ms
+        const year = 31556952000;
         for (const submission of xTrackerData.evidence) {
             const ts = new Date(submission.date).getTime();
             if (Number.isFinite(ts) && ts >= (Date.now() - year)) {
                 xTrackerEvidence.push({
                     reason: submission.reason,
                     date: submission.date,
-                    url: submission.url // Include evidence URL if available
+                    url: submission.url
                 });
             }
         }
@@ -459,14 +473,12 @@ async function performBackgroundCheck(usernameOrId) {
 
     const elapsedMs = Date.now() - startTime;
 
-    // Step 7: Return structured data
     return {
         success: true,
         robloxId,
         username,
         elapsedMs,
 
-        // Raw data
         profile,
         connections,
         groups,
@@ -476,20 +488,18 @@ async function performBackgroundCheck(usernameOrId) {
             data: badgesData,
             ...badgeSuspicious
         } : badgesData,
-        favorites: favoritesRes.ok ? favoritesRes.data : { error: favoritesRes.error },
+        favorites: results.favorites.ok ? favoritesData : { error: results.favorites.error },
         inventoryValue,
         xTracker: xTrackerEvidence.length > 0 ? {
             evidenceCount: xTrackerEvidence.length,
             evidence: xTrackerEvidence
         } : null,
 
-        // Badge graph (PNG buffer)
         badgeGraph: Array.isArray(badgesData) && badgesData.length > 0 ? {
             buffer: generateBadgeGraph(badgesData, username, badgeSuspicious.suspicious),
             filename: `badge_graph_${username}.png`
         } : null,
 
-        // Computed stats
         stats: {
             groupCount: Array.isArray(groups) ? groups.length : 0,
             baseRankGroupCount: baseRankGroups.length,
@@ -502,14 +512,186 @@ async function performBackgroundCheck(usernameOrId) {
             pricedGamePassCount,
             selfCreatedPricedGamePassCount,
             gamePassPriceTotal,
-            favoriteGamesCount: Array.isArray(favoritesRes.data) ? favoritesRes.data.length : 0,
+            favoriteGamesCount: Array.isArray(favoritesData) ? favoritesData.length : 0,
             badgeCount: Array.isArray(badgesData) ? badgesData.length : 0,
             suspiciousBadgePlaceCount: badgeSuspicious.suspicious.length
         }
     };
 }
 
+/**
+ * Perform a "Hybrid" background check for AI analysis.
+ *
+ * Strategy:
+ * - Badges: DB ONLY (avoid heavy paging)
+ * - Assets/Inventory: DB ONLY (avoid heavy paging)
+ * - Profile: DB (cache) -> Live Fallback
+ * - Groups: Live (Permission granted)
+ * - Connections: Live (Permission granted)
+ * - GamePasses: Live (Permission granted)
+ * - Favorites: Live (Permission granted)
+ * - xTracker: SKIP (No permission)
+ * - Rolimons: SKIP (No permission)
+ *
+ * @param {string|number} usernameOrId
+ * @returns {Promise<Object>} Background check results suitable for featureExtractor
+ */
+async function getAIBackgroundCheck(usernameOrId) {
+    const startTime = Date.now();
+
+    let robloxId = Number(usernameOrId);
+    let username = null;
+
+    // 1. Resolve ID/Username (Try DB first for username)
+    if (!Number.isFinite(robloxId)) {
+        username = String(usernameOrId);
+        // Try to get ID from DB cache first
+        const cachedUser = await database.getUserByUsername(username);
+        if (cachedUser) {
+            robloxId = cachedUser.robloxId;
+        } else {
+            // Fallback to live lookup
+            robloxId = await roblox.getIdFromUsername(username);
+        }
+
+        if (!robloxId) {
+            return {
+                success: false,
+                error: 'Username not found',
+                elapsedMs: Date.now() - startTime
+            };
+        }
+    } else {
+        // Try to get Username from DB cache first
+        const cachedUser = await database.getUserById(robloxId);
+        if (cachedUser) {
+            username = cachedUser.username;
+        } else {
+            // Fallback to live lookup
+            username = await roblox.getUsernameFromId(robloxId);
+        }
+    }
+
+    // 2. Define Tasks
+    // DB Tasks (Safe, fast)
+    const dbTasks = {
+        inventory: () => safe('inventory_db', () => database.getUserAssets(robloxId)),
+        badges: () => safe('badges_db', () => database.getUserBadges(robloxId))
+    };
+
+    // Live Tasks (Permission granted) - using existing safe() wrapper with timeouts
+    const liveTasks = {
+        // Profile helps confirm account age, etc
+        profile: () => safe('profile', () => roblox.getUserProfile(robloxId)),
+        connections: () => safe('connections', () => roblox.getConnections(robloxId)),
+        groups: () => safe('groups', () => groupsApi.getGroupInformation(robloxId)),
+        gamePasses: () => safe('gamepasses', () => fetchAllUserGamePasses(robloxId)),
+        favorites: () => safe('favorites', () => fetchAllFavoriteGames(robloxId))
+    };
+
+    // Execute concurrently
+    const [dbResults, liveResults] = await Promise.all([
+        Promise.allSettled(Object.values(dbTasks).map(fn => fn())),
+        Promise.allSettled(Object.values(liveTasks).map(fn => fn()))
+    ]);
+
+    // Helper to extract result
+    const unwrap = (settled, index) => {
+        if (settled[index].status === 'fulfilled') return settled[index].value;
+        return { ok: false, error: 'Internal Error' };
+    };
+
+    // Map results back to keys
+    const dbKeys = Object.keys(dbTasks);
+    const liveKeys = Object.keys(liveTasks);
+
+    const data = {};
+    dbKeys.forEach((k, i) => { data[k] = unwrap(dbResults, i); });
+    liveKeys.forEach((k, i) => { data[k] = unwrap(liveResults, i); });
+
+    // Process Data (Similar to performBackgroundCheck but handling missing/skipped)
+
+    const profile = data.profile.ok ? data.profile.data : { error: data.profile.error };
+    const connections = data.connections.ok ? data.connections.data : { error: data.connections.error };
+    const groups = data.groups.ok && Array.isArray(data.groups.data) ? data.groups.data : [];
+    const inventory = data.inventory.ok && Array.isArray(data.inventory.data) ? data.inventory.data : []; // DB
+    const gamePasses = data.gamePasses.ok && Array.isArray(data.gamePasses.data) ? data.gamePasses.data : [];
+    const badgesData = data.badges.ok && Array.isArray(data.badges.data) ? data.badges.data : []; // DB
+    const favoritesData = data.favorites.ok ? data.favorites.data : [];
+
+    // Suspicious Places Logic (DB check on badges)
+    const badgeSuspicious = Array.isArray(badgesData)
+        ? await checkSuspiciousBadgePlaces(badgesData)
+        : { hasSuspicious: false, suspicious: [] };
+
+    // Derived Stats
+    const baseRankGroups = Array.isArray(groups) ? groups.filter(g => g.IsBaseRank) : [];
+    const developmentItems = Array.isArray(inventory)
+        ? inventory.filter(i => ROBLOX_ASSET_TYPES.DEVELOPMENT.find(type => type == i.type))
+        : [];
+
+    const isCreatedByCheckedUser = (gp) => Number(gp?.creator?.creatorId) === Number(robloxId);
+    const pricedGamePassCount = Array.isArray(gamePasses)
+        ? gamePasses.reduce((acc, gp) => acc + (typeof gp.price === "number" ? 1 : 0), 0)
+        : 0;
+    const selfCreatedPricedGamePassCount = Array.isArray(gamePasses)
+        ? gamePasses.reduce((acc, gp) => acc + (typeof gp.price === "number" && isCreatedByCheckedUser(gp) ? 1 : 0), 0)
+        : 0;
+    const gamePassPriceTotal = Array.isArray(gamePasses)
+        ? gamePasses.reduce((acc, gp) => acc + (typeof gp.price === "number" && !isCreatedByCheckedUser(gp) ? gp.price : 0), 0)
+        : 0;
+
+    const elapsedMs = Date.now() - startTime;
+
+    return {
+        success: true,
+        robloxId,
+        username,
+        elapsedMs,
+
+        profile,
+        connections,
+        groups,
+        inventory, // from DB
+        gamePasses,
+        badges: Array.isArray(badgesData) ? {
+            data: badgesData,
+            ...badgeSuspicious
+        } : badgesData, // from DB
+        favorites: data.favorites.ok ? favoritesData : { error: data.favorites.error },
+        inventoryValue: null, // SKIPPED
+        xTracker: null, // SKIPPED
+
+        // Graph is still useful if badges exist
+        badgeGraph: Array.isArray(badgesData) && badgesData.length > 0 ? {
+            buffer: generateBadgeGraph(badgesData, username, badgeSuspicious.suspicious),
+            filename: `badge_graph_${username}.png`
+        } : null,
+
+        stats: {
+            groupCount: Array.isArray(groups) ? groups.length : 0,
+            baseRankGroupCount: baseRankGroups.length,
+            baseRankPercentage: Array.isArray(groups) && groups.length > 0
+                ? Math.round((baseRankGroups.length / groups.length) * 100)
+                : 0,
+            inventoryCount: Array.isArray(inventory) ? inventory.length : 0,
+            developmentItemCount: developmentItems.length,
+            gamePassCount: Array.isArray(gamePasses) ? gamePasses.length : 0,
+            pricedGamePassCount,
+            selfCreatedPricedGamePassCount,
+            gamePassPriceTotal,
+            favoriteGamesCount: Array.isArray(favoritesData) ? favoritesData.length : 0,
+            badgeCount: Array.isArray(badgesData) ? badgesData.length : 0,
+            suspiciousBadgePlaceCount: badgeSuspicious.suspicious.length
+        }
+    };
+}
+
+
 module.exports = {
     performBackgroundCheck,
-    generateBadgeGraph
+    getAIBackgroundCheck,
+    generateBadgeGraph,
+    axiosRequest,
+    PER_REQUEST_TIMEOUT_MS
 };

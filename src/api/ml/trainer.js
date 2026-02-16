@@ -21,16 +21,24 @@ function ensureModelDir() {
 
 /**
  * Train model on officer labels using background check data
+ * @param {Object} options Training options
+ * @param {boolean} options.slow Whether to process slowly to avoid spamming (default: true)
+ * @param {number} options.delay Delay in milliseconds between accounts (default: 30000)
  * @returns {Promise<Object>} Trained model
  */
-async function trainModel() {
+async function trainModel(options = {}) {
+    const slow = options.slow !== false;
+    const delayMs = options.delay || 1000;
+
     ensureModelDir();
 
     console.log('Fetching officer labels from database...');
-    
+
+    const limit = options.limit || 689;
+
     // Fetch all labeled data
     const res = await pool.query(
-        `SELECT target_roblox_id, label FROM ${OFFICER_LABELS_TABLE} ORDER BY created_at DESC LIMIT 500`
+        `SELECT target_roblox_id, label FROM ${OFFICER_LABELS_TABLE} ORDER BY created_at DESC LIMIT ${limit}`
     );
 
     if (res.rows.length === 0) {
@@ -47,6 +55,12 @@ async function trainModel() {
 
     for (const row of res.rows) {
         try {
+            // Throttling for slow burn
+            if (slow && successCount > 0) {
+                console.log(`  Waiting ${delayMs / 1000} seconds before next account...`);
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+            }
+
             const features = await extractFeatures(Number(row.target_roblox_id));
             labeledExamples.push({
                 targetRobloxId: Number(row.target_roblox_id),
@@ -54,11 +68,9 @@ async function trainModel() {
                 features
             });
             successCount++;
-            
-            // Log progress every 10 accounts
-            if (successCount % 10 === 0) {
-                console.log(`  Processed ${successCount} accounts...`);
-            }
+
+            // Log progress
+            console.log(`  [${successCount}/${res.rows.length}] Processed ${row.target_roblox_id} (${labeledExamples[labeledExamples.length - 1].features.username})`);
         } catch (err) {
             failureCount++;
             console.warn(`  Failed to extract features for ${row.target_roblox_id}: ${err.message}`);
@@ -72,15 +84,17 @@ async function trainModel() {
         return getDefaultModel();
     }
 
-    // Calculate feature weights based on label distribution
-    const weights = calculateWeights(labeledExamples);
+    // Train Logistic Regression Model
+    const { weights, normalization } = trainLogisticRegression(labeledExamples);
     const stats = calculateStats(labeledExamples);
 
     const model = {
-        version: '1.0.0',
+        version: '2.0.0', // Bump version for ML model
+        type: 'logistic_regression',
         trainedAt: new Date().toISOString(),
         trainingExamples: labeledExamples.length,
         weights,
+        normalization,
         stats,
         labelDistribution: getLabelDistribution(labeledExamples)
     };
@@ -117,56 +131,121 @@ function getOrLoadModel() {
 }
 
 /**
- * Calculate feature weights based on labeled data
- * Higher weights for features that distinguish alts from real accounts
+ * Train model using Logistic Regression (Gradient Descent)
+ * 
+ * @param {Array} examples - Labeled examples { label, features }
+ * @returns {Object} Trained weights and normalization stats
  */
-function calculateWeights(labeledExamples) {
-    const weights = {
-        badgeAnomalies: { alt: 0, real: 0 },
-        inventoryAnomalies: { alt: 0, real: 0 },
-        gamePassAnomalies: { alt: 0, real: 0 },
-        groupAnomalies: { alt: 0, real: 0 },
-        xTrackerEvidence: { alt: 0, real: 0 },
-        connectionAnomalies: { alt: 0, real: 0 }
+function trainLogisticRegression(examples) {
+    // 1. Prepare Data
+    // Map labels to 0.0 - 1.0
+    const labelMap = {
+        'REAL': 0.0,
+        'LIKELY_REAL': 0.25,
+        'LIKELY_ALT': 0.75,
+        'ALT': 1.0
     };
 
-    // Normalize labels
-    const labelMapping = {
-        'ALT': 'alt',
-        'LIKELY_ALT': 'alt',
-        'REAL': 'real',
-        'LIKELY_REAL': 'real'
-    };
+    const X = []; // Feature matrix
+    const y = []; // Label vector
 
-    const counts = { alt: 0, real: 0 };
+    // Identify all unique feature keys
+    const featureKeys = new Set();
+    examples.forEach(ex => {
+        Object.keys(ex.features.features).forEach(k => featureKeys.add(k));
+    });
+    const featuresList = Array.from(featureKeys).sort();
 
-    // Aggregate feature scores by label type
-    for (const example of labeledExamples) {
-        const normalized = labelMapping[example.label] || 'real';
-        counts[normalized]++;
+    examples.forEach(ex => {
+        const row = [];
+        featuresList.forEach(k => {
+            row.push(Number(ex.features.features[k]) || 0);
+        });
+        X.push(row);
+        y.push(labelMap[ex.label] || 0);
+    });
 
-        const features = example.features.features;
-        for (const [area, data] of Object.entries(features)) {
-            if (!weights[area]) continue;
+    const m = X.length;
+    const n = featuresList.length;
 
-            const score = data.score || 0;
-            if (normalized === 'alt') {
-                weights[area].alt += score;
-            } else {
-                weights[area].real += score;
-            }
+    // 2. Normalize Features (Min-Max Scaling)
+    const minVals = new Array(n).fill(Infinity);
+    const maxVals = new Array(n).fill(-Infinity);
+
+    for (let i = 0; i < m; i++) {
+        for (let j = 0; j < n; j++) {
+            if (X[i][j] < minVals[j]) minVals[j] = X[i][j];
+            if (X[i][j] > maxVals[j]) maxVals[j] = X[i][j];
         }
     }
 
-    // Calculate average weights per area
-    for (const area of Object.keys(weights)) {
-        if (counts.alt > 0) weights[area].alt /= counts.alt;
-        if (counts.real > 0) weights[area].real /= counts.real;
+    const normX = [];
+    for (let i = 0; i < m; i++) {
+        const row = [];
+        row.push(1); // Bias term (x0 = 1)
+        for (let j = 0; j < n; j++) {
+            const range = maxVals[j] - minVals[j];
+            const val = range === 0 ? 0 : (X[i][j] - minVals[j]) / range;
+            row.push(val);
+        }
+        normX.push(row);
     }
 
-    return weights;
+    // 3. Gradient Descent
+    let theta = new Array(n + 1).fill(0); // Weights (including bias)
+    // Initialize random small weights
+    for (let i = 0; i < theta.length; i++) theta[i] = (Math.random() - 0.5) * 0.1;
+
+    const alpha = 0.1; // Learning rate
+    const iterations = 1000;
+
+    for (let iter = 0; iter < iterations; iter++) {
+        const newTheta = [...theta];
+
+        for (let j = 0; j < theta.length; j++) {
+            let gradient = 0;
+            for (let i = 0; i < m; i++) {
+                const h = sigmoid(dotProduct(theta, normX[i]));
+                gradient += (h - y[i]) * normX[i][j];
+            }
+            newTheta[j] = theta[j] - (alpha / m) * gradient;
+        }
+        theta = newTheta;
+    }
+
+    // 4. Package Result
+    // formatted: { featureName: weight, ... }
+    const weights = {};
+    weights['__BIAS__'] = theta[0];
+    for (let j = 0; j < n; j++) {
+        weights[featuresList[j]] = theta[j + 1];
+    }
+
+    return {
+        weights,
+        normalization: {
+            features: featuresList,
+            min: minVals,
+            max: maxVals
+        }
+    };
 }
 
+function sigmoid(z) {
+    return 1 / (1 + Math.exp(-z));
+}
+
+function dotProduct(vecA, vecB) {
+    let sum = 0;
+    for (let i = 0; i < vecA.length; i++) {
+        sum += vecA[i] * vecB[i];
+    }
+    return sum;
+}
+
+/**
+ * Calculate statistics about feature distributions
+ */
 /**
  * Calculate statistics about feature distributions
  */
@@ -174,9 +253,8 @@ function calculateStats(labeledExamples) {
     const stats = {
         altExamples: 0,
         realExamples: 0,
-        meanAreaScoresAlt: {},
-        meanAreaScoresReal: {},
-        areaFlags: {}
+        meanFeaturesAlt: {},
+        meanFeaturesReal: {}
     };
 
     const labelMapping = {
@@ -186,33 +264,27 @@ function calculateStats(labeledExamples) {
         'LIKELY_REAL': 'real'
     };
 
-    const areaSums = {
-        alt: { badgeAnomalies: 0, inventoryAnomalies: 0, gamePassAnomalies: 0, groupAnomalies: 0, xTrackerEvidence: 0, connectionAnomalies: 0 },
-        real: { badgeAnomalies: 0, inventoryAnomalies: 0, gamePassAnomalies: 0, groupAnomalies: 0, xTrackerEvidence: 0, connectionAnomalies: 0 }
-    };
-
-    const areaCounts = {
-        alt: { badgeAnomalies: 0, inventoryAnomalies: 0, gamePassAnomalies: 0, groupAnomalies: 0, xTrackerEvidence: 0, connectionAnomalies: 0 },
-        real: { badgeAnomalies: 0, inventoryAnomalies: 0, gamePassAnomalies: 0, groupAnomalies: 0, xTrackerEvidence: 0, connectionAnomalies: 0 }
-    };
+    const sums = { alt: {}, real: {} };
+    const counts = { alt: 0, real: 0 };
 
     for (const example of labeledExamples) {
         const normalized = labelMapping[example.label] || 'real';
         stats[`${normalized}Examples`]++;
+        counts[normalized]++;
 
         const features = example.features.features;
-        for (const [area, data] of Object.entries(features)) {
-            if (!areaSums[normalized][area]) continue;
-
-            areaSums[normalized][area] += data.score || 0;
-            areaCounts[normalized][area]++;
+        for (const [key, value] of Object.entries(features)) {
+            if (!sums[normalized][key]) sums[normalized][key] = 0;
+            sums[normalized][key] += (Number(value) || 0);
         }
     }
 
     // Calculate averages
-    for (const area of Object.keys(areaSums.alt)) {
-        stats.meanAreaScoresAlt[area] = areaCounts.alt[area] > 0 ? areaSums.alt[area] / areaCounts.alt[area] : 0;
-        stats.meanAreaScoresReal[area] = areaCounts.real[area] > 0 ? areaSums.real[area] / areaCounts.real[area] : 0;
+    for (const key of Object.keys(sums.alt)) {
+        stats.meanFeaturesAlt[key] = counts.alt > 0 ? sums.alt[key] / counts.alt : 0;
+    }
+    for (const key of Object.keys(sums.real)) {
+        stats.meanFeaturesReal[key] = counts.real > 0 ? sums.real[key] / counts.real : 0;
     }
 
     return stats;
@@ -251,7 +323,6 @@ function getDefaultModel() {
             inventoryAnomalies: { alt: 35, real: 10 },
             gamePassAnomalies: { alt: 25, real: 8 },
             groupAnomalies: { alt: 30, real: 12 },
-            xTrackerEvidence: { alt: 60, real: 5 },
             connectionAnomalies: { alt: 20, real: 5 }
         },
         stats: {
@@ -262,7 +333,6 @@ function getDefaultModel() {
                 inventoryAnomalies: 40,
                 gamePassAnomalies: 30,
                 groupAnomalies: 35,
-                xTrackerEvidence: 50,
                 connectionAnomalies: 15
             },
             meanAreaScoresReal: {
@@ -270,7 +340,6 @@ function getDefaultModel() {
                 inventoryAnomalies: 5,
                 gamePassAnomalies: 5,
                 groupAnomalies: 8,
-                xTrackerEvidence: 0,
                 connectionAnomalies: 3
             }
         },
