@@ -23,6 +23,7 @@
       "INACTIVITY_MANAGEMENT": "",
       "INACTIVITY_NOTICE": "",
       "EXEMPT": "",
+      "AUTO_ROLES": [],
       "ERT_OFFICER": [],
       "MEDAL": {
         "PLATINUM": "",
