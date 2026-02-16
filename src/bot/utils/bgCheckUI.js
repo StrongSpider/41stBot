@@ -578,7 +578,7 @@ function buildAIAnalysisContainer(result, accentColor) {
     // Context / Explanation
     if (prediction.probability !== undefined) {
         container.addTextDisplayComponents(td =>
-            td.setContent(`*Probability of being an alt/bot account: ${Math.round(prediction.probability * 100)}%*`)
+            td.setContent(`*Probability of being an alternative account: ${Math.round(prediction.probability * 100)}%*`)
         );
     }
 
@@ -597,35 +597,68 @@ function buildAIAnalysisContainer(result, accentColor) {
 
     // Contributors
     if (prediction.contributors && prediction.contributors.length > 0) {
-        container.addSeparatorComponents(sep => sep);
-        container.addTextDisplayComponents(td => td.setContent("### 🔍 Detailed Risk Breakdown"));
+        // Sort contributors: Risk (positive) first, then Trust (negative)
+        const riskFactors = prediction.contributors.filter(c => c.contribution > 0).sort((a, b) => b.contribution - a.contribution);
+        const trustFactors = prediction.contributors.filter(c => c.contribution < 0).sort((a, b) => a.contribution - b.contribution);
 
         const riskMap = {
+            // Badge Features
             badgeAvgTimeGap: { title: "Badge Acquisition Speed", desc: "User earns badges unusually fast, suggesting automation." },
             badgeClusterCount: { title: "Badge Clustering", desc: "Many badges earned in rapid succession." },
-            suspiciousBadgePlaceCount: { title: "Suspicious Games", desc: "Detected activity in known farming games." },
-            accountAge: { title: "Account Age", desc: "Account is relatively new." },
-            friendCount: { title: "Social Graph", desc: "Low number of friends." },
-            groupCount: { title: "Community Participation", desc: "Low group membership count." },
-            inventoryCount: { title: "Asset Collection", desc: " sparse inventory often indicates a throwaway account." },
-            gamePassCount: { title: "Spending History", desc: "Lack of gamepass purchases." },
-            // Add other keys as needed based on featureExtractor.js
+            suspiciousBadgeCount: { title: "Suspicious Games", desc: "Detected activity in known farming games." },
+            badgeCount: { title: "Badge Count", desc: "Total number of badges." },
+            badgeTimeVariance: { title: "Badge Consistency", desc: "Regularity of badge acquisition." },
+
+            // Account Features
+            accountAge: { title: "Account Age", desc: "Age of the account." },
+
+            // Social Features
+            friendCount: { title: "Friend Count", desc: "Number of friends." },
+            followerCount: { title: "Follower Count", desc: "Number of followers." },
+            followingCount: { title: "Following Count", desc: "Number of followed users." },
+            groupCount: { title: "Group Membership", desc: "Number of groups joined." },
+            groupBaseRankCount: { title: "Group Activity", desc: "Number of base-rank roles (lurker)." },
+
+            // Asset Features
+            inventoryCount: { title: "Inventory Size", desc: "Total items in inventory." },
+            totalItems: { title: "Total Assets", desc: "Total assets owned." },
+            inv_Hat: { title: "Hats Owned", desc: "Number of hats." },
+            inv_Hair: { title: "Hair Owned", desc: "Number of hair assets." },
+            inv_Face: { title: "Faces Owned", desc: "Number of faces." },
+            inv_Shirt: { title: "Shirts Owned", desc: "Number of shirts." },
+            inv_Pants: { title: "Pants Owned", desc: "Number of pants." },
+
+            // Spending Features
+            gamePassCount: { title: "GamePasses Owned", desc: "Number of GamePasses purchased." },
+            gamePassTotalSpent: { title: "Total Spent", desc: "Total Robux spent on GamePasses." }
         };
 
-        const lines = prediction.contributors.slice(0, 10).map(c => {
-            const info = riskMap[c.key] || { title: c.key, desc: "Contributes to risk score." };
+        const formatLine = (c, isRisk) => {
+            const info = riskMap[c.key] || { title: c.key, desc: isRisk ? "Increases Suspicion" : "Trust Indicator" };
             const val = typeof c.rawVal === 'number' ? Math.round(c.rawVal * 100) / 100 : c.rawVal;
+            const icon = isRisk ? "🚩" : "✅";
 
-            // Dynamic text based on contribution sign (positive = risky, negative = safe)
-            const isRisk = c.contribution > 0;
-            const icon = isRisk ? "⚠️" : "✅";
-            const impactText = isRisk ? "Increases Suspicion" : "Reduces Suspicion";
+            return `**${icon} ${info.title}**\n> ${info.desc}\n> *Value: ${val}*`;
+        };
 
-            return `**${icon} ${info.title}**\n> ${info.desc}\n> *Value: ${val} | ${impactText}*`;
-        });
+        if (riskFactors.length > 0) {
+            container.addSeparatorComponents(sep => sep);
+            container.addTextDisplayComponents(td => td.setContent("### 🚨 Suspicious Indicators"));
 
-        for (const chunk of chunkText(lines.join("\n\n"), 3500)) {
-            container.addTextDisplayComponents(td => td.setContent(chunk));
+            const riskLines = riskFactors.slice(0, 5).map(c => formatLine(c, true)); // Top 5 Risks
+            for (const chunk of chunkText(riskLines.join("\n\n"), 3500)) {
+                container.addTextDisplayComponents(td => td.setContent(chunk));
+            }
+        }
+
+        if (trustFactors.length > 0) {
+            container.addSeparatorComponents(sep => sep);
+            container.addTextDisplayComponents(td => td.setContent("### 🛡️ Trust Indicators"));
+
+            const trustLines = trustFactors.slice(0, 5).map(c => formatLine(c, false)); // Top 5 Trust Factors
+            for (const chunk of chunkText(trustLines.join("\n\n"), 3500)) {
+                container.addTextDisplayComponents(td => td.setContent(chunk));
+            }
         }
     }
 

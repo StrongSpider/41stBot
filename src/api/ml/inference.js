@@ -65,7 +65,7 @@ function calculateLogisticPrediction(features, model) {
         const contribution = normalizedVal * weight;
         z += contribution;
 
-        if (Math.abs(contribution) > 0.1) {
+        if (Math.abs(contribution) > 0.01) {
             contributors.push({ key, contribution, weight, rawVal });
         }
     });
@@ -102,6 +102,20 @@ function calculateLogisticPrediction(features, model) {
 function getLogisticRecommendations(contributors, rating) {
     const recs = [];
 
+    const recMap = {
+        badgeAvgTimeGap: "Investigate badge timeline for anomalies (large gaps)",
+        badgeClusterCount: "Investigate badge timeline for badge-running behavior",
+        suspiciousBadgePlaceCount: "Review badge history for anomalies",
+        suspiciousBadgeCount: "Review badge history for anomalies", // handle both naming conventions if uncertain
+        accountAge: "New account - verify meets minimum age requirements",
+        friendCount: "Check social connections (low count)",
+        groupCount: "Review group participation history",
+        inventoryCount: "Inspect inventory for normal player assets",
+        gamePassCount: "Check purchase history (low count)",
+        badgeCount: "Investigate badge history (low count)",
+        badgeTimeVariance: "Investigate badge timeline for anomalies (large variance)",
+    };
+
     // Suggest based on top positive contributors (things making it look like an alt)
     const topSuspicious = contributors
         .filter(c => c.contribution > 0)
@@ -109,14 +123,22 @@ function getLogisticRecommendations(contributors, rating) {
         .slice(0, 3);
 
     topSuspicious.forEach(c => {
-        recs.push(`Flag: High ${c.key} (${c.rawVal}) contributes to suspicion`);
+        const action = recMap[c.key];
+        if (action && !recs.includes(action)) {
+            recs.push(action);
+        }
     });
 
-    if (rating >= 3) {
-        recs.push('ACTION: Manual review recommended');
+    if (rating >= 3 && recs.length === 0) {
+        recs.push('Manual review recommended due to high score');
     }
 
-    if (recs.length === 0) recs.push('No significant suspicious indicators');
+    // Ensure we don't have too many, top 3 is enough
+    if (recs.length > 3) {
+        recs.length = 3;
+    }
+
+    if (recs.length === 0) recs.push('No specific investigations recommended');
     return recs;
 }
 
