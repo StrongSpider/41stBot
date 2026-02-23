@@ -4,7 +4,10 @@ const axios = require("axios")
 const { HttpsProxyAgent } = require("https-proxy-agent")
 const path = require("path")
 const fs = require("fs")
-const Logger = require("./logger.js")
+
+const LoggerClass = require('./logger.js')
+const logger = new LoggerClass('Proxy', 'API')
+
 
 const config = require("../../config.json")
 
@@ -30,8 +33,8 @@ if (
   !WEBSHARE_API_KEY &&
   (!WEBSHARE_USERNAME || !WEBSHARE_PASSWORD || !WEBSHARE_HOST || !WEBSHARE_PORT)
 ) {
-  Logger.warn(
-    "[proxy] Webshare proxy is not fully configured. Set WEBSHARE_PROXIES, WEBSHARE_API_KEY, or WEBSHARE_USERNAME/WEBSHARE_PASSWORD/WEBSHARE_HOST/WEBSHARE_PORT."
+  logger.warn(
+    "Webshare proxy is not fully configured. Set WEBSHARE_PROXIES, WEBSHARE_API_KEY, or WEBSHARE_USERNAME/WEBSHARE_PASSWORD/WEBSHARE_HOST/WEBSHARE_PORT."
   )
 }
 
@@ -50,7 +53,7 @@ function ensureCacheDir() {
       fs.mkdirSync(CACHE_DIR, { recursive: true })
     }
   } catch (err) {
-    Logger.warn("[proxy] Failed to ensure cache dir: " + err.message)
+    logger.warn("Failed to ensure cache dir: " + err.message)
   }
 }
 
@@ -64,7 +67,7 @@ function createProxyAgent(url) {
   try {
     proxyAgents.push(new HttpsProxyAgent(url))
   } catch (err) {
-    Logger.warn(`[proxy] Failed to create proxy agent for URL ${url}: ${err.message}`)
+    logger.warn(`Failed to create proxy agent for URL ${url}: ${err.message}`)
   }
 }
 
@@ -101,7 +104,7 @@ function loadProxiesFromCache() {
 
     const parsed = JSON.parse(raw)
     if (!Array.isArray(parsed)) {
-      Logger.warn("[proxy] Cache file is not an array, ignoring")
+      logger.warn("Cache file is not an array, ignoring")
       return
     }
 
@@ -118,10 +121,10 @@ function loadProxiesFromCache() {
     }
 
     if (added > 0) {
-      Logger.info(`[proxy] Loaded ${added} proxies from cache`)
+      logger.info(`Loaded ${added} proxies from cache`)
     }
   } catch (err) {
-    Logger.warn("[proxy] Failed to read proxy cache file: " + err.message)
+    logger.warn("Failed to read proxy cache file: " + err.message)
   }
 }
 
@@ -130,9 +133,9 @@ function loadProxiesFromCache() {
  */
 function logProxyPool() {
   if (proxyAgents.length === 0) {
-    Logger.warn("[proxy] Proxy pool is empty, requests will go direct")
+    logger.warn("Proxy pool is empty, requests will go direct")
   } else {
-    Logger.info("[proxy] Proxy pool size: " + proxyAgents.length)
+    logger.info("Proxy pool size: " + proxyAgents.length)
   }
 }
 
@@ -190,7 +193,7 @@ function removeProxyAgent(agent) {
 
   if (proxyAgents.length === 0) {
     nextProxyIndex = 0
-    Logger.warn("[proxy] All proxy agents removed, no proxies left in pool")
+    logger.warn("All proxy agents removed, no proxies left in pool")
     return
   }
 
@@ -259,8 +262,22 @@ async function request(config) {
       const duration = Date.now() - attemptStart
       const status = err && err.response && err.response.status
 
-      Logger.warn(
-        "[proxy] request error " +
+      if (status === 429) {
+        if (attempt < maxProxyAttempts) {
+          logger.warn(`Got 429, trying next proxy (attempt ${attempt}/${maxProxyAttempts})`)
+          continue
+        } else {
+          logger.error(`All proxies (${maxProxyAttempts}) returned 429 for ${url}. Giving up.`)
+          const rateLimitError = new Error(`Rate limit exceeded on all ${maxProxyAttempts} proxies for ${url}`)
+          rateLimitError.status = 429
+          rateLimitError.code = 'ERR_RATE_LIMIT_EXCEEDED'
+          rateLimitError.originalError = err
+          throw rateLimitError
+        }
+      }
+
+      logger.warn(
+        "request error " +
         JSON.stringify({
           method,
           url,
@@ -287,14 +304,14 @@ async function request(config) {
       }
 
       if ((status === 407 || status === 427) && proxyAgent) {
-        Logger.warn(`[proxy] Got ${status} through proxy, removing bad proxy and retrying`)
+        logger.warn(`Got ${status} through proxy, removing bad proxy and retrying`)
         removeProxyAgent(proxyAgent)
 
         if (proxyAgents.length > 0) {
           continue
         }
       } else if (proxyAgent && isNetworkOrTlsError(err)) {
-        Logger.warn("[proxy] Network/TLS error through proxy, removing proxy and retrying " + JSON.stringify({
+        logger.warn("Network/TLS error through proxy, removing proxy and retrying " + JSON.stringify({
           code: err.code,
           message: err.message,
         }))
@@ -423,15 +440,15 @@ async function batchGet(
             }
           }
         } catch (parseErr) {
-          Logger.warn("[proxy] Failed to parse Retry-After header " + JSON.stringify({
+          logger.warn("Failed to parse Retry-After header " + JSON.stringify({
             url,
             attempt: attemptLabel,
             error: parseErr && parseErr.message ? parseErr.message : parseErr,
           }))
         }
 
-        Logger.warn(
-          "[proxy] batchGet 429, backing off " +
+        logger.warn(
+          "batchGet 429, backing off " +
           JSON.stringify({ url, attempt: attemptLabel, backoff })
         )
         await sleep(backoff)
@@ -439,8 +456,8 @@ async function batchGet(
       }
 
       if (attempt < maxRetries) {
-        Logger.warn(
-          "[proxy] batchGet attempt failed, retrying " +
+        logger.warn(
+          "batchGet attempt failed, retrying " +
           JSON.stringify({
             url,
             attempt: attemptLabel,
@@ -451,8 +468,8 @@ async function batchGet(
         return getWithRetry(url, attempt + 1)
       }
 
-      Logger.warn(
-        "[proxy] batchGet giving up after attempts " +
+      logger.warn(
+        "batchGet giving up after attempts " +
         JSON.stringify({
           url,
           attempts: attemptLabel,

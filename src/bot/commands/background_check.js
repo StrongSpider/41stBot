@@ -5,7 +5,9 @@ const { SlashCommandBuilder, ContainerBuilder, MessageFlags, ComponentType } = r
 const backgroundCheck = require("../../api/backgroundCheck.js");
 const config = require("../../../config.json");
 const ui = require("../utils/bgCheckUI.js");
-const Logger = require("../../api/logger.js");
+
+const LoggerClass = require('../../api/logger.js')
+const logger = new LoggerClass('Purge', 'BOT')
 
 const COLLECTOR_MS = 10 * 60 * 1000;
 const ACCENT_COLOR = config.GENERAL.ACCENT_COLOR;
@@ -302,16 +304,16 @@ module.exports = {
                         return i.reply({ content: res.payload, flags: MessageFlags.Ephemeral }).catch(() => { });
                     }
 
-                    return i.reply({ components: [res.payload], flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2 }).catch(e => { Logger.error(e); });
+                        return i.reply({ components: [res.payload], flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2 }).catch(e => { logger.error(e); });
                 } catch (e) {
-                    Logger.error(e);
+                    logger.error(e);
                     return i.reply({ content: "Failed to load further information.", flags: MessageFlags.Ephemeral }).catch(() => { });
                 }
             });
 
             // Ghost ping to pop the notification to the top
-            const ghostping = await interaction.channel.send({ content: `<@${interaction.user.id}>` });
-            ghostping.delete().catch(() => { });
+            const ghostPing = await interaction.channel.send({ content: `<@${interaction.user.id}>` });
+            ghostPing.delete().catch(() => { });
 
         } catch (err) {
             const msg = err instanceof Error && err.message ? err.message : "unknown error";

@@ -9,7 +9,6 @@ const assets = require('./assets.js');
 const badge = require('./badge.js');
 const groupsApi = require('./groups.js');
 const database = require('./database.js');
-const Logger = require('./logger.js');
 const cookieManager = require('./cookieManager.js');
 const inference = require('./ml/inference.js');
 
@@ -36,7 +35,8 @@ const robloxHttp = axios.create({
 // Attach response interceptor to handle Set-Cookie headers
 cookieManager.attachResponseInterceptor(robloxHttp);
 
-const logger = new Logger('BackgroundCheck', 'API');
+const LoggerClass = require('./logger.js')
+const logger = new LoggerClass('BackgroundCheck', 'API')
 
 function toErrMsg(err) {
     if (!err) return 'Unknown error';

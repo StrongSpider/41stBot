@@ -6,6 +6,9 @@ const { CHANNELS: DISCORD_CHANNEL_IDS } = config.DISCORD
 const { EMBED_COLOR } = config.GENERAL
 const database = require('../../../api/database.js')
 
+const LoggerClass = require('../../../api/logger.js')
+const logger = new LoggerClass('WelcomeMessage', 'BOT')
+
 /**
  * @param {import('discord.js').GuildMember} member
  */
@@ -20,18 +23,18 @@ module.exports = async function welcomeMessage(member) {
       if (existing) return
     } catch (err) {
       const msg = err && err.message ? err.message : String(err)
-      console.error('welcomeMessage db lookup failed:', msg)
+      logger.error('db lookup failed:', msg)
     }
 
     const channelId = DISCORD_CHANNEL_IDS && DISCORD_CHANNEL_IDS.WELCOME
     if (!channelId) {
-      console.error('WELCOME_CHANNEL id is not configured')
+      logger.error('WELCOME_CHANNEL id is not configured')
       return
     }
 
     const chan = member.guild.channels.cache.get(channelId)
     if (!chan || !(chan instanceof TextChannel)) {
-      console.error('WELCOME_CHANNEL not found or not a text channel:', channelId)
+      logger.error('WELCOME_CHANNEL not found or not a text channel:', channelId)
       return
     }
 
@@ -45,6 +48,6 @@ module.exports = async function welcomeMessage(member) {
     await chan.send({ content: `<@${member.user.id}>`, embeds: [embed] })
   } catch (e) {
     const msg = e && e.message ? e.message : String(e)
-    console.error('guildMemberAdd welcomeMessage error:', msg)
+    logger.error('welcomeMessage error:', msg)
   }
 }

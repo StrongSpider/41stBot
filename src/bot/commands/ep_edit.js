@@ -6,9 +6,11 @@ const { getIdFromUsername } = require("../../api/roblox.js");
 const config = require('../../../config.json')
 const { EMBED_COLOR } = config.GENERAL;
 const database = require("../../api/database.js");
-const Logger = require("../../api/logger.js");
 const path = require("path");
 const fs = require("fs");
+
+const LoggerClass = require('../../api/logger.js')
+const logger = new LoggerClass('Purge', 'BOT')
 
 const CACHE_PATH = path.join(__dirname, "..", "..", "cache", "usernames.json");
 let usernameEntries = null;
@@ -151,7 +153,7 @@ module.exports = {
                     newEP = Math.max(newEP, 0);
 
                     await database.setCurrentEventPoints(robloxId, newEP).catch((err) => {
-                        Logger.error(err);
+                        logger.error(err);
                         throw new Error("db write failed or user not verified");
                     });
 
@@ -165,7 +167,7 @@ module.exports = {
 
                     result += `✅ ${username}: \`${oldEP}\` -> \`${newEP}\`\n`;
                 } catch (err) {
-                    Logger.error(err);
+                    logger.error(err);
                     const msg =
                         err instanceof Error && err.message ? err.message : "unknown error";
                     result += `❌ ${username}: **${msg}**\n`;

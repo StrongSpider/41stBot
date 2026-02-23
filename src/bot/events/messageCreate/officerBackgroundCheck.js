@@ -7,6 +7,9 @@ const config = require('../../../../config.json')
 const { CHANNELS: DISCORD_CHANNEL_IDS } = config.DISCORD
 const { ACCENT_COLOR } = config.GENERAL;
 
+const LoggerClass = require('../../../api/logger.js')
+const logger = new LoggerClass('OfficerCommandsBackgroundCheck', 'BOT')
+
 const COLLECTOR_MS = 10 * 60 * 1000;
 
 /**
@@ -243,15 +246,15 @@ module.exports = async function officerBackgroundCheck(message) {
                 }
 
                 const res = await handler();
-                return i.reply({ components: [res.payload], flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2 }).catch((e) => { console.log(e) });
+                return i.reply({ components: [res.payload], flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2 }).catch((e) => { logger.error(`Failed to send background check details for section ${parsed.section}:`, e) });
             } catch (e) {
-                console.log(e);
+                logger.error('Error handling background check button interaction:', e);
                 return i.reply({ content: "Failed to load further information.", flags: MessageFlags.Ephemeral }).catch(() => { });
             }
         });
 
     } catch (err) {
-        console.error(err);
+        logger.error(err);
         const msg = err instanceof Error && err.message ? err.message : "unknown error";
         const safe = `Background check failed: ${msg}`;
         if (loadingMsg) {

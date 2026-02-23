@@ -1,12 +1,14 @@
 'use strict'
 
-const logger = require('../../../api/logger.js')
 const config = require('../../../../config.json')
+
+const LoggerClass = require('../../../api/logger.js')
+const logger = new LoggerClass('AutoRole', 'BOT')
 
 /**
  * @param {import('discord.js').GuildMember} member
  */
-module.exports = async function welcomeMessage(member) {
+module.exports = async function autoRole(member) {
     try {
         if (!member || !member.user) return
         if (member.user.bot) return
@@ -29,9 +31,9 @@ module.exports = async function welcomeMessage(member) {
         const today = new Date()
         const dayOfWeek = today.getUTCDay() // 0 (Sunday) to 6 (Saturday)
         if (dayOfWeek >= 4 && dayOfWeek <= 0) { // Thursday to Sunday
-            await member.roles.add(exemptionRole, 'Auto Role: Exemption role for Thursday to Sunday')
+            await member.roles.add(exemptionRole, 'Exemption role for Thursday to Sunday')
         }
     } catch (e) {
-        logger.error('[AutoRole] Error assigning auto roles to new member:', e)
+        logger.error('Error assigning auto roles to new member:', e)
     }
 }

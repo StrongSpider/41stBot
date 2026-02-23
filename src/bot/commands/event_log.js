@@ -7,9 +7,11 @@ const { CHANNELS: DISCORD_CHANNEL_IDS } = config.DISCORD
 const { getIdFromUsername, getUsernameFromId } = require('../../api/roblox.js')
 const { sendEventCreateWebhook } = require('../../api/webhook.js')
 const database = require('../../api/database.js')
-const Logger = require('../../api/logger.js')
 
-// Note: Good luck! This command was a hacked together mess. I got AI to do a refactorization of it so hopefully its cleaner but, its AI code so who knows. - spiider
+const LoggerClass = require('../../api/logger.js')
+const logger = new LoggerClass('EventLog', 'BOT')
+
+// Note: Good luck! This command was a hacked together mess. I got AI to do a refactor of it so hopefully its cleaner but, its AI code so who knows. - spiider
 
 /**
  * Resolve a Roblox username to both IDs and mark an error on failure
@@ -117,7 +119,7 @@ function createMinorActionButtons() {
  */
 function debugTiming(label, startTime) {
     const elapsed = Date.now() - startTime
-    Logger.debug(`[event-log] ${label} +${elapsed}ms`)
+    logger.debug(`[event-log] ${label} +${elapsed}ms`)
 }
 
 module.exports = {
@@ -361,7 +363,7 @@ module.exports = {
 
             if (btn.customId === 'confirm') {
                 const timingStart = Date.now()
-                Logger.debug(`[event-log] confirm start event="${eventName}" user=${interaction.user.id}`)
+                logger.debug(`[event-log] confirm start event="${eventName}" user=${interaction.user.id}`)
 
                 locked = true
                 await btn.deferUpdate()

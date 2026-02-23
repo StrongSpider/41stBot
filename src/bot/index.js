@@ -3,13 +3,15 @@
 const { Client, Collection, GatewayIntentBits, Partials } = require('discord.js')
 const path = require('path')
 const fs = require('fs')
-const Logger = require('../api/logger.js')
+
+const LoggerClass = require('../api/logger.js')
+const logger = new LoggerClass('Index', 'BOT')
 
 const config = require('../../config.json')
 const BOT_TOKEN = config.DISCORD.BOT.TOKEN
 
 if (!BOT_TOKEN || typeof BOT_TOKEN !== 'string' || BOT_TOKEN.trim().length === 0) {
-  Logger.error('BOT_TOKEN is missing in config.json')
+  logger.error('BOT_TOKEN is missing in config.json')
   process.exit(1)
 }
 
@@ -50,18 +52,18 @@ function loadCommands() {
           client.commands.set(mod.data.name, mod)
           count++
         } else {
-          Logger.warn('[WARN] Command file missing data or execute: ' + filePath)
+          logger.warn('Command file missing data or execute: ' + filePath)
         }
       } catch (e) {
         const msg = e && e.message ? e.message : String(e)
-        Logger.error('[ERROR] Failed to load command ' + filePath + ' - ' + msg)
+        logger.error('Failed to load command ' + filePath + ' - ' + msg)
       }
     }
   } catch (e) {
     const msg = e && e.message ? e.message : String(e)
-    Logger.error('[ERROR] Failed to scan commands directory: ' + msg)
+    logger.error('Failed to scan commands directory: ' + msg)
   }
-  Logger.info('Loaded commands: ' + count)
+  logger.info('Loaded commands: ' + count)
 }
 
 /**
@@ -86,17 +88,17 @@ function loadEventHandlers() {
           try {
             const fn = require(filePath)
             if (typeof fn === 'function') return fn
-            Logger.warn('[WARN] Event file does not export a function: ' + filePath)
+            logger.warn('Event file does not export a function: ' + filePath)
             return null
           } catch (e) {
             const msg = e && e.message ? e.message : String(e)
-            Logger.error('[ERROR] Failed to load event file ' + filePath + ' - ' + msg)
+            logger.error('Failed to load event file ' + filePath + ' - ' + msg)
             return null
           }
         }).filter(Boolean)
       } catch (e) {
         const msg = e && e.message ? e.message : String(e)
-        Logger.error('[ERROR] Failed to read event folder ' + folderPath + ' - ' + msg)
+        logger.error('Failed to read event folder ' + folderPath + ' - ' + msg)
         handlers = []
       }
 
@@ -106,7 +108,7 @@ function loadEventHandlers() {
         for (const handler of handlers) {
           try { await handler(...args) } catch (e) {
             const msg = e && e.message ? e.message : String(e)
-            Logger.error('[ERROR] Event handler for ' + eventName + ' threw: ' + msg)
+            logger.error('Event handler for ' + eventName + ' threw: ' + msg)
           }
         }
       })
@@ -115,9 +117,9 @@ function loadEventHandlers() {
     }
   } catch (e) {
     const msg = e && e.message ? e.message : String(e)
-    Logger.error('[ERROR] Failed to scan events directory: ' + msg)
+    logger.error('Failed to scan events directory: ' + msg)
   }
-  Logger.info('Loaded event handlers: ' + totalEvents)
+  logger.info('Loaded event handlers: ' + totalEvents)
 }
 
 // Bootstrap

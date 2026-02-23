@@ -2,9 +2,11 @@
 
 const noblox = require('noblox.js')
 const proxy = require('./proxy.js')
-const Logger = require('./logger.js')
 const axios = require('axios')
 const cookieManager = require('./cookieManager.js')
+
+const LoggerClass = require('./logger.js')
+const logger = new LoggerClass('Roblox', 'API')
 
 // DB cache
 const db = require('./db')
@@ -54,19 +56,19 @@ const getUsernameFromId = async function (id) {
       }
     }
   } catch (err) {
-    Logger.error('roblox.js DB read error (getUsernameFromId): ' + err.message)
+    logger.error('DB read error (getUsernameFromId): ' + err.message)
   }
 
   // API fallback
   try {
     const uname = await noblox.getUsernameFromId(idNum)
-    Logger.info('roblox.js fetched username from API: ' + uname + ' (' + idNum + ')')
+    logger.info('Fetched username from API: ' + uname + ' (' + idNum + ')')
 
     // Update DB
     try {
       await db.upsertUser(idNum, uname)
     } catch (err) {
-      Logger.error('roblox.js DB write error (upsertUser): ' + err.message)
+      logger.error('DB write error (upsertUser): ' + err.message)
     }
 
     return uname
@@ -95,19 +97,19 @@ const getIdFromUsername = async function (username) {
       }
     }
   } catch (err) {
-    Logger.error('roblox.js DB read error (getIdFromUsername): ' + err.message)
+    logger.error('DB read error (getIdFromUsername): ' + err.message)
   }
 
   // API fallback
   try {
     const idNum = await noblox.getIdFromUsername(uname)
-    Logger.info('roblox.js fetched id from API: ' + uname + ' (' + idNum + ')')
+    logger.info('Fetched id from API: ' + uname + ' (' + idNum + ')')
 
     // Update DB
     try {
       await db.upsertUser(idNum, uname)
     } catch (err) {
-      Logger.error('roblox.js DB write error (upsertUser): ' + err.message)
+      logger.error('DB write error (upsertUser): ' + err.message)
     }
 
     return idNum
@@ -142,7 +144,7 @@ const getPlaceDetails = async function (placeIds) {
         }
       }
     } catch (err) {
-      Logger.warn(`[getPlaceDetails] Failed to fetch chunk starting at index ${i}: ` + err.message)
+      logger.warn(`[getPlaceDetails] Failed to fetch chunk starting at index ${i}: ` + err.message)
     }
   }
 
@@ -213,14 +215,14 @@ const getUserGamepasses = async function (robloxId) {
           err.response.headers['retry-after']
 
         if (status === 429) {
-          Logger.warn(
+          logger.warn(
             `[gamepasses] GAR passes 429 for game ${GAR_GAME_ID} attempt=${attempt}, ` +
             `retry-after=${retryAfterHeader ?? 'none'}, retrying immediately`
           )
           continue
         }
 
-        Logger.warn(
+        logger.warn(
           `[gamepasses] GAR passes request failed for game ${GAR_GAME_ID} attempt=${attempt}: ` +
           (err && err.message ? err.message : err)
         )
@@ -283,14 +285,14 @@ const getUserGamepasses = async function (robloxId) {
               err.response.headers['retry-after']
 
             if (status === 429) {
-              Logger.warn(
+              logger.warn(
                 `[gamepasses] ownership 429 for user ${userId} passId=${passId} attempt=${attempt}, ` +
                 `retry-after=${retryAfterHeader ?? 'none'}, retrying immediately`
               )
               continue
             }
 
-            Logger.warn(
+            logger.warn(
               `[gamepasses] ownership request failed for user ${userId} passId=${passId} attempt=${attempt}: ` +
               (err && err.message ? err.message : err)
             )
@@ -341,14 +343,14 @@ const canViewInventory = async function (robloxId) {
         err.response.headers['retry-after']
 
       if (status === 429) {
-        Logger.warn(
+        logger.warn(
           `[gamepasses] GAR passes 429 for game ${GAR_GAME_ID} attempt=${attempt}, ` +
           `retry-after=${retryAfterHeader ?? 'none'}, retrying immediately`
         )
         continue
       }
 
-      Logger.warn(
+      logger.warn(
         `[gamepasses] GAR passes request failed for game ${GAR_GAME_ID} attempt=${attempt}: ` +
         (err && err.message ? err.message : err)
       )

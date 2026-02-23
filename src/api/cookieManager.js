@@ -2,11 +2,11 @@
 
 const fs = require('fs')
 const path = require('path')
-const Logger = require('./logger.js')
 
 const config = require('../../config.json')
 
-const logger = new Logger('CookieManager', 'API')
+const LoggerClass = require('./logger.js')
+const logger = new LoggerClass('CookieManager', 'API')
 
 // In-memory cookie storage
 let currentCookie = config.ROBLOX.COOKIE || ''

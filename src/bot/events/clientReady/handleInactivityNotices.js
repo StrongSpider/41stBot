@@ -5,7 +5,9 @@ const { GUILD_ID: BOT_GUILD_ID } = config.DISCORD.BOT
 const { INACTIVITY_NOTICE: INACTIVITY_NOTICE_ROLE_ID, EXEMPT: EXEMPT_DISCORD_ROLE_ID } = config.DISCORD.ROLES
 const { Client } = require('discord.js')
 const { getInactivity, deleteInactivity } = require('../../../api/database.js')
-const Logger = require('../../../api/logger.js')
+
+const LoggerClass = require('../../../api/logger.js')
+const logger = new LoggerClass('InactivityNotices', 'BOT')
 
 /**
  * @param {Client} client
@@ -44,7 +46,7 @@ module.exports = async function handleInactivityNotices(client) {
 
         // Past the end date: clear record and adjust roles
         try { await deleteInactivity(member.id) } catch { }
-        Logger.info('Deleted inactivity notice for ' + member.user.tag)
+        logger.info('Deleted inactivity notice for ' + member.user.tag)
 
         let failedRemove = false
         let failedExempt = false
@@ -55,7 +57,7 @@ module.exports = async function handleInactivityNotices(client) {
                 await member.roles.remove(INACTIVITY_NOTICE_ROLE_ID, 'Inactivity Notice Ended')
             }
         } catch (err) {
-            Logger.error('Failed to remove inactivity notice role: ' + (err && err.message ? err.message : err))
+            logger.error('Failed to remove inactivity notice role: ' + (err && err.message ? err.message : err))
             failedRemove = true
         }
 
@@ -67,14 +69,14 @@ module.exports = async function handleInactivityNotices(client) {
                     await member.roles.add(EXEMPT_DISCORD_ROLE_ID, 'Inactivity Notice Ended')
                 }
             } catch (err) {
-                Logger.error('Failed to add exempt role: ' + (err && err.message ? err.message : err))
+                logger.error('Failed to add exempt role: ' + (err && err.message ? err.message : err))
                 failedExempt = true
             }
         }
 
         if (failedRemove || failedExempt) {
             const extra = failedExempt ? ' and or add the exempt role' : ''
-            Logger.warn('Manual action needed for ' + member.id + ' failed to remove the inactivity notice role' + extra)
+            logger.warn('Manual action needed for ' + member.id + ' failed to remove the inactivity notice role' + extra)
         }
 
         // Best effort DM to the user
