@@ -417,14 +417,14 @@ function generateRiskVisual(prediction) {
     ctx.stroke();
 
     // Rating Text
-    ctx.font = "bold 24px sans-serif";
+    ctx.font = "bold 16px sans-serif";
     ctx.fillStyle = "#ffffff";
     ctx.textAlign = "left";
     ctx.fillText(`${prediction.suspicionString} (${score}%)`, 20, 130);
 
     // Confidence Text
     ctx.textAlign = "right";
-    ctx.font = "18px sans-serif";
+    ctx.font = "14px sans-serif";
     ctx.fillStyle = "#aaaaaa";
     ctx.fillText(`Confidence: ${prediction.confidence}%`, width - 20, 130);
 

@@ -29,16 +29,12 @@ module.exports = async function handleInactivityNotices(client) {
     /**
      * Process a single member: clear expired notice, adjust roles, DM status
      * @param {import('discord.js').GuildMember} member
+     * @param {import('../../../api/types').InactivityNotice} notice
      */
-    async function processMember(member) {
+    async function processMember(member, notice) {
         if (!member || member.user.bot) return
 
-        // DB lookup for this member's inactivity record
-        let inactivity
-        try { inactivity = await getInactivity(member.id) } catch { inactivity = null }
-        if (!inactivity) return
-
-        const endDate = new Date(inactivity.date)
+        const endDate = new Date(notice.date)
         if (Number.isNaN(endDate.getTime())) return
 
         const now = Date.now()
@@ -87,14 +83,51 @@ module.exports = async function handleInactivityNotices(client) {
     }
 
     /**
-     * Run through all members once and process expirations
+     * Run through all database inactivities and process expirations
      */
     async function checkInactivity() {
+        let inactivities
+        try {
+            inactivities = await getAllInactivities()
+        } catch (err) {
+            Logger.error('Failed to fetch inactivities from database: ' + err.message)
+            return
+        }
+
+        if (!inactivities || !inactivities.length) return
+
         // Warm the member cache so role checks are correct
         try { await guild.members.fetch() } catch { }
 
-        for (const member of guild.members.cache.values()) {
-            try { await processMember(member) } catch { }
+        for (const notice of inactivities) {
+            try {
+                const member = guild.members.cache.get(notice.discordId)
+
+                const endDate = new Date(notice.date)
+                if (Number.isNaN(endDate.getTime())) continue
+
+                const now = Date.now()
+                const isExpired = now > endDate.getTime()
+
+                if (!member) {
+                    // User not in server, check if expired to clean up DB
+                    if (isExpired) {
+                        try {
+                            await deleteInactivity(notice.discordId)
+                            Logger.info(`Deleted inactivity notice for user ${notice.discordId} (left server and expired)`)
+                        } catch (err) {
+                            Logger.error(`Failed to delete expired notice for user ${notice.discordId} who left: ${err.message}`)
+                        }
+                    }
+                    continue
+                }
+
+                if (isExpired) {
+                    await processMember(member, notice)
+                }
+            } catch (err) {
+                Logger.error(`Error processing inactivity notice for ${notice.discordId}: ${err && err.message ? err.message : err}`)
+            }
         }
     }
 

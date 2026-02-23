@@ -60,7 +60,15 @@ module.exports = {
                 const title = "### 🤖 AI Analysis";
                 const score = result.aiPrediction.cumulativeScore;
                 const rating = result.aiPrediction.suspicionString;
-                const content = `**Rating:** ${rating} (${score}%)\n**Confidence:** ${result.aiPrediction.confidence}%`;
+
+                // Recommendations
+                let recText = "";
+                if (result.aiPrediction.recommendation && result.aiPrediction.recommendation.length > 0) {
+                    const recs = Array.isArray(result.aiPrediction.recommendation) ? result.aiPrediction.recommendation : [result.aiPrediction.recommendation];
+                    recText = `\n\n**Recomended Actions:**\n${recs.map(r => `- ${r}`).join("\n")}`;
+                }
+
+                const content = `**Rating:** ${rating} (${score}%)\n**Confidence:** ${result.aiPrediction.confidence}%${recText}`;
 
                 ui.addExpandableSection(selectionContainer, {
                     title,

@@ -92,7 +92,7 @@ function calculateLogisticPrediction(features, model) {
         cumulativeScore: Math.round(probability * 100),
         rating,
         suspicionString: ratingToHumanReadable(rating),
-        confidence: 100, // LR gives a specific probability, confidence in the *model* depends on training size
+        confidence: calculateConfidence(model, features.dataCoverage, probability),
         probability: probability,
         contributors: contributors.sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution)).slice(0, 10),
         recommendation: recommendations
@@ -116,7 +116,7 @@ function getLogisticRecommendations(contributors, rating) {
         badgeTimeVariance: "Investigate badge timeline for anomalies (large variance)",
     };
 
-    // Suggest based on top positive contributors (things making it look like an alt)
+    // Suggest b1sed on top positive contributors (things making it look like an alt)
     const topSuspicious = contributors
         .filter(c => c.contribution > 0)
         .sort((a, b) => b.contribution - a.contribution)
@@ -174,9 +174,47 @@ function ratingToHumanReadable(rating) {
 
 /**
  * Calculate confidence in prediction (0-100)
+ * 
+ * Factors:
+ * 1. Model Certainty: Predictions near 0.5 are less certain.
+ * 2. Data Coverage: Missing data sections reduce confidence.
+ * 3. Model Version: Default models (if they existed) would be lower.
  */
-function calculateConfidence(model, areaScores) {
-    return 100; // Placeholder for now
+function calculateConfidence(model, dataCoverage, probability) {
+    let confidence = 100;
+
+    // 1. Model Certainty (Distance from 0.5)
+    // If probability is 0.5, we subtract 50 (min 50% from this factor)
+    // If probability is 1.0 or 0.0, we subtract 0.
+    const certaintyPenalty = (0.5 - Math.abs(probability - 0.5)) * 100;
+    confidence -= (certaintyPenalty * 0.4); // This factor accounts for 40% of confidence
+
+    // 2. Data Coverage
+    if (dataCoverage) {
+        let missingCount = 0;
+        const weights = {
+            badges: 15,
+            inventory: 10,
+            groups: 10,
+            gamePasses: 5,
+            connections: 5
+        };
+
+        for (const [key, weight] of Object.entries(weights)) {
+            if (!dataCoverage[key]) {
+                confidence -= weight;
+            }
+        }
+    }
+
+    // 3. Training Size (Small data sets are less reliable)
+    if (model.trainingExamples < 100) {
+        confidence -= 20;
+    } else if (model.trainingExamples < 300) {
+        confidence -= 10;
+    }
+
+    return Math.max(10, Math.round(confidence));
 }
 
 /**

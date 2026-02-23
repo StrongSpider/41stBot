@@ -79,7 +79,7 @@ function updateCookie(newCookie) {
     // Persist to cache file
     try {
         fs.writeFileSync(COOKIE_CACHE_PATH, currentCookie, 'utf-8')
-        logger.info('Cookie updated and cached')
+        logger.debug('Cookie updated and cached')
         return true
     } catch (e) {
         logger.error('Failed to cache cookie update:', e.message)

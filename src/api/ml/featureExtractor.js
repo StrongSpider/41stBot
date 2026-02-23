@@ -27,7 +27,14 @@ function extractFeatures(bgCheck) {
         username: bgCheck.username,
         features, // Flat object of numbers
         timestamp: new Date().toISOString(),
-        createdAt: bgCheck.profile?.created ? new Date(bgCheck.profile.created).getTime() : null
+        createdAt: bgCheck.profile?.created ? new Date(bgCheck.profile.created).getTime() : null,
+        dataCoverage: {
+            badges: !!bgCheck.badges?.data,
+            inventory: !!(bgCheck.inventory && !bgCheck.inventory.error),
+            gamePasses: !!(bgCheck.gamePasses && !bgCheck.gamePasses.error),
+            groups: !!(bgCheck.groups && !bgCheck.groups.error),
+            connections: !!(bgCheck.connections && !bgCheck.connections.error)
+        }
     };
 }
 

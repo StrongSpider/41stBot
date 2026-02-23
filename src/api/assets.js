@@ -2,9 +2,7 @@
 
 const database = require('./database.js')
 const config = require('../../config.json')
-const { default: axios } = require('axios')
-
-const https = require('https')
+const proxy = require('./proxy.js')
 
 const DEBUG_ASSETS = false
 
@@ -22,27 +20,6 @@ function debugAssets(...args) {
 
 const INVENTORY_BASE_URL = 'https://inventory.roblox.com/v2'
 const MAX_ASSETS = 10000
-
-const INVENTORY_HTTPS_AGENT = new https.Agent({
-  keepAlive: true,
-  maxSockets: 50,
-  maxFreeSockets: 10
-})
-
-const inventoryAxios = axios.create({
-  baseURL: INVENTORY_BASE_URL,
-  httpsAgent: INVENTORY_HTTPS_AGENT
-  //timeout: 15000
-})
-
-/**
- * Simple sleep helper.
- * @param {number} ms
- * @returns {Promise<void>}
- */
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
 
 /**
  * Fetch and sync a user's inventory assets.
@@ -126,50 +103,24 @@ const getAssetsInformation = async function (robloxId, options) {
     if (cursor) {
       params.cursor = cursor
     }
-    const urlPath = `/users/${userId}/inventory`
+    const query = new URLSearchParams(params).toString()
+    const url = `${INVENTORY_BASE_URL}/users/${userId}/inventory?${query}`
 
-    const maxAttempts = 5
-    let attempt = 0
     let page
-
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      debugAssets('inventory request attempt start', { userId, cursor, attempt })
-      attempt += 1
-      try {
-        page = (await inventoryAxios.get(urlPath, { params })).data
-        debugAssets('inventory request success', { userId, cursor, attempt, count: page && Array.isArray(page.data) ? page.data.length : 0 })
-        break
-      } catch (err) {
-        const status = err && err.response && err.response.status
-        const retryAfterHeader =
-          err &&
-          err.response &&
-          err.response.headers &&
-          err.response.headers['retry-after']
-
-        if (status === 429) {
-          debugAssets('inventory 429 received', { userId, attempt, retryAfter: retryAfterHeader })
-          logger.warn(
-            `inventory 429 for user ${userId} attempt=${attempt}, ` +
-            `retry-after=${retryAfterHeader ?? 'none'}, retrying immediately`
-          )
-          continue
-        }
-
-        if (status === 403) {
-          throw new Error("Inventory private")
-        }
-
-        logger.warn(
-          `inventory request failed for user ${userId} attempt=${attempt}:`,
-          err && err.message ? err.message : err
-        )
-        if (attempt >= maxAttempts) {
-          throw err
-        }
-        //await sleep(1000 * attempt)
+    try {
+      debugAssets('inventory request via proxy start', { userId, cursor })
+      page = await proxy.get(url)
+      debugAssets('inventory request success', { userId, cursor, count: page && Array.isArray(page.data) ? page.data.length : 0 })
+    } catch (err) {
+      const status = err && err.response && err.response.status
+      if (status === 403) {
+        throw new Error("Inventory private")
       }
+      logger.warn(
+        `inventory request failed for user ${userId} via proxy:`,
+        err && err.message ? err.message : err
+      )
+      throw err
     }
 
     const body = page || {}

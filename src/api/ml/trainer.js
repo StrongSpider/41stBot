@@ -5,6 +5,7 @@ const path = require('path');
 const { pool } = require('../db/connection');
 const { OFFICER_LABELS_TABLE } = require('../db/constants');
 const { extractFeatures } = require('./featureExtractor');
+const { getAIBackgroundCheck } = require('../backgroundCheck');
 
 // Model storage path
 const MODEL_DIR = path.join(__dirname, '..', '..', 'models');
@@ -61,7 +62,15 @@ async function trainModel(options = {}) {
                 await new Promise(resolve => setTimeout(resolve, delayMs));
             }
 
-            const features = await extractFeatures(Number(row.target_roblox_id));
+            const robloxId = Number(row.target_roblox_id);
+            const bgCheck = await getAIBackgroundCheck(robloxId);
+
+            if (!bgCheck || !bgCheck.success) {
+                console.warn(`  Skipping ${robloxId}: ${bgCheck?.error || 'Background check failed'}`);
+                continue;
+            }
+
+            const features = extractFeatures(bgCheck);
             labeledExamples.push({
                 targetRobloxId: Number(row.target_roblox_id),
                 label: row.label,
@@ -216,12 +225,20 @@ function trainLogisticRegression(examples) {
     // 4. Package Result
     // formatted: { featureName: weight, ... }
     const weights = {};
-    const biases = require('./trainingConfig').biases || {};
+    const config = require('./trainingConfig');
+    const biases = config.biases || {};
+    const scales = config.scales || {};
 
     weights['__BIAS__'] = theta[0];
     for (let j = 0; j < n; j++) {
         const featureName = featuresList[j];
         let learnedWeight = theta[j + 1];
+
+        // Apply manual scaling if exists
+        if (scales[featureName] !== undefined) {
+            console.log(`  Applying manual scale to ${featureName}: ${learnedWeight.toFixed(4)} * ${scales[featureName]} = ${(learnedWeight * scales[featureName]).toFixed(4)}`);
+            learnedWeight *= scales[featureName];
+        }
 
         // Apply manual bias configuration if exists
         if (biases[featureName]) {

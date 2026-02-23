@@ -37,5 +37,11 @@ module.exports = {
         // ACCOUNT AGE
         // Older accounts are generally more trusted
         accountAge: -0.1                 // Trust signal
+    },
+
+    // Scaling factors (multipliers) to dampen or amplify specific features
+    // Useful for features that are noisy or have high variance
+    scales: {
+        badgeTimeVariance: 0.2           // Dampen this feature significantly (only 20% impact)
     }
 };

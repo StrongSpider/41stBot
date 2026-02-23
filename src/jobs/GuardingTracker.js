@@ -153,7 +153,7 @@ async function preloadVIPs() {
   VIP_USERS.length = 0
   for (const m of vipMembers) VIP_USERS.push(m)
 
-  logger.info('loaded VIPs', VIP_USERS.length)
+  logger.debug('loaded VIPs', VIP_USERS.length)
 }
 
 /**
@@ -224,7 +224,7 @@ async function main() {
           if (currentCookie) {
             await noblox.setCookie(currentCookie)
             lastCookieSync = Date.now()
-            logger.info('Synced cookie with noblox.js')
+            logger.debug('Synced cookie with noblox.js')
           }
         } catch (e) {
           logger.warn('Failed to sync cookie with noblox:', e && e.message ? e.message : String(e))
@@ -234,7 +234,7 @@ async function main() {
       // Periodic VIP list refresh
       if (Date.now() - lastVipRefresh > MINUTES_BETWEEN_VIP_REFRESH * 60 * 1000) {
         try {
-          logger.info('Refreshing VIP list...')
+          logger.debug('Refreshing VIP list...')
           await preloadVIPs()
           lastVipRefresh = Date.now()
         } catch (e) {
