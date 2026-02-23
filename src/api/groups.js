@@ -3,7 +3,9 @@
 const noblox = require('noblox.js')
 const database = require('./database.js')
 const proxy = require('./proxy.js')
-const Logger = require('./logger.js')
+
+const LoggerClass = require('./logger.js')
+const logger = new LoggerClass('Groups', 'API')
 
 const GROUPS_BASE_URL = 'https://groups.roblox.com/v1'
 
@@ -12,7 +14,6 @@ const GROUPS_BASE_URL = 'https://groups.roblox.com/v1'
  * @param {number|string} robloxId
  */
 const getGroupInformation = async function (robloxId) {
-    const logger = new Logger('Groups', 'API')
     const groups = await noblox.getGroups(robloxId)
 
     const results = []

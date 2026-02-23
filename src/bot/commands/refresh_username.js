@@ -1,7 +1,9 @@
 const { SlashCommandBuilder } = require('discord.js');
 const db = require('../../api/db');
 const noblox = require('noblox.js');
-const Logger = require('../../api/logger');
+
+const LoggerClass = require('../../api/logger.js')
+const logger = new LoggerClass('RefreshUsername', 'BOT')
 
 module.exports = {
     permission: 'ALL',
@@ -36,7 +38,7 @@ module.exports = {
 
             // 4. Update cache
             await db.upsertUser(robloxId, newUsername);
-            Logger.info(`Manual username refresh for ${robloxId}: ${oldUsername} -> ${newUsername} (by ${interaction.user.tag})`);
+            logger.info(`Manual username refresh for ${robloxId}: ${oldUsername} -> ${newUsername} (by ${interaction.user.tag})`);
 
             // 5. Reply
             let msg = `✅ Updated username cache for ID **${robloxId}**.\n`;
@@ -49,7 +51,7 @@ module.exports = {
             await interaction.editReply({ content: msg });
 
         } catch (error) {
-            Logger.error(`Error in /refresh-username: ${error.message}`);
+            logger.error(`Error in /refresh-username: ${error.message}`);
             await interaction.editReply({
                 content: `❌ An error occurred while refreshing the username: ${error.message}`
             });

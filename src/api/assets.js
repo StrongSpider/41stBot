@@ -1,14 +1,15 @@
 'use strict'
 
 const database = require('./database.js')
-const Logger = require('./logger.js')
 const config = require('../../config.json')
 const { default: axios } = require('axios')
 
 const https = require('https')
 
 const DEBUG_ASSETS = false
-const logger = new Logger('Assets', 'API')
+
+const LoggerClass = require('./logger.js')
+const logger = new LoggerClass('Assets', 'API')
 
 function debugAssets(...args) {
   if (!DEBUG_ASSETS) return

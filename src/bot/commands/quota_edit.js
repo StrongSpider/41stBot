@@ -1,9 +1,10 @@
 const { SlashCommandBuilder, CommandInteraction, ContainerBuilder, ComponentType, TextInputStyle, TextInputBuilder, ModalBuilder, ButtonStyle, MessageFlags, ActionRowBuilder, ButtonBuilder } = require('discord.js');
 const database = require('../../api/database.js');
 const customization = require('../../../config.json');
-const Logger = require('../../api/logger.js');
 
-const DISCORD_TIMEOUT = 300000; // 5 minutes
+const LoggerClass = require('../../api/logger.js')
+const logger = new LoggerClass('QuotaEdit', 'BOT')
+
 const ITEMS_PER_PAGE = 9;
 
 /**
@@ -389,7 +390,7 @@ module.exports = {
                     return await i.deferUpdate();
                 }
             } catch (err) {
-                Logger.error(err);
+                logger.error(err);
                 try { await i.reply({ content: 'An error occurred handling the form.', flags: MessageFlags.Ephemeral }); } catch { }
             }
         };
@@ -538,7 +539,7 @@ module.exports = {
                     return await i.deferUpdate();
                 }
             } catch (err) {
-                Logger.error(err);
+                logger.error(err);
                 try { await i.reply({ content: 'An error occurred handling the button.', flags: MessageFlags.Ephemeral }); } catch { }
             }
         });

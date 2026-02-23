@@ -1,6 +1,9 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js')
 const database = require('../../api/database.js')
 
+const LoggerClass = require('../../api/logger.js')
+const logger = new LoggerClass('Event Type Remove', 'BOT')
+
 /**
  * Check if the provided name is a valid event type
  * @param {unknown} v
@@ -74,7 +77,7 @@ module.exports = {
                 filtered.slice(0, 25).map(choice => ({ name: choice, value: choice }))
             )
         } catch (error) {
-            console.error('Autocomplete error:', error)
+            logger.error('Autocomplete error:', error)
             // Autocomplete interactions must be responded to, even with empty list, or they hang/error on client
             await interaction.respond([]).catch(() => { })
         }

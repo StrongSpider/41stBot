@@ -3,7 +3,9 @@
 const { Client } = require('discord.js')
 const config = require('../../../../config.json')
 const { GUILD_ID: BOT_GUILD_ID } = config.DISCORD.BOT
-const Logger = require('../../../api/logger.js')
+
+const LoggerClass = require('../../../api/logger.js')
+const logger = new LoggerClass('ReadyHandler', 'BOT')
 
 /**
  * @param {Client} client
@@ -15,9 +17,9 @@ module.exports = async function readyHandler(client) {
   }
 
   if (!guild) {
-    Logger.error('Guild not found in cache or fetch. Check BOT_GUILD_ID in config.json')
+    logger.error('Guild not found in cache or fetch. Check BOT_GUILD_ID in config.json')
     return
   }
 
-  Logger.info('Ready. Logged in as ' + (client.user?.tag || 'unknown'))
+  logger.info('Ready. Logged in as ' + (client.user?.tag || 'unknown'))
 }

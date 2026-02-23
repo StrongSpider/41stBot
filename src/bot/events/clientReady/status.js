@@ -2,7 +2,9 @@
 
 const { Client, ActivityType } = require('discord.js')
 const { listAllTimeEvents } = require('../../../api/database.js')
-const Logger = require('../../../api/logger.js')
+
+const LoggerClass = require('../../../api/logger.js')
+const logger = new LoggerClass('BotStatus', 'BOT')
 
 const INTERVAL_MS = 15 * 60 * 1000
 
@@ -16,12 +18,12 @@ async function updateEventStatus(client) {
   let events
   try { events = await listAllTimeEvents() } catch (err) {
     const msg = err && err.message ? err.message : String(err)
-    Logger.error('[eventStatus] Failed to list events: ' + msg)
+    logger.error('Failed to list events: ' + msg)
     return
   }
 
   if (!Array.isArray(events)) {
-    Logger.error('[eventStatus] listAllTimeEvents did not return an array')
+    logger.error('listAllTimeEvents did not return an array')
     return
   }
 
@@ -34,7 +36,7 @@ async function updateEventStatus(client) {
     })
   } catch (err) {
     const msg = err && err.message ? err.message : String(err)
-    Logger.error('[eventStatus] Failed to set presence: ' + msg)
+    logger.error('Failed to set presence: ' + msg)
   }
 }
 

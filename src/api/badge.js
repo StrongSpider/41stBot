@@ -2,12 +2,13 @@
 
 const database = require('./database.js')
 const proxy = require('./proxy.js')
-const Logger = require('./logger.js')
 const axios = require('axios')
 const https = require('https')
 
 const BADGES_DEBUG = false
-const logger = new Logger('Badges', 'API')
+
+const LoggerClass = require('./logger.js')
+const logger = new LoggerClass('Badges', 'API')
 
 function debugLog(...args) {
     if (!BADGES_DEBUG) return

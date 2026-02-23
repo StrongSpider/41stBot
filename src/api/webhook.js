@@ -4,9 +4,9 @@ const { WebhookClient, EmbedBuilder } = require('discord.js')
 const config = require('../../config.json')
 const { ADMIN_LOGS: ADMIN_LOGS_WEBHOOK_URL } = config.DISCORD.WEBHOOKS
 const roblox = require('./roblox.js')
-const Logger = require('./logger.js')
 
-const logger = new Logger('Webhook', 'SHARED')
+const LoggerClass = require('./logger.js')
+const logger = new LoggerClass('Webhook', 'SHARED')
 
 // Webhook client
 let webhookClient = null

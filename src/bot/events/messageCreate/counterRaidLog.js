@@ -8,6 +8,9 @@ const { CHANNELS: DISCORD_CHANNEL_IDS } = config.DISCORD
 const { ERT_OFFICER: DISCORD_ERT_OFFICER_ROLE_IDS, HICOM: DISCORD_HICOM_ROLE_ID } = config.DISCORD.ROLES
 const { DEVELOPER_USER_ID: DEVELOPER_DISCORD_USER_ID } = config.DISCORD.BOT
 
+const LoggerClass = require('../../../api/logger.js')
+const logger = new LoggerClass('CounterRaidLog', 'BOT')
+
 /**
  * Build the approval buttons used by approvers
  */
@@ -150,9 +153,9 @@ module.exports = async function counterRaidLog(message) {
                 timestamp: new Date().toISOString()
             })
         } catch (e) {
-            console.error('Failed to create weekly event:', e && e.message ? e.message : e)
+            logger.error('Failed to create weekly event for counter raid log:', e && e.message ? e.message : e)
         }
     } catch (e) {
-        console.error('Error in messageCreate counterRaidLog:', e && e.message ? e.message : e)
+        logger.error('Error processing counterRaidLog message:', e && e.message ? e.message : e)
     }
 }

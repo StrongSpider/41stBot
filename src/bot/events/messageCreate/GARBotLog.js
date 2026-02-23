@@ -2,6 +2,10 @@
 
 const database = require('../../../api/database.js')
 const config = require('../../../../config.json')
+
+const LoggerClass = require('../../../api/logger.js')
+const logger = new LoggerClass('GARBotLog', 'BOT')
+
 const { DISCORD } = config
 const { CHANNELS: DISCORD_CHANNEL_IDS, ROLES } = DISCORD
 const UNIT_ROLES = ROLES.UNIT
@@ -72,10 +76,10 @@ module.exports = async function garBotLog(message) {
             try {
                 await discordMember.kick(`Removed from group by ${message.mentions.users.first() ? message.mentions.users.first().username : 'an unknown user'}`)
                 await message.react('✅').catch(() => { })
-                console.log('GARBotLog: kicked guild member', discordId, 'for Roblox id', targetRobloxId)
+                logger.info('Kicked guild member', discordId, 'for Roblox id', targetRobloxId)
             } catch (e) {
                 await message.react('❌').catch(() => { })
-                console.error('GARBotLog: failed to kick', discordId, '-', e && e.message ? e.message : e)
+                logger.error('Failed to kick guild member', discordId, 'for Roblox id', targetRobloxId, '-', e && e.message ? e.message : e)
             }
             return
         }
@@ -104,10 +108,10 @@ module.exports = async function garBotLog(message) {
                 await sleep(50)
             }
 
-            console.log('GARBotLog: updated roles for', discordId, 'rank', rankName, 'removed', currentToRemove.length)
+            logger.info('Updated roles for', discordId, 'rank', rankName, 'removed', currentToRemove.length)
             return
         }
     } catch (e) {
-        console.error('Error in GARBotLog handler:', e && e.message ? e.message : e)
+        logger.error('Error processing GARBotLog message:', e && e.message ? e.message : e)
     }
 }

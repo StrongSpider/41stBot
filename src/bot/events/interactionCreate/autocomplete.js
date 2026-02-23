@@ -1,11 +1,11 @@
 'use strict'
-const Logger = require('../../../api/logger.js')
+const LoggerClass = require('../../../api/logger.js')
+const logger = new LoggerClass('Autocomplete', 'BOT')
 
 /**
  * @param {import('discord.js').AutocompleteInteraction} interaction
  */
 module.exports = async function autocompleteHandler(interaction) {
-    const logger = new Logger('Autocomplete', 'BOT')
     try {
         if (!interaction || typeof interaction.isAutocomplete !== 'function') return
         if (!interaction.isAutocomplete()) return
