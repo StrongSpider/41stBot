@@ -222,6 +222,8 @@ logProxyPool()
  */
 async function request(config) {
   let attempt = 0
+  const maxProxyAttempts = Math.max(1, proxyAgents.length)
+  const initialProxyIndex = nextProxyIndex
 
   while (true) {
     attempt += 1
@@ -252,13 +254,6 @@ async function request(config) {
 
     try {
       const res = await axiosInstance(finalConfig)
-      const duration = Date.now() - attemptStart
-
-      // console.log(
-      //   "[proxy] request success",
-      //   { method, url, status: res.status, attempt, duration }
-      // )
-
       return res
     } catch (err) {
       const duration = Date.now() - attemptStart
@@ -276,6 +271,20 @@ async function request(config) {
           message: err && err.message ? err.message : err,
         })
       )
+
+      if (status === 429) {
+        if (attempt < maxProxyAttempts) {
+          Logger.warn(`[proxy] Got 429, trying next proxy (attempt ${attempt}/${maxProxyAttempts})`)
+          continue
+        } else {
+          Logger.error(`[proxy] All proxies (${maxProxyAttempts}) returned 429 for ${url}. Giving up.`)
+          const rateLimitError = new Error(`Rate limit exceeded on all ${maxProxyAttempts} proxies for ${url}`)
+          rateLimitError.status = 429
+          rateLimitError.code = 'ERR_RATE_LIMIT_EXCEEDED'
+          rateLimitError.originalError = err
+          throw rateLimitError
+        }
+      }
 
       if ((status === 407 || status === 427) && proxyAgent) {
         Logger.warn(`[proxy] Got ${status} through proxy, removing bad proxy and retrying`)
