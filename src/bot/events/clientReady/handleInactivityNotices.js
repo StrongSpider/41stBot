@@ -4,7 +4,7 @@ const config = require('../../../../config.json')
 const { GUILD_ID: BOT_GUILD_ID } = config.DISCORD.BOT
 const { INACTIVITY_NOTICE: INACTIVITY_NOTICE_ROLE_ID, EXEMPT: EXEMPT_DISCORD_ROLE_ID } = config.DISCORD.ROLES
 const { Client } = require('discord.js')
-const { getInactivity, deleteInactivity } = require('../../../api/database.js')
+const { getAllInactivities, deleteInactivity } = require('../../../api/database.js')
 
 const LoggerClass = require('../../../api/logger.js')
 const logger = new LoggerClass('InactivityNotices', 'BOT')
@@ -90,7 +90,7 @@ module.exports = async function handleInactivityNotices(client) {
         try {
             inactivities = await getAllInactivities()
         } catch (err) {
-            Logger.error('Failed to fetch inactivities from database: ' + err.message)
+            logger.error('Failed to fetch inactivities from database: ' + err.message)
             return
         }
 
@@ -114,9 +114,9 @@ module.exports = async function handleInactivityNotices(client) {
                     if (isExpired) {
                         try {
                             await deleteInactivity(notice.discordId)
-                            Logger.info(`Deleted inactivity notice for user ${notice.discordId} (left server and expired)`)
+                            logger.info(`Deleted inactivity notice for user ${notice.discordId} (left server and expired)`)
                         } catch (err) {
-                            Logger.error(`Failed to delete expired notice for user ${notice.discordId} who left: ${err.message}`)
+                            logger.error(`Failed to delete expired notice for user ${notice.discordId} who left: ${err.message}`)
                         }
                     }
                     continue
@@ -126,7 +126,7 @@ module.exports = async function handleInactivityNotices(client) {
                     await processMember(member, notice)
                 }
             } catch (err) {
-                Logger.error(`Error processing inactivity notice for ${notice.discordId}: ${err && err.message ? err.message : err}`)
+                logger.error(`Error processing inactivity notice for ${notice.discordId}: ${err && err.message ? err.message : err}`)
             }
         }
     }
