@@ -264,7 +264,7 @@ async function request(config) {
 
       if (status === 429) {
         if (attempt < maxProxyAttempts) {
-          logger.warn(`Got 429, trying next proxy (attempt ${attempt}/${maxProxyAttempts})`)
+          logger.debug(`Got 429, trying next proxy (attempt ${attempt}/${maxProxyAttempts})`)
           continue
         } else {
           logger.error(`All proxies (${maxProxyAttempts}) returned 429 for ${url}. Giving up.`)
