@@ -289,6 +289,20 @@ async function request(config) {
         })
       )
 
+      if (status === 429) {
+        if (attempt < maxProxyAttempts) {
+          Logger.warn(`[proxy] Got 429, trying next proxy (attempt ${attempt}/${maxProxyAttempts})`)
+          continue
+        } else {
+          Logger.error(`[proxy] All proxies (${maxProxyAttempts}) returned 429 for ${url}. Giving up.`)
+          const rateLimitError = new Error(`Rate limit exceeded on all ${maxProxyAttempts} proxies for ${url}`)
+          rateLimitError.status = 429
+          rateLimitError.code = 'ERR_RATE_LIMIT_EXCEEDED'
+          rateLimitError.originalError = err
+          throw rateLimitError
+        }
+      }
+
       if ((status === 407 || status === 427) && proxyAgent) {
         logger.warn(`Got ${status} through proxy, removing bad proxy and retrying`)
         removeProxyAgent(proxyAgent)
