@@ -76,10 +76,10 @@ module.exports = async function garBotLog(message) {
             try {
                 await discordMember.kick(`Removed from group by ${message.mentions.users.first() ? message.mentions.users.first().username : 'an unknown user'}`)
                 await message.react('✅').catch(() => { })
-                logger.info(`Kicked guild member <@${discordId}> for Roblox id \`${targetRobloxId}\``)
+                logger.info(`Kicked guild member <@${discordId}> linked to Roblox ID \`${targetRobloxId}\``)
             } catch (e) {
                 await message.react('❌').catch(() => { })
-                logger.error(`Failed to kick guild member <@${discordId}> for Roblox id \`${targetRobloxId}\`: ${e && e.message ? e.message : e}`)
+                logger.error(`Failed to kick guild member <@${discordId}> linked to Roblox ID \`${targetRobloxId}\`: ${e && e.message ? e.message : e}`)
             }
             return
         }
@@ -108,7 +108,7 @@ module.exports = async function garBotLog(message) {
                 await sleep(50)
             }
 
-            logger.info(`Updated roles for <@${discordId}> rank ${rankName} removed ${currentToRemove.length}`)
+            logger.info(`Updated roles for <@${discordId}> due to new company ${rankName}. Removed ${currentToRemove.length} previous company roles.`)
             return
         }
     } catch (e) {
