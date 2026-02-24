@@ -65,7 +65,7 @@ module.exports = {
                 let recText = "";
                 if (result.aiPrediction.recommendation && result.aiPrediction.recommendation.length > 0) {
                     const recs = Array.isArray(result.aiPrediction.recommendation) ? result.aiPrediction.recommendation : [result.aiPrediction.recommendation];
-                    recText = `\n\n**Recomended Actions:**\n${recs.map(r => `- ${r}`).join("\n")}`;
+                    recText = `\n\n**Recommended Actions:**\n${recs.map(r => `- ${r}`).join("\n")}`;
                 }
 
                 const content = `**Rating:** ${rating} (${score}%)\n**Confidence:** ${result.aiPrediction.confidence}%${recText}`;
@@ -312,7 +312,7 @@ module.exports = {
                         return i.reply({ content: res.payload, flags: MessageFlags.Ephemeral }).catch(() => { });
                     }
 
-                        return i.reply({ components: [res.payload], flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2 }).catch(e => { logger.error(e); });
+                    return i.reply({ components: [res.payload], flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2 }).catch(e => { logger.error(e); });
                 } catch (e) {
                     logger.error(e);
                     return i.reply({ content: "Failed to load further information.", flags: MessageFlags.Ephemeral }).catch(() => { });
