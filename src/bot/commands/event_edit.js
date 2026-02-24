@@ -7,6 +7,7 @@ const { DEVELOPER_USER_ID: DEVELOPER_DISCORD_USER_ID } = config.DISCORD.BOT
 const { getIdFromUsername, getUsernameFromId } = require('../../api/roblox.js')
 const { sendEventUpdateWebhook } = require('../../api/webhook.js')
 const database = require('../../api/database.js')
+const { formatEventEpLockMessage } = require('../utils/eventEpLock.js')
 
 /**
  * Build the summary used in the original event message.
@@ -139,6 +140,7 @@ async function usernamesForIds(ids) {
 
 module.exports = {
     permission: 'MINOR_OFFICER',
+    requiresEventEpWrite: true,
     data: new SlashCommandBuilder()
         .setName('event-edit')
         .setDescription('Edit a logged weekly event')
@@ -152,6 +154,11 @@ module.exports = {
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */
     async execute(interaction) {
+        const lockState = await database.getEventEpLock()
+        if (lockState && lockState.enabled) {
+            return interaction.reply({ content: formatEventEpLockMessage(lockState), flags: MessageFlags.Ephemeral })
+        }
+
         const eventId = interaction.options.getString('event-id')
         const event = await database.getWeeklyEvent(eventId).catch(() => null)
         if (!event) return interaction.reply({ content: '<:warning:1297618648810393630> `Event not found.`', flags: MessageFlags.Ephemeral })
@@ -336,6 +343,7 @@ module.exports = {
                 if (attendeesChanged) changesObj.attendees = { from: oldAttArr, to: newAttArr }
 
                 // Persist changes first
+                await database.assertEventEpWriteUnlocked()
                 await database.updateWeeklyEventPartial(eventId, { type: newType, host: newHostId, supervisor: newSupervisorId, attendees: finalAttendees })
 
                 event.type = newType
@@ -421,7 +429,10 @@ module.exports = {
 
                 await submission.followUp({ content: followUpMessage, flags: MessageFlags.Ephemeral })
                 await interaction.editReply({ components: [] })
-            } catch {
+            } catch (err) {
+                if (database.isEventEpLockError(err)) {
+                    await interaction.followUp({ content: formatEventEpLockMessage(err.lockState), flags: MessageFlags.Ephemeral }).catch(() => { })
+                }
                 await interaction.editReply({ components: [] })
             }
         })

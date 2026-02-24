@@ -8,6 +8,7 @@ const groups = require('./modules/groups');
 const officer = require('./modules/officer');
 const roles = require('./modules/roles');
 const admin = require('./modules/admin');
+const botState = require('./modules/botState');
 
 module.exports = {
     ...connection,
@@ -19,5 +20,6 @@ module.exports = {
     ...roles,
     ...roles,
     ...admin,
+    ...botState,
     ...require('./modules/robloxUsers')
 };

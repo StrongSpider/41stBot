@@ -10,6 +10,9 @@ const roblox = require('../../api/roblox.js')
 const path = require('path')
 const fs = require('fs')
 
+const LoggerClass = require('../../api/logger.js')
+const logger = new LoggerClass('TrackerReset', 'BOT')
+
 /**
  * Strip [IN] tag and collapse spaces for cleaner name fallbacks
  * @param {string} s
@@ -142,6 +145,9 @@ module.exports = {
 
             // Notify via webhook
             try { await sendClearWeek({ discordId: interaction.user.id }) } catch { }
+
+            await database.setEventEpLock(false)
+            logger.info(`[EVENT_EP_LOCK] enabled=false`)
 
             // Build confirmation embed
             const resetEmbed = new EmbedBuilder()

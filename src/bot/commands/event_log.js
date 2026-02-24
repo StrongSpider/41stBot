@@ -4,9 +4,11 @@ const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Modal
 const config = require('../../../config.json')
 const { OFFICER: DISCORD_OFFICER_ROLE_ID, MINOR_OFFICER: DISCORD_MINOR_OFFICER_ROLE_ID, HICOM: DISCORD_HICOM_ROLE_ID } = config.DISCORD.ROLES
 const { CHANNELS: DISCORD_CHANNEL_IDS } = config.DISCORD
+const { DEVELOPER_USER_ID: DEVELOPER_DISCORD_USER_ID } = config.DISCORD.BOT
 const { getIdFromUsername, getUsernameFromId } = require('../../api/roblox.js')
 const { sendEventCreateWebhook } = require('../../api/webhook.js')
 const database = require('../../api/database.js')
+const { formatEventEpLockMessage } = require('../utils/eventEpLock.js')
 
 const LoggerClass = require('../../api/logger.js')
 const logger = new LoggerClass('EventLog', 'BOT')
@@ -124,6 +126,7 @@ function debugTiming(label, startTime) {
 
 module.exports = {
     permission: 'MINOR_OFFICER',
+    requiresEventEpWrite: true,
     data: new SlashCommandBuilder()
         .setName('event-log')
         .setDescription('Record an event and award EP')
@@ -184,6 +187,12 @@ module.exports = {
     async execute(interaction) {
         if (!interaction.member) {
             interaction.reply({ content: '<:warning:1297618648810393630> `I couldn\'t find your account!`', flags: MessageFlags.Ephemeral })
+            return
+        }
+
+        const lockState = await database.getEventEpLock()
+        if (lockState && lockState.enabled) {
+            await interaction.reply({ content: formatEventEpLockMessage(lockState), flags: MessageFlags.Ephemeral })
             return
         }
 
@@ -368,6 +377,16 @@ module.exports = {
                 locked = true
                 await btn.deferUpdate()
                 userActioned = true
+
+                try {
+                    await database.assertEventEpWriteUnlocked()
+                } catch (err) {
+                    if (database.isEventEpLockError(err)) {
+                        await interaction.editReply({ content: formatEventEpLockMessage(err.lockState), components: [] })
+                        return
+                    }
+                    throw err
+                }
 
                 await interaction.editReply({ content: `<a:loading:1439026179993767946> Logging your event in the 41st database...`, components: [] })
 

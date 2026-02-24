@@ -12,6 +12,7 @@ const {
     EVENT_TYPES_TABLE,
     EVENT_TYPES_CACHE_TTL_MS
 } = require('../constants');
+const { assertEventEpWriteUnlocked } = require('./botState');
 
 // ===========================================
 // Event Types
@@ -166,6 +167,7 @@ async function unindexEventForUser(robloxId, eventId) {
  * @returns {Promise<string>} Created Event ID
  */
 async function createWeeklyEvent(data) {
+    await assertEventEpWriteUnlocked();
     data.attendees = (data.attendees || []).map(e => Number(e));
     data.host = Number(data.host);
     data.supervisor = Number(data.supervisor);
@@ -273,6 +275,7 @@ async function findEventByMessage(messageUrl) {
  * @returns {Promise<void>}
  */
 async function updateWeeklyEvent(eventId, updates) {
+    await assertEventEpWriteUnlocked();
     if (updates.attendees !== undefined) updates.attendees = updates.attendees.map(e => Number(e));
     if (updates.host !== undefined) updates.host = Number(updates.host);
     if (updates.supervisor !== undefined) updates.supervisor = Number(updates.supervisor);
@@ -319,6 +322,7 @@ async function updateWeeklyEventPartial(eventId, updates) {
  * @returns {Promise<void>}
  */
 async function updateAllTimeEvent(eventId, updates) {
+    await assertEventEpWriteUnlocked();
     if (updates.timestamp !== undefined) updates.timestamp = ensureTimestamp(updates.timestamp);
     const fields = [];
     const values = [];
@@ -347,6 +351,7 @@ async function updateAllTimeEvent(eventId, updates) {
  * @returns {Promise<void>}
  */
 async function deleteEventById(eventId) {
+    await assertEventEpWriteUnlocked();
     const weeklyData = await getWeeklyEvent(eventId);
     if (weeklyData) {
         await pool.query(`DELETE FROM ${WEEKLY_EVENTS_TABLE} WHERE eventid = $1`, [String(eventId)]);
@@ -371,6 +376,7 @@ async function deleteEventById(eventId) {
  * @returns {Promise<void>}
  */
 async function deleteAllTimeEventById(eventId) {
+    await assertEventEpWriteUnlocked();
     const oldWeekly = await getWeeklyEvent(eventId);
     await pool.query(`DELETE FROM ${ALL_TIME_EVENTS_TABLE} WHERE eventid = $1`, [String(eventId)]);
     await pool.query(`DELETE FROM ${WEEKLY_EVENTS_TABLE} WHERE eventid = $1`, [String(eventId)]);
@@ -460,6 +466,11 @@ async function getAllTimeEventIdsForUser(robloxId) {
  * @returns {Promise<void>}
  */
 async function incrementAllTimeEventPoints(robloxId, delta) {
+    await assertEventEpWriteUnlocked();
+    return incrementAllTimeEventPointsUnsafe(robloxId, delta);
+}
+
+async function incrementAllTimeEventPointsUnsafe(robloxId, delta) {
     const rid = toId(robloxId);
     await pool.query(
         `INSERT INTO ${ALL_TIME_EVENT_POINTS_TABLE} (robloxid, eventpoints)
@@ -490,6 +501,7 @@ async function getCurrentEventPoints(robloxId) {
  * @returns {Promise<void>}
  */
 async function setCurrentEventPoints(robloxId, points) {
+    await assertEventEpWriteUnlocked();
     const rid = toId(robloxId);
     const oldPoints = await getCurrentEventPoints(rid);
 
@@ -502,7 +514,7 @@ async function setCurrentEventPoints(robloxId, points) {
 
     const delta = Number(points) - Number(oldPoints);
     if (delta !== 0) {
-        await incrementAllTimeEventPoints(rid, delta);
+        await incrementAllTimeEventPointsUnsafe(rid, delta);
     }
 }
 
@@ -513,6 +525,7 @@ async function setCurrentEventPoints(robloxId, points) {
  * @returns {Promise<void>}
  */
 async function incrementCurrentEventPoints(robloxId, delta) {
+    await assertEventEpWriteUnlocked();
     const rid = toId(robloxId);
     await pool.query(
         `INSERT INTO ${EVENT_POINTS_TABLE} (robloxid, eventpoints)
@@ -520,7 +533,7 @@ async function incrementCurrentEventPoints(robloxId, delta) {
        ON CONFLICT (robloxid) DO UPDATE SET eventpoints = ${EVENT_POINTS_TABLE}.eventpoints + $2`,
         [rid, Number(delta)]
     );
-    await incrementAllTimeEventPoints(rid, Number(delta));
+    await incrementAllTimeEventPointsUnsafe(rid, Number(delta));
 }
 
 /**
@@ -544,6 +557,7 @@ async function getAllTimeEventPoints(robloxId) {
  * @returns {Promise<void>}
  */
 async function setAllTimeEventPoints(robloxId, points) {
+    await assertEventEpWriteUnlocked();
     const rid = toId(robloxId);
     await pool.query(
         `INSERT INTO ${ALL_TIME_EVENT_POINTS_TABLE} (robloxid, eventpoints)
@@ -697,7 +711,8 @@ async function getAllTimeEventsBatch(eventIds) {
     });
 }
 
-function resetAllEventPoints() {
+async function resetAllEventPoints() {
+    await assertEventEpWriteUnlocked();
     return pool.query(`DELETE FROM ${EVENT_POINTS_TABLE}`);
 }
 

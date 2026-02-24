@@ -278,6 +278,9 @@ module.exports = {
         try {
             await interaction.deferReply()
 
+            await database.setEventEpLock(true)
+            logger.info(`[EVENT_EP_LOCK] runId=${runId} enabled=true`)
+
             const guild = interaction.guild
             if (!guild) {
                 logger.warn(`[PURGE_ABORT] runId=${runId} reason=no_guild`)

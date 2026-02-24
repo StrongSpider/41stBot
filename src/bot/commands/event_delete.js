@@ -1,12 +1,13 @@
 'use strict'
 
 const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } = require('discord.js')
-const config = require('../../../config.json')
 const { sendEventDeleteWebhook } = require('../../api/webhook.js')
 const database = require('../../api/database.js')
+const { formatEventEpLockMessage } = require('../utils/eventEpLock.js')
 
 module.exports = {
     permission: 'HICOM',
+    requiresEventEpWrite: true,
     data: new SlashCommandBuilder()
         .setName('event-delete')
         .setDescription('Delete\'s a logged weekly event')
@@ -20,6 +21,11 @@ module.exports = {
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */
     async execute(interaction) {
+        const lockState = await database.getEventEpLock()
+        if (lockState && lockState.enabled) {
+            return interaction.reply({ content: formatEventEpLockMessage(lockState), flags: MessageFlags.Ephemeral })
+        }
+
         const eventId = interaction.options.getString('event-id')
         const event = await database.getWeeklyEvent(eventId).catch(() => null)
         if (!event) return interaction.reply({ content: '<:warning:1297618648810393630> `Event not found.`', flags: MessageFlags.Ephemeral })
@@ -48,6 +54,7 @@ module.exports = {
             await interaction.editReply({ content: "<a:loading:1439026179993767946> Removing event from the 41st database...", components: [] })
 
             try {
+                await database.assertEventEpWriteUnlocked()
                 await database.deleteEventById(eventId)
 
                 // Audit webhook
@@ -60,17 +67,21 @@ module.exports = {
                         const parts = event.message.split('/')
                         const channelId = parts[parts.length - 2]
                         const messageId = parts[parts.length - 1]
-    
+
                         const channel = await interaction.guild.channels.fetch(channelId)
-    
+
                         const originalMessage = await channel.messages.fetch(messageId)
-    
+
                         await originalMessage.delete()
                     }
-                } catch {}
-                
+                } catch { }
+
                 await interaction.editReply({ content: "✅ **Event Removed Successfully**" })
-            } catch {
+            } catch (err) {
+                if (database.isEventEpLockError(err)) {
+                    await interaction.editReply({ content: formatEventEpLockMessage(err.lockState), components: [] })
+                    return
+                }
                 await interaction.editReply({ content: "<:warning:1297618648810393630> `Failed to delete event`", components: [] })
             }
         })

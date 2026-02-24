@@ -15,6 +15,7 @@ const ASSETS_TABLE = 'assets';
 const GROUPS_TABLE = 'groups';
 const SUSPICIOUS_PLACES_TABLE = 'suspicious_places';
 const OFFICER_LABELS_TABLE = 'officer_labels';
+const BOT_STATE_TABLE = 'bot_state';
 
 const EVENT_TYPES_CACHE_TTL_MS = 60_000;
 
@@ -34,5 +35,6 @@ module.exports = {
     GROUPS_TABLE,
     SUSPICIOUS_PLACES_TABLE,
     OFFICER_LABELS_TABLE,
+    BOT_STATE_TABLE,
     EVENT_TYPES_CACHE_TTL_MS
 };

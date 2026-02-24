@@ -3,6 +3,17 @@ const roblox = require('../../api/roblox.js');
 const webhook = require('../../api/webhook.js');
 const Logger = require('../../api/logger.js');
 
+function lockErrorResponse(err) {
+    if (!database.isEventEpLockError(err)) return null;
+    return {
+        status: 423,
+        body: {
+            error: 'Event and EP updates are currently locked (read-only mode).',
+            lockState: err.lockState || null
+        }
+    };
+}
+
 const EventsController = {
     getEventTypes: async (req, res) => {
         const types = await database.getEventTypes();
@@ -82,6 +93,8 @@ const EventsController = {
             res.json({ success: true });
         } catch (err) {
             new Logger('EventsController', 'SERVER').error(`PATCH all-time/${id} error: ` + err);
+            const lock = lockErrorResponse(err);
+            if (lock) return res.status(lock.status).json(lock.body);
             res.status(500).json({ error: 'Update failed' });
         }
     },
@@ -94,6 +107,8 @@ const EventsController = {
             res.json({ success: true });
         } catch (err) {
             new Logger('EventsController', 'SERVER').error(`PATCH weekly/${id} error: ` + err);
+            const lock = lockErrorResponse(err);
+            if (lock) return res.status(lock.status).json(lock.body);
             res.status(500).json({ error: 'Update failed' });
         }
     },
@@ -107,6 +122,8 @@ const EventsController = {
             res.json({ success: true });
         } catch (err) {
             new Logger('EventsController', 'SERVER').error(`DELETE all-time/${id} error: ` + err);
+            const lock = lockErrorResponse(err);
+            if (lock) return res.status(lock.status).json(lock.body);
             res.status(500).json({ error: 'Deletion failed' });
         }
     },
@@ -118,6 +135,8 @@ const EventsController = {
             res.json({ success: true });
         } catch (err) {
             new Logger('EventsController', 'SERVER').error(`DELETE weekly/${id} error: ` + err);
+            const lock = lockErrorResponse(err);
+            if (lock) return res.status(lock.status).json(lock.body);
             res.status(500).json({ error: 'Deletion failed' });
         }
     },

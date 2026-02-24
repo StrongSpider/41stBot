@@ -156,4 +156,11 @@ CREATE TABLE IF NOT EXISTS roblox_user_cache (
 -- but might be good for 'getOutdatedUsers'
 CREATE INDEX IF NOT EXISTS roblox_user_cache_updated_at_idx ON roblox_user_cache (updated_at);
 
+-- 17) Bot state (global feature flags and lockouts)
+CREATE TABLE IF NOT EXISTS bot_state (
+  key text PRIMARY KEY,
+  value jsonb NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT NOW()
+);
+
 COMMIT;

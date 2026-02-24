@@ -3,7 +3,8 @@
 const config = require('../../../../config.json')
 const { FFCNC: DISCORD_FFCNC_ROLE_ID, HICOM: DISCORD_HICOM_ROLE_ID, OFFICER: DISCORD_OFFICER_ROLE_ID, MINOR_OFFICER: DISCORD_MINOR_OFFICER_ROLE_ID, CMOTW: DISCORD_CMOTW_ROLE_ID } = config.DISCORD.ROLES
 const { DEVELOPER_USER_ID: DEVELOPER_DISCORD_USER_ID } = config.DISCORD.BOT
-const { sendCommandReceived } = require('../../../api/webhook.js')
+const database = require('../../../api/database.js')
+const { formatEventEpLockMessage } = require('../../utils/eventEpLock.js')
 
 
 const LoggerClass = require('../../../api/logger.js')
@@ -62,12 +63,21 @@ module.exports = async function commandHandler(interaction) {
             }
         }
 
+        if (command.requiresEventEpWrite) {
+            const lockState = await database.getEventEpLock()
+            if (lockState && lockState.enabled) {
+                await interaction.reply({ content: formatEventEpLockMessage(lockState), flags: MessageFlags.Ephemeral })
+                return
+            }
+        }
+
         // Execute the command
         await command.execute(interaction)
     } catch (error) {
         const users = interaction?.client?.users
         const uid = interaction?.user?.id
-        const msg = error && error.message ? String(error.message) : 'Unknown error'
+        const lockMsg = database.isEventEpLockError(error) ? formatEventEpLockMessage(error.lockState) : null
+        const msg = lockMsg || (error && error.message ? String(error.message) : 'Unknown error')
 
         logger.error(error)
         try {

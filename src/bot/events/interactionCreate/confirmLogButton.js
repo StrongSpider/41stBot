@@ -7,6 +7,7 @@ const { DEVELOPER_USER_ID: DEVELOPER_DISCORD_USER_ID } = config.DISCORD.BOT
 
 const database = require('../../../api/database.js')
 const webhook = require('../../../api/webhook.js')
+const { formatEventEpLockMessage } = require('../../utils/eventEpLock.js')
 
 /**
  * @param {import('discord.js').ButtonInteraction} interaction
@@ -17,6 +18,12 @@ module.exports = async function confirmLogButton(interaction) {
         if (interaction.customId !== 'confirm_minor') return
 
         await interaction.deferReply({ flags: MessageFlags.Ephemeral })
+
+        const lockState = await database.getEventEpLock()
+        if (lockState && lockState.enabled) {
+            await interaction.editReply({ content: formatEventEpLockMessage(lockState), flags: MessageFlags.Ephemeral })
+            return
+        }
 
         // Look up the logged event by the source message URL
         const event = await database.findEventByMessage(interaction.message?.url)
@@ -103,6 +110,7 @@ module.exports = async function confirmLogButton(interaction) {
         const effectiveEP = baseEP * parseModifier(modifierLine)
 
         // Increment EP for attendees
+        await database.assertEventEpWriteUnlocked()
         for (const uid of attendeeIds) {
             try {
                 const robloxId = await database.getRobloxIdByDiscord(uid)
@@ -140,6 +148,12 @@ module.exports = async function confirmLogButton(interaction) {
             } catch { }
         }
     } catch (e) {
+        if (database.isEventEpLockError(e)) {
+            try {
+                await interaction.editReply({ content: formatEventEpLockMessage(e.lockState), flags: MessageFlags.Ephemeral })
+            } catch { }
+            return
+        }
         const msg = e && e.message ? e.message : 'Unknown error'
         try {
             await interaction.editReply({ content: '<:warning:1297618648810393630> `' + msg + '`', flags: MessageFlags.Ephemeral })

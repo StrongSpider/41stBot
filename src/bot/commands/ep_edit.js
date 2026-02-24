@@ -55,6 +55,7 @@ function chunkByLength(text, max) {
 
 module.exports = {
     permission: "OFFICER",
+    requiresEventEpWrite: true,
     data: new SlashCommandBuilder()
         .setName("ep-edit")
         .setDescription("Add, subtract, or set EP for users")
