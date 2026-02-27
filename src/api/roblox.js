@@ -61,10 +61,15 @@ const getUsernameFromId = async function (id) {
 
   // API fallback
   try {
-    const uname = await noblox.getUsernameFromId(idNum)
+    const unameRaw = await noblox.getUsernameFromId(idNum)
+    const uname = String(unameRaw || '').trim()
+    if (!uname || uname.toLowerCase() === 'null') {
+      throw new Error('User not found')
+    }
+
     logger.info('Fetched username from API: ' + uname + ' (' + idNum + ')')
 
-    // Update DB
+    // Update DB (only if values are valid)
     try {
       await db.upsertUser(idNum, uname)
     } catch (err) {
@@ -102,7 +107,14 @@ const getIdFromUsername = async function (username) {
 
   // API fallback
   try {
-    const idNum = await noblox.getIdFromUsername(uname)
+    const idRaw = await noblox.getIdFromUsername(uname)
+    const idNum = Number(idRaw)
+
+    // Critical fix: do not upsert null/invalid IDs
+    if (!Number.isFinite(idNum) || idNum <= 0) {
+      throw new Error('User not found')
+    }
+
     logger.info('Fetched id from API: ' + uname + ' (' + idNum + ')')
 
     // Update DB
