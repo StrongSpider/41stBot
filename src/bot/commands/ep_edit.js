@@ -10,7 +10,7 @@ const path = require("path");
 const fs = require("fs");
 
 const LoggerClass = require('../../api/logger.js')
-const logger = new LoggerClass('Purge', 'BOT')
+const logger = new LoggerClass('EPEditCommand', 'BOT')
 
 const CACHE_PATH = path.join(__dirname, "..", "..", "cache", "usernames.json");
 let usernameEntries = null;

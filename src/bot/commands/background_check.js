@@ -7,7 +7,7 @@ const config = require("../../../config.json");
 const ui = require("../utils/bgCheckUI.js");
 
 const LoggerClass = require('../../api/logger.js')
-const logger = new LoggerClass('Purge', 'BOT')
+const logger = new LoggerClass('BackgroundCheckCommand', 'BOT')
 
 const COLLECTOR_MS = 10 * 60 * 1000;
 const ACCENT_COLOR = config.GENERAL.ACCENT_COLOR;
