@@ -132,6 +132,10 @@ module.exports = {
                 events = await database.getWeeklyEventIds().catch(() => [])
             }
 
+            // Unlock tracker
+            await database.setEventEpLock(false)
+            logger.info(`[EVENT_EP_LOCK] enabled=false`)
+
             // Clear weekly data in storage
             await database.clearAllWeeklyEvents()
             await database.resetAllEventPoints()
@@ -145,9 +149,6 @@ module.exports = {
 
             // Notify via webhook
             try { await sendClearWeek({ discordId: interaction.user.id }) } catch { }
-
-            await database.setEventEpLock(false)
-            logger.info(`[EVENT_EP_LOCK] enabled=false`)
 
             // Build confirmation embed
             const resetEmbed = new EmbedBuilder()
