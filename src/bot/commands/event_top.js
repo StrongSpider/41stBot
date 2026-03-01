@@ -5,6 +5,7 @@ const { getUsernameFromId } = require('../../api/roblox.js')
 const config = require('../../../config.json')
 const { EMBED_COLOR } = config.GENERAL
 const database = require('../../api/database.js')
+const { resolveEventDateFilters, eventMatchesDateRange } = require('../utils/eventDateFilters')
 
 /**
  * Validate an event pattern allowing a single trailing `*` for prefix matches
@@ -35,29 +36,6 @@ function toRegex(pattern) {
   return new RegExp('^' + escaped + (hasStar ? '.*' : '') + '$', 'i')
 }
 
-/**
- * Parse MM/DD/YYYY into a UTC timestamp ms
- * @param {string|null} input
- * @param {boolean} endOfDay when true, set time to 23:59:59.999
- * @returns {number|null}
- */
-function parseBound(input, endOfDay) {
-  if (!input) return null
-  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(input)
-  if (!m) return null
-  const mm = Number(m[1])
-  const dd = Number(m[2])
-  const yyyy = Number(m[3])
-  if (mm < 1 || mm > 12) return null
-  const dim = new Date(Date.UTC(yyyy, mm, 0)).getUTCDate()
-  if (dd < 1 || dd > dim) return null
-  const h = endOfDay ? 23 : 0
-  const min = endOfDay ? 59 : 0
-  const s = endOfDay ? 59 : 0
-  const ms = endOfDay ? 999 : 0
-  return Date.UTC(yyyy, mm - 1, dd, h, min, s, ms)
-}
-
 module.exports = {
   permission: 'ALL',
   data: new SlashCommandBuilder()
@@ -84,6 +62,11 @@ module.exports = {
       option
         .setName('after-date')
         .setDescription('After date (MM/DD/YYYY)')
+    )
+    .addStringOption(option =>
+      option
+        .setName('during')
+        .setDescription('Single date or range (MM/DD/YYYY or MM/DD/YYYY to MM/DD/YYYY)')
     )
     .addBooleanOption(option =>
       option
@@ -131,6 +114,7 @@ module.exports = {
 
       const beforeDateStr = interaction.options.getString('before-date')
       const afterDateStr = interaction.options.getString('after-date')
+      const duringStr = interaction.options.getString('during')
 
       // Validate and prepare event matcher
       if (!isValidPrefixPattern(input)) {
@@ -139,16 +123,19 @@ module.exports = {
       }
       const rx = toRegex(input)
 
-      // Inclusive date bounds in UTC
-      const afterMs = parseBound(afterDateStr, false)
-      const beforeMs = parseBound(beforeDateStr, true)
-      if ((afterDateStr && afterMs === null) || (beforeDateStr && beforeMs === null)) {
-        await interaction.editReply({ content: 'Invalid date format. Use MM/DD/YYYY.' })
+      const dateFilters = resolveEventDateFilters({
+        requestedAllTime: allTimeMode,
+        afterInput: afterDateStr,
+        beforeInput: beforeDateStr,
+        duringInput: duringStr
+      })
+      if (dateFilters.error) {
+        await interaction.editReply({ content: dateFilters.error })
         return
       }
 
       // Get users to consider based on scope
-      const robloxIds = allTimeMode
+      const robloxIds = dateFilters.useAllTime
         ? (await database.getAllUsers().catch(() => [])).map(u => u.robloxId).filter(Boolean)
         : await database.getUsersWithWeeklyEvents().catch(() => [])
 
@@ -158,7 +145,7 @@ module.exports = {
       }
 
       // Get per-user event id lists
-      const userEvents = allTimeMode
+      const userEvents = dateFilters.useAllTime
         ? await database.getAllTimeUserEventsBatch(robloxIds).catch(() => [])
         : await database.getWeeklyUserEventsBatch(robloxIds).catch(() => [])
 
@@ -197,12 +184,7 @@ module.exports = {
           if (hostMode && ev.host != uid) continue
 
           // date filter
-          if (afterMs !== null || beforeMs !== null) {
-            const t = ev.timestamp ? Date.parse(ev.timestamp) : NaN
-            if (!Number.isFinite(t)) continue
-            if (afterMs !== null && t < afterMs) continue
-            if (beforeMs !== null && t > beforeMs) continue
-          }
+          if (!eventMatchesDateRange(ev, dateFilters.afterMs, dateFilters.beforeMs)) continue
 
           c++
         }
@@ -236,13 +218,8 @@ module.exports = {
         lines.push(`${i + 1}. ${tag} **${count}**`)
       }
 
-      // Build a human readable date label for the title
-      let dateLabel = ''
-      if (afterDateStr && beforeDateStr) dateLabel = ` from ${afterDateStr} to ${beforeDateStr}`
-      else if (afterDateStr) dateLabel = ` on or after ${afterDateStr}`
-      else if (beforeDateStr) dateLabel = ` on or before ${beforeDateStr}`
-
-      const title = `Top ${allTimeMode ? 'All Time' : 'Weekly'} ${topUsers.length} ${hostMode ? 'Hosts' : 'Attendees'} for \`${input}\`${dateLabel}`
+      const dateLabel = dateFilters.dateLabel ? ` - ${dateFilters.dateLabel}` : ''
+      const title = `Top ${dateFilters.useAllTime ? 'All Time' : 'Weekly'} ${topUsers.length} ${hostMode ? 'Hosts' : 'Attendees'} for \`${input}\`${dateLabel}`
 
       const embed = new EmbedBuilder()
         .setTitle(title)

@@ -5,6 +5,7 @@ const config = require('../../../config.json')
 const { EMBED_COLOR } = config.GENERAL
 const database = require('../../api/database')
 const roblox = require('../../api/roblox')
+const { resolveEventDateFilters, eventMatchesDateRange } = require('../utils/eventDateFilters')
 
 
 // WARNING: Regex hell!!! Sorry, I had no other choice...
@@ -39,43 +40,6 @@ function prefixPatternToRegex(pattern) {
     return new RegExp('^' + escaped + (hasStar ? '.*' : '') + '$', 'i')
 }
 
-/**
- * Parse MM/DD/YYYY to UTC ms. End-of-day if isEndOfDay
- * @param {string|null} input
- * @param {boolean} isEndOfDay
- * @returns {number|null}
- */
-function parseBound(input, isEndOfDay) {
-    if (!input) return null
-    const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(input)
-    if (!m) return null
-    const mm = Number(m[1])
-    const dd = Number(m[2])
-    const yyyy = Number(m[3])
-    if (mm < 1 || mm > 12) return null
-    // Date.UTC with day 0 gives the last day of the previous month
-    const dim = new Date(Date.UTC(yyyy, mm, 0)).getUTCDate()
-    if (dd < 1 || dd > dim) return null
-    const h = isEndOfDay ? 23 : 0
-    const min = isEndOfDay ? 59 : 0
-    const s = isEndOfDay ? 59 : 0
-    const ms = isEndOfDay ? 999 : 0
-    return Date.UTC(yyyy, mm - 1, dd, h, min, s, ms)
-}
-
-/**
- * Normalize MM/DD/YYYY to zero-padded string for display
- * @param {string} input
- */
-function fmtDate(input) {
-    const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(input)
-    if (!m) return input
-    const mm = m[1].padStart(2, '0')
-    const dd = m[2].padStart(2, '0')
-    const yyyy = m[3]
-    return `${mm}/${dd}/${yyyy}`
-}
-
 module.exports = {
     permission: 'ALL',
     data: new SlashCommandBuilder()
@@ -95,6 +59,11 @@ module.exports = {
             option
                 .setName('before-date')
                 .setDescription('Count events on/before this date (MM/DD/YYYY)')
+        )
+        .addStringOption(option =>
+            option
+                .setName('during')
+                .setDescription('Single date or range (MM/DD/YYYY or MM/DD/YYYY to MM/DD/YYYY)')
         )
         .addUserOption(option =>
             option
@@ -122,6 +91,7 @@ module.exports = {
             const allTime = interaction.options.getBoolean('all-time') ?? false
             const afterInput = interaction.options.getString('after-date') ?? null
             const beforeInput = interaction.options.getString('before-date') ?? null
+            const duringInput = interaction.options.getString('during') ?? null
             const eventTypeInput = interaction.options.getString('event-type') ?? null
             const userInput = interaction.options.getUser('user') ?? null
             const asHostInput = interaction.options.getBoolean('as-host') ?? false
@@ -134,11 +104,14 @@ module.exports = {
             }
             const typeRx = typePattern ? prefixPatternToRegex(typePattern) : null
 
-            // Parse dates to UTC bounds. After is start of day, before is end of day
-            const afterMs = parseBound(afterInput, false)
-            const beforeMs = parseBound(beforeInput, true)
-            if ((afterInput && afterMs === null) || (beforeInput && beforeMs === null)) {
-                await interaction.editReply({ content: 'Invalid date format. Use MM/DD/YYYY.' })
+            const dateFilters = resolveEventDateFilters({
+                requestedAllTime: allTime,
+                afterInput,
+                beforeInput,
+                duringInput
+            })
+            if (dateFilters.error) {
+                await interaction.editReply({ content: dateFilters.error })
                 return
             }
 
@@ -155,7 +128,7 @@ module.exports = {
             // If any filter is present we need the event list to apply filters.
             // Otherwise we can use a simple weekly count which is much cheaper.
             const wantFilters = Boolean(
-                allTime || afterMs !== null || beforeMs !== null || typeRx || robloxId !== null || asHostInput
+                dateFilters.useAllTime || dateFilters.hasDateFilter || typeRx || robloxId !== null || asHostInput
             )
 
             let count = 0
@@ -165,15 +138,12 @@ module.exports = {
                     count = (await database.getWeeklyEventIds()).length
                 } else {
                     // Slow path: fetch events for the chosen scope then filter in memory
-                    const events = allTime
+                    const events = dateFilters.useAllTime
                         ? await database.listAllTimeEvents()
                         : await database.listWeeklyEvents()
 
                     const filtered = events.filter(ev => {
-                        const t = ev.timestamp ? Date.parse(ev.timestamp) : NaN
-                        // time window checks
-                        if (afterMs !== null && !(t >= afterMs)) return false
-                        if (beforeMs !== null && !(t <= beforeMs)) return false
+                        if (!eventMatchesDateRange(ev, dateFilters.afterMs, dateFilters.beforeMs)) return false
                         // event type exact or prefix
                         if (typeRx) {
                             const et = (ev.type || '').toString()
@@ -195,10 +165,8 @@ module.exports = {
             }
 
             const titleBits = []
-            if (allTime) titleBits.push('All Time')
-            if (afterMs !== null && beforeMs !== null) titleBits.push(`${fmtDate(afterInput)} to ${fmtDate(beforeInput)}`)
-            else if (afterMs !== null) titleBits.push(`After ${fmtDate(afterInput)}`)
-            else if (beforeMs !== null) titleBits.push(`Before ${fmtDate(beforeInput)}`)
+            if (dateFilters.useAllTime) titleBits.push('All Time')
+            if (dateFilters.dateLabel) titleBits.push(dateFilters.dateLabel)
             if (eventTypeInput) titleBits.push(`Type: ${eventTypeInput}`)
 
             if (robloxId !== null) {

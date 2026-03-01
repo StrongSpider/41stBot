@@ -5,6 +5,7 @@ const config = require('../../../config.json')
 const { EMBED_COLOR } = config.GENERAL
 const { getUsernameFromId } = require('../../api/roblox.js')
 const database = require('../../api/database.js')
+const { resolveEventDateFilters, eventMatchesDateRange } = require('../utils/eventDateFilters')
 
 /**
  * Validate an event pattern allowing a single trailing * for prefix matches
@@ -39,7 +40,7 @@ module.exports = {
     permission: 'ALL',
     data: new SlashCommandBuilder()
         .setName('events-list')
-        .setDescription("List a user's events for the current week")
+        .setDescription("List a user's events")
         .addUserOption(option =>
             option.setName('user')
                 .setDescription('User to list (defaults to you)')
@@ -54,6 +55,21 @@ module.exports = {
                 .setName('event')
                 .setDescription('Event type filter (use * wildcard, e.g. Ranger*)')
                 .setAutocomplete(true)
+        )
+        .addStringOption(option =>
+            option
+                .setName('after-date')
+                .setDescription('Events on/after this date (MM/DD/YYYY)')
+        )
+        .addStringOption(option =>
+            option
+                .setName('before-date')
+                .setDescription('Events on/before this date (MM/DD/YYYY)')
+        )
+        .addStringOption(option =>
+            option
+                .setName('during')
+                .setDescription('Single date or range (MM/DD/YYYY or MM/DD/YYYY to MM/DD/YYYY)')
         ),
 
     /**
@@ -90,6 +106,9 @@ module.exports = {
 
             const discordUser = interaction.options.getUser('user') || interaction.user
             const hostMode = interaction.options.getBoolean('as-host') || false
+            const afterInput = interaction.options.getString('after-date') ?? null
+            const beforeInput = interaction.options.getString('before-date') ?? null
+            const duringInput = interaction.options.getString('during') ?? null
 
             const robloxId = await database.getRobloxIdByDiscord(discordUser.id).catch(() => null)
             if (robloxId == null) {
@@ -99,14 +118,31 @@ module.exports = {
                 return
             }
 
-            // Load this user's weekly event IDs then the event objects
-            const eventIds = await database.getWeeklyEventIdsForUser(robloxId).catch(() => [])
-            if (!Array.isArray(eventIds) || eventIds.length === 0) {
-                await interaction.editReply({ content: 'User has no events this week.' })
+            const dateFilters = resolveEventDateFilters({
+                afterInput,
+                beforeInput,
+                duringInput
+            })
+            if (dateFilters.error) {
+                await interaction.editReply({ content: dateFilters.error })
                 return
             }
 
-            const fetched = await Promise.all(eventIds.map(id => database.getWeeklyEvent(id).catch(() => null)))
+            const eventIds = dateFilters.useAllTime
+                ? await database.getAllTimeEventIdsForUser(robloxId).catch(() => [])
+                : await database.getWeeklyEventIdsForUser(robloxId).catch(() => [])
+            if (!Array.isArray(eventIds) || eventIds.length === 0) {
+                await interaction.editReply({ content: dateFilters.useAllTime ? 'User has no matching all-time events.' : 'User has no events this week.' })
+                return
+            }
+
+            const fetched = await Promise.all(
+                eventIds.map(id => (
+                    dateFilters.useAllTime
+                        ? database.getAllTimeEventById(id).catch(() => null)
+                        : database.getWeeklyEvent(id).catch(() => null)
+                ))
+            )
             const events = fetched.filter(Boolean)
 
             // Validate the event filter pattern and build a regex if needed
@@ -119,12 +155,16 @@ module.exports = {
 
             // Apply filters
             const patternEvents = rx ? events.filter(ev => rx.test(String(ev.type || ''))) : events
-            const displayEvents = hostMode ? patternEvents.filter(ev => ev.host == robloxId) : patternEvents
+            const datedEvents = patternEvents.filter(ev => eventMatchesDateRange(ev, dateFilters.afterMs, dateFilters.beforeMs))
+            const displayEvents = hostMode ? datedEvents.filter(ev => ev.host == robloxId) : datedEvents
 
             // Sort newest to oldest by timestamp
             displayEvents.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
             if (displayEvents.length === 0) {
-                await interaction.editReply({ content: `No events found for type \`${input}\`.` })
+                const bits = []
+                if (input && input !== '*') bits.push(`type \`${input}\``)
+                if (dateFilters.dateLabel) bits.push(dateFilters.dateLabel.toLowerCase())
+                await interaction.editReply({ content: bits.length ? `No events found for ${bits.join(' and ')}.` : 'No events found.' })
                 return
             }
 
@@ -160,7 +200,12 @@ module.exports = {
 
                 const embed = new EmbedBuilder()
                     .setColor(EMBED_COLOR)
-                    .setTitle(`${robloxUsername}'s Events${input && input !== '*' ? ` matching \`${input}\`` : ''} (${start + 1}-${Math.min(start + perPage, displayEvents.length)} of ${displayEvents.length})`)
+                    .setTitle(
+                        `${robloxUsername}'s ${dateFilters.useAllTime ? 'All-Time ' : ''}Events` +
+                        `${input && input !== '*' ? ` matching \`${input}\`` : ''}` +
+                        `${dateFilters.dateLabel ? ` - ${dateFilters.dateLabel}` : ''}` +
+                        ` (${start + 1}-${Math.min(start + perPage, displayEvents.length)} of ${displayEvents.length})`
+                    )
 
                 for (let index = 0; index < slice.length; index++) {
                     const ev = slice[index]
