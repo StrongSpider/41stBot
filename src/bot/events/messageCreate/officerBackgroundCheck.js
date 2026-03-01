@@ -1,6 +1,6 @@
 'use strict'
 
-const { ContainerBuilder, MessageFlags, ComponentType } = require('discord.js');
+const { ContainerBuilder, MessageFlags, ComponentType, ButtonStyle } = require('discord.js');
 const backgroundCheck = require('../../../api/backgroundCheck.js');
 const ui = require('../../utils/bgCheckUI.js');
 const config = require('../../../../config.json')
@@ -37,17 +37,33 @@ module.exports = async function officerBackgroundCheck(message) {
             return await loadingMsg.edit({ content: `❌ ${result?.error ?? "Unknown error"}` });
         }
 
-        const xTrackerSummary =
-            result?.xTracker && result.xTracker.evidenceCount > 0
-                ? `User has **${result.xTracker.evidenceCount}** xTracker submissions in the last year.`
-                : "User was not found on the xTracker database";
+        const cheatingRecord = ui.getCheatingRecord(result);
+        const hasCheatingRecord = cheatingRecord.totalCount > 0;
+        const cheatingRecordSummary = ui.getCheatingRecordPreviewContent(result);
+        const inventoryPrivate = ui.isInventoryPrivate(result);
+        const overviewNotices = [];
+
+        if (inventoryPrivate) {
+            overviewNotices.push(
+                "### Private Inventory\n" +
+                "This user's inventory is private, so this background check only shows join date, connections, groups, favorites, and cheating records."
+            );
+        }
+
+        if (hasCheatingRecord) {
+            overviewNotices.push(
+                "### <:cheater:1454312229980864542> Cheating Record Found\n" +
+                "Review the Cheating Record section below. These records do not affect 41st tryout pass/fail."
+            );
+        }
 
         const selectionContainer = new ContainerBuilder().setAccentColor(ACCENT_COLOR);
 
         selectionContainer.addTextDisplayComponents(td =>
             td.setContent(
                 `## <:check:1454306643503349935> Background Check Overview — ` +
-                `[${result.username}](https://www.roblox.com/users/${result.robloxId}/profile)`
+                `[${result.username}](https://www.roblox.com/users/${result.robloxId}/profile)` +
+                (overviewNotices.length > 0 ? `\n\n${overviewNotices.join("\n\n")}` : "")
             )
         );
 
@@ -95,7 +111,7 @@ module.exports = async function officerBackgroundCheck(message) {
         }
 
         // Inventory
-        {
+        if (!inventoryPrivate) {
             const title = "### <:inventory:1454310516322209995> Inventory";
             let content = "Error fetching inventory.";
             if (!result.inventory?.error) {
@@ -114,7 +130,7 @@ module.exports = async function officerBackgroundCheck(message) {
         }
 
         // Gamepasses
-        {
+        if (!inventoryPrivate) {
             const title = "### <:gamepasses:1454310928823619675> Gamepasses";
             const content = result.gamePasses?.error
                 ? `Error fetching gamepasses: ${result.gamePasses.error}`
@@ -144,16 +160,21 @@ module.exports = async function officerBackgroundCheck(message) {
 
         // Cheating Record
         {
-            const title = "### <:cheater:1454312229980864542> Cheating Record";
+            const title = hasCheatingRecord
+                ? "### <:cheater:1454312229980864542> Cheating Record Found"
+                : "### <:cheater:1454312229980864542> Cheating Record";
+            const content = cheatingRecordSummary;
             ui.addExpandableSection(selectionContainer, {
                 title,
-                content: xTrackerSummary,
-                customId: ui.makeCustomId("xtracker", result.robloxId, message.author.id)
+                content,
+                customId: ui.makeCustomId("xtracker", result.robloxId, message.author.id),
+                buttonLabel: hasCheatingRecord ? "Review Record" : "Expand →",
+                buttonStyle: hasCheatingRecord ? ButtonStyle.Danger : undefined
             });
         }
 
         // Badges
-        {
+        if (!inventoryPrivate) {
             const title = "### <:badge:1454312648463093800> Badges";
             const content = result.badges?.error
                 ? `Error fetching badges: ${result.badges.error}`
@@ -166,7 +187,7 @@ module.exports = async function officerBackgroundCheck(message) {
         }
 
         // Badge graph
-        if (result.badgeGraph) {
+        if (!inventoryPrivate && result.badgeGraph) {
             selectionContainer.addMediaGalleryComponents(gallery =>
                 gallery.addItems(item =>
                     item
@@ -183,7 +204,7 @@ module.exports = async function officerBackgroundCheck(message) {
 
         const sent = await message.reply({
             components: [selectionContainer],
-            files: result.badgeGraph
+            files: !inventoryPrivate && result.badgeGraph
                 ? [{ attachment: result.badgeGraph.buffer, name: result.badgeGraph.filename }]
                 : [],
             flags: MessageFlags.IsComponentsV2
@@ -202,27 +223,43 @@ module.exports = async function officerBackgroundCheck(message) {
                 type: "components",
                 payload: ui.buildGroupsContainer(result, ACCENT_COLOR)
             }),
-            inventory: async () => ({
-                type: "components",
-                payload: ui.buildInventoryContainer(result, ACCENT_COLOR)
-            }),
-            gamepasses: async () => ({
-                type: "components",
-                payload: ui.buildGamepassesContainer(result, ACCENT_COLOR)
-            }),
             favorites: async () => ({
                 type: "components",
                 payload: ui.buildFavoritesContainer(result, ACCENT_COLOR)
             }),
             xtracker: async () => ({
                 type: "components",
-                payload: ui.buildXTrackerContainer(result, ACCENT_COLOR)
-            }),
-            badges: async () => ({
-                type: "components",
-                payload: await ui.buildBadgesContainer(result, ACCENT_COLOR)
+                payload: ui.buildCheatingRecordContainer(result, ACCENT_COLOR)
             })
         };
+
+        if (inventoryPrivate) {
+            sectionHandlers.inventory = async () => ({
+                type: "components",
+                payload: ui.buildPrivateInventoryNoticeContainer("Inventory Details", ACCENT_COLOR)
+            });
+            sectionHandlers.gamepasses = async () => ({
+                type: "components",
+                payload: ui.buildPrivateInventoryNoticeContainer("Gamepasses Details", ACCENT_COLOR)
+            });
+            sectionHandlers.badges = async () => ({
+                type: "components",
+                payload: ui.buildPrivateInventoryNoticeContainer("Badge Review", ACCENT_COLOR)
+            });
+        } else {
+            sectionHandlers.inventory = async () => ({
+                type: "components",
+                payload: ui.buildInventoryContainer(result, ACCENT_COLOR)
+            });
+            sectionHandlers.gamepasses = async () => ({
+                type: "components",
+                payload: ui.buildGamepassesContainer(result, ACCENT_COLOR)
+            });
+            sectionHandlers.badges = async () => ({
+                type: "components",
+                payload: await ui.buildBadgesContainer(result, ACCENT_COLOR)
+            });
+        }
 
         const collector = sent.createMessageComponentCollector({
             componentType: ComponentType.Button,

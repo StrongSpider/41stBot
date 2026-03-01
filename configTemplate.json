@@ -81,7 +81,8 @@
     "API_KEY": ""
   },
   "EXTERNAL": {
-    "XTRACKER_API_KEY": ""
+    "XTRACKER_API_KEY": "",
+    "CLANWARE_API_KEY": ""
   },
   "GENERAL": {
     "EMBED_COLOR": "",

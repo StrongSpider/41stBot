@@ -14,7 +14,7 @@ const inference = require('./ml/inference.js');
 
 const config = require('../../config.json');
 const { ASSET_TYPES: ROBLOX_ASSET_TYPES } = config.ROBLOX;
-const { XTRACKER_API_KEY } = config.EXTERNAL;
+const { XTRACKER_API_KEY, CLANWARE_API_KEY } = config.EXTERNAL;
 
 const PER_REQUEST_TIMEOUT_MS = 5000;
 
@@ -185,30 +185,173 @@ async function fetchXTrackerData(robloxId) {
         return null;
     }
 
-    try {
-        const res = await axiosRequest(
-            http,
-            'xtracker',
-            {
-                method: 'GET',
-                url: `https://api.xtracker.xyz/api/registry/user?id=${robloxId}`,
-                headers: {
-                    Authorization: XTRACKER_API_KEY
-                },
-                validateStatus: (status) => status === 200 || status === 404
-            }
-        );
-
-        // 404 means clean record
-        if (res.status === 404) {
-            return null;
+    const res = await axiosRequest(
+        http,
+        'xtracker',
+        {
+            method: 'GET',
+            url: `https://api.xtracker.xyz/api/registry/user?id=${robloxId}`,
+            headers: {
+                Authorization: XTRACKER_API_KEY
+            },
+            validateStatus: (status) => status === 200 || status === 404
         }
+    );
 
-        return res.data;
-    } catch (e) {
-        logger.warn('xTracker fetch failed:', toErrMsg(e));
+    // 404 means clean record
+    if (res.status === 404) {
         return null;
     }
+
+    return res.data;
+}
+
+/**
+ * Fetch Clanware exploiter cases for a user.
+ * Single request with a 5s hard timeout.
+ */
+async function fetchClanwareExploitData(robloxId, username) {
+    if (!CLANWARE_API_KEY) {
+        return null;
+    }
+
+    const payload = {
+        robloxIds: [String(robloxId)],
+        showArchived: true
+    };
+
+    if (username) {
+        payload.robloxUsernames = [String(username)];
+    }
+
+    const res = await axiosRequest(
+        http,
+        'clanware',
+        {
+            method: 'POST',
+            url: 'https://justice.clanware.org/api/justice/exploiters',
+            data: payload,
+            headers: {
+                Authorization: CLANWARE_API_KEY,
+                'x-api-key': CLANWARE_API_KEY,
+                'Content-Type': 'application/json'
+            },
+            validateStatus: (status) => status >= 200 && status < 500
+        }
+    );
+
+    if (res.status === 401) {
+        throw new Error(res?.data?.message || 'Clanware authorization failed');
+    }
+
+    if (res.status >= 400) {
+        throw new Error(res?.data?.message || `Clanware request failed with status ${res.status}`);
+    }
+
+    return Array.isArray(res.data) ? res.data : [];
+}
+
+function normalizeXTrackerEvidence(xTrackerData) {
+    const evidence = [];
+
+    if (!xTrackerData || !Array.isArray(xTrackerData.evidence)) {
+        return evidence;
+    }
+
+    const year = 31556952000;
+    for (const submission of xTrackerData.evidence) {
+        const ts = new Date(submission?.date).getTime();
+        if (!Number.isFinite(ts) || ts < (Date.now() - year)) {
+            continue;
+        }
+
+        evidence.push({
+            source: 'xTracker',
+            type: 'submission',
+            reason: submission?.reason || 'No reason provided',
+            date: submission?.date || null,
+            url: submission?.url || null
+        });
+    }
+
+    return evidence;
+}
+
+function normalizeClanwareCases(clanwareData) {
+    if (!Array.isArray(clanwareData)) {
+        return [];
+    }
+
+    const byCaseId = new Map();
+
+    for (const entry of clanwareData) {
+        const caseId = Number(entry?.case_id);
+        if (!Number.isFinite(caseId) || byCaseId.has(caseId)) {
+            continue;
+        }
+
+        const evidence = Array.isArray(entry?.evidence) ? entry.evidence : [];
+        const alts = Array.isArray(entry?.alts) ? entry.alts : [];
+        const accountSharing = Array.isArray(entry?.account_sharing) ? entry.account_sharing : [];
+        const strike = Number(entry?.strike);
+
+        byCaseId.set(caseId, {
+            source: 'Clanware',
+            type: 'case',
+            caseId,
+            status: entry?.status || 'Unknown',
+            strike: Number.isFinite(strike) ? strike : null,
+            dateCreated: entry?.date_created || null,
+            dateUpdated: entry?.date_updated || null,
+            endDate: entry?.end_date || null,
+            evidenceCount: evidence.length,
+            altsCount: alts.length,
+            accountSharingCount: accountSharing.length,
+            url: `https://justice.clanware.org/api/justice/exploiters/${caseId}`
+        });
+    }
+
+    return Array.from(byCaseId.values()).sort((a, b) => {
+        const timeA = new Date(a.dateUpdated || a.dateCreated || 0).getTime();
+        const timeB = new Date(b.dateUpdated || b.dateCreated || 0).getTime();
+        return timeB - timeA;
+    });
+}
+
+function buildCheatingRecord(xTrackerResult, clanwareResult) {
+    const xTrackerRecords = xTrackerResult?.ok
+        ? normalizeXTrackerEvidence(xTrackerResult.data)
+        : [];
+    const clanwareCases = clanwareResult?.ok
+        ? normalizeClanwareCases(clanwareResult.data)
+        : [];
+
+    const sourceErrors = {};
+    if (xTrackerResult && !xTrackerResult.ok && xTrackerResult.error) {
+        sourceErrors.xTracker = xTrackerResult.error;
+    }
+    if (clanwareResult && !clanwareResult.ok && clanwareResult.error) {
+        sourceErrors.clanware = clanwareResult.error;
+    }
+
+    const totalCount = xTrackerRecords.length + clanwareCases.length;
+
+    return {
+        totalCount,
+        hasRecord: totalCount > 0,
+        sourcesWithRecords: [xTrackerRecords.length > 0 ? 'xTracker' : null, clanwareCases.length > 0 ? 'Clanware' : null].filter(Boolean),
+        sourceErrors,
+        sources: {
+            xTracker: {
+                recordCount: xTrackerRecords.length,
+                records: xTrackerRecords
+            },
+            clanware: {
+                caseCount: clanwareCases.length,
+                cases: clanwareCases
+            }
+        }
+    };
 }
 
 /**
@@ -436,7 +579,7 @@ function generateRiskVisual(prediction) {
  *
  * IMPORTANT NOTE:
  * This module enforces 5s per-request timeouts for requests made in THIS file
- * (Rolimons, xTracker, favorites/gamepasses pagination via robloxHttp/http).
+ * (Rolimons, xTracker, Clanware, favorites/gamepasses pagination via robloxHttp/http).
  * If roblox.js/assets.js/badge.js/groups.js internally make HTTP requests without per-request timeouts,
  * you must update those modules similarly to guarantee the same 5s per-request rule everywhere.
  *
@@ -472,6 +615,7 @@ async function performBackgroundCheck(usernameOrId) {
         gamePasses: () => safe('gamepasses', () => fetchAllUserGamePasses(robloxId)),
         inventoryValue: () => safe('rolimons', () => fetchInventoryValue(robloxId)),
         xTracker: () => safe('xtracker', () => fetchXTrackerData(robloxId)),
+        clanware: () => safe('clanware', () => fetchClanwareExploitData(robloxId, username)),
         badges: () => safe('badges', () => badge.getUserBadges(robloxId)),
         favorites: () => safe('favorites', () => fetchAllFavoriteGames(robloxId))
     };
@@ -490,11 +634,14 @@ async function performBackgroundCheck(usernameOrId) {
     const connections = results.connections.ok ? results.connections.data : { error: results.connections.error };
     const groups = results.groups.ok && Array.isArray(results.groups.data) ? results.groups.data : (results.groups.ok ? [] : { error: results.groups.error });
     const inventory = results.inventory.ok && Array.isArray(results.inventory.data) ? results.inventory.data : (results.inventory.ok ? [] : { error: results.inventory.error });
+    const inventoryPrivate = !results.inventory.ok
+        && typeof results.inventory.error === 'string'
+        && results.inventory.error.toLowerCase().includes('inventory private');
     const gamePasses = results.gamePasses.ok && Array.isArray(results.gamePasses.data) ? results.gamePasses.data : (results.gamePasses.ok ? [] : { error: results.gamePasses.error });
     const inventoryValue = results.inventoryValue.ok ? results.inventoryValue.data : null;
-    const xTrackerData = results.xTracker.ok ? results.xTracker.data : null;
     const badgesData = results.badges.ok && Array.isArray(results.badges.data) ? results.badges.data : (results.badges.ok ? [] : { error: results.badges.error });
     const favoritesData = results.favorites.ok ? results.favorites.data : null;
+    const cheatingRecord = buildCheatingRecord(results.xTracker, results.clanware);
 
     const badgeSuspicious = Array.isArray(badgesData)
         ? await checkSuspiciousBadgePlaces(badgesData)
@@ -519,21 +666,6 @@ async function performBackgroundCheck(usernameOrId) {
         ? gamePasses.reduce((acc, gp) => acc + (typeof gp.price === "number" && !isCreatedByCheckedUser(gp) ? gp.price : 0), 0)
         : 0;
 
-    let xTrackerEvidence = [];
-    if (xTrackerData && xTrackerData.evidence) {
-        const year = 31556952000;
-        for (const submission of xTrackerData.evidence) {
-            const ts = new Date(submission.date).getTime();
-            if (Number.isFinite(ts) && ts >= (Date.now() - year)) {
-                xTrackerEvidence.push({
-                    reason: submission.reason,
-                    date: submission.date,
-                    url: submission.url
-                });
-            }
-        }
-    }
-
     const elapsedMs = Date.now() - startTime;
 
     const finalResult = {
@@ -546,6 +678,7 @@ async function performBackgroundCheck(usernameOrId) {
         connections,
         groups,
         inventory,
+        inventoryPrivate,
         gamePasses,
         badges: Array.isArray(badgesData) ? {
             data: badgesData,
@@ -553,9 +686,14 @@ async function performBackgroundCheck(usernameOrId) {
         } : badgesData,
         favorites: results.favorites.ok ? favoritesData : { error: results.favorites.error },
         inventoryValue,
-        xTracker: xTrackerEvidence.length > 0 ? {
-            evidenceCount: xTrackerEvidence.length,
-            evidence: xTrackerEvidence
+        cheatingRecord,
+        xTracker: cheatingRecord.sources.xTracker.recordCount > 0 ? {
+            evidenceCount: cheatingRecord.sources.xTracker.recordCount,
+            evidence: cheatingRecord.sources.xTracker.records
+        } : null,
+        clanware: cheatingRecord.sources.clanware.caseCount > 0 ? {
+            caseCount: cheatingRecord.sources.clanware.caseCount,
+            cases: cheatingRecord.sources.clanware.cases
         } : null,
 
         badgeGraph: Array.isArray(badgesData) && badgesData.length > 0 ? {
@@ -577,7 +715,10 @@ async function performBackgroundCheck(usernameOrId) {
             gamePassPriceTotal,
             favoriteGamesCount: Array.isArray(favoritesData) ? favoritesData.length : 0,
             badgeCount: Array.isArray(badgesData) ? badgesData.length : 0,
-            suspiciousBadgePlaceCount: badgeSuspicious.suspicious.length
+            suspiciousBadgePlaceCount: badgeSuspicious.suspicious.length,
+            cheatingRecordCount: cheatingRecord.totalCount,
+            xTrackerRecordCount: cheatingRecord.sources.xTracker.recordCount,
+            clanwareCaseCount: cheatingRecord.sources.clanware.caseCount
         }
     };
 

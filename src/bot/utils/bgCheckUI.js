@@ -7,6 +7,7 @@ const roblox = require("../../api/roblox.js");
 const CUSTOM_ID_PREFIX = "bgcf";
 const MAX_DISCORD_TEXT = 3800;
 const MAX_TOTAL = 3900;
+const CHEATING_RECORD_POLICY_NOTICE = "Cheating records from xTracker and Clanware are not part of the 41st Tryout Background Check and must not be used to pass or fail anyone.";
 
 /**
  * Utility: chunkText for splitting description into chunks for text displays
@@ -38,6 +39,13 @@ function formatRobux(value) {
     return `<:robux:1444752443614171279> **${n.toLocaleString()}**`;
 }
 
+function isInventoryPrivate(result) {
+    if (result?.inventoryPrivate === true) return true;
+
+    const error = result?.inventory?.error;
+    return typeof error === "string" && error.toLowerCase().includes("inventory private");
+}
+
 function makeCustomId(section, robloxId, ownerId) {
     return `${CUSTOM_ID_PREFIX}|${section}|${robloxId}|${ownerId}`;
 }
@@ -52,7 +60,7 @@ function parseCustomId(customId) {
     return { section, robloxId, ownerId };
 }
 
-function addExpandableSection(container, { title, content, customId, buttonLabel = "Expand →" }) {
+function addExpandableSection(container, { title, content, customId, buttonLabel = "Expand →", buttonStyle = ButtonStyle.Secondary }) {
     container.addSeparatorComponents(sep => sep);
 
     container.addSectionComponents(section =>
@@ -62,7 +70,7 @@ function addExpandableSection(container, { title, content, customId, buttonLabel
                 btn
                     .setCustomId(customId)
                     .setLabel(buttonLabel)
-                    .setStyle(ButtonStyle.Secondary)
+                    .setStyle(buttonStyle)
             )
     );
 }
@@ -73,6 +81,112 @@ function buildErrorContainer(title, message, accentColor) {
         .addTextDisplayComponents(td => td.setContent(`## ${title}`))
         .addSeparatorComponents(sep => sep)
         .addTextDisplayComponents(td => td.setContent(String(message ?? "Unknown error")));
+}
+
+function addPrivateInventoryNotice(container) {
+    container.addSeparatorComponents(sep => sep);
+    container.addTextDisplayComponents(td =>
+        td.setContent(
+            "### Private Inventory\n" +
+            "This user's inventory is private, so this background check only shows join date, connections, groups, favorites, and cheating records."
+        )
+    );
+
+    return container;
+}
+
+function buildPrivateInventoryNoticeContainer(title, accentColor) {
+    return new ContainerBuilder()
+        .setAccentColor(accentColor)
+        .addTextDisplayComponents(td => td.setContent(`## ${title}`))
+        .addSeparatorComponents(sep => sep)
+        .addTextDisplayComponents(td =>
+            td.setContent(
+                "This user's inventory is private. Only join date, connections, groups, favorites, and cheating records are available in this background check."
+            )
+        );
+}
+
+function getCheatingRecord(result) {
+    if (result?.cheatingRecord && typeof result.cheatingRecord === "object") {
+        return result.cheatingRecord;
+    }
+
+    const legacyXTrackerRecords = asArray(result?.xTracker?.evidence).map(record => ({
+        source: "xTracker",
+        type: "submission",
+        reason: record?.reason || "No reason provided",
+        date: record?.date || null,
+        url: record?.url || null
+    }));
+
+    return {
+        totalCount: legacyXTrackerRecords.length,
+        hasRecord: legacyXTrackerRecords.length > 0,
+        sourcesWithRecords: legacyXTrackerRecords.length > 0 ? ["xTracker"] : [],
+        sourceErrors: {},
+        sources: {
+            xTracker: {
+                recordCount: legacyXTrackerRecords.length,
+                records: legacyXTrackerRecords
+            },
+            clanware: {
+                caseCount: 0,
+                cases: []
+            }
+        }
+    };
+}
+
+function getCheatingRecordPreviewContent(result) {
+    const cheatingRecord = getCheatingRecord(result);
+    const xTrackerCount = Number(cheatingRecord?.sources?.xTracker?.recordCount ?? 0);
+    const clanwareCount = Number(cheatingRecord?.sources?.clanware?.caseCount ?? 0);
+    const sourceErrors = cheatingRecord?.sourceErrors || {};
+    const unavailableSources = Object.keys(sourceErrors);
+
+    if (cheatingRecord?.totalCount > 0) {
+        const sourceBits = [];
+        if (xTrackerCount > 0) {
+            sourceBits.push(`xTracker: **${xTrackerCount}**`);
+        }
+        if (clanwareCount > 0) {
+            sourceBits.push(`Clanware: **${clanwareCount}**`);
+        }
+
+        return `${sourceBits.join(" | ")}`;
+    }
+
+    if (unavailableSources.length > 0) {
+        return `No cheating records found from available sources.\nUnavailable: ${unavailableSources.join(", ")}`;
+    }
+
+    return `No xTracker or Clanware cheating records found.`;
+}
+
+function addCheatingRecordAlert(container, result) {
+    const cheatingRecord = getCheatingRecord(result);
+    const xTrackerCount = Number(cheatingRecord?.sources?.xTracker?.recordCount ?? 0);
+    const clanwareCount = Number(cheatingRecord?.sources?.clanware?.caseCount ?? 0);
+    const sourceLines = [];
+
+    if (xTrackerCount > 0) {
+        sourceLines.push(`- **xTracker:** ${xTrackerCount} recent record${xTrackerCount === 1 ? "" : "s"}`);
+    }
+    if (clanwareCount > 0) {
+        sourceLines.push(`- **Clanware:** ${clanwareCount} exploiter case${clanwareCount === 1 ? "" : "s"}`);
+    }
+
+    container.addSeparatorComponents(sep => sep);
+    container.addTextDisplayComponents(td =>
+        td.setContent(
+            "## <:cheater:1454312229980864542> Cheating Record Found\n" +
+            `${sourceLines.join("\n")}\n` +
+            `**41st Tryout Policy:** ${CHEATING_RECORD_POLICY_NOTICE}`
+        )
+    );
+
+    return container;
 }
 
 function buildJoinProfileContainer(profile, accentColor) {
@@ -413,59 +527,134 @@ async function buildBadgesContainer(result, accentColor) {
     return container;
 }
 
-function buildXTrackerContainer(result, accentColor) {
-    const xt = result?.xTracker;
-    const evidence = asArray(xt?.evidence);
+function buildCheatingRecordContainer(result, accentColor) {
+    const cheatingRecord = getCheatingRecord(result);
+    const xTrackerRecords = asArray(cheatingRecord?.sources?.xTracker?.records);
+    const clanwareCases = asArray(cheatingRecord?.sources?.clanware?.cases);
+    const sourceErrors = cheatingRecord?.sourceErrors || {};
 
-    if (evidence.length === 0) {
+    if (cheatingRecord.totalCount === 0 && Object.keys(sourceErrors).length === 0) {
         return new ContainerBuilder()
             .setAccentColor(accentColor)
-            .addTextDisplayComponents(td => td.setContent("## Cheating Records (xTracker)\nUser has no cheating records within the last year."));
+            .addTextDisplayComponents(td =>
+                td.setContent(
+                    "## Cheating Record\n" +
+                    "User has no xTracker or Clanware cheating records.\n\n" +
+                    `**41st Tryout Policy:** ${CHEATING_RECORD_POLICY_NOTICE}`
+                )
+            );
     }
 
     const container = new ContainerBuilder().setAccentColor(accentColor);
-    container.addTextDisplayComponents(td => td.setContent(`## Cheating Records (${evidence.length})`));
-    container.addTextDisplayComponents(td => td.setContent("### Only evidence from the last **1 year** is displayed."));
-    container.addSeparatorComponents(sep => sep);
+    container.addTextDisplayComponents(td => td.setContent(`## Cheating Record (${cheatingRecord.totalCount})`));
+    container.addTextDisplayComponents(td =>
+        td.setContent(
+            "### 41st Tryout Policy Notice\n" +
+            `${CHEATING_RECORD_POLICY_NOTICE}`
+        )
+    );
 
-    const sortedEvidence = [...evidence].sort((a, b) => new Date(b?.date).getTime() - new Date(a?.date).getTime());
-
-    let textLen = 0;
-    let shownCount = 0;
-    let truncated = false;
-    const lines = [];
-
-    for (const ev of sortedEvidence) {
-        const date = ev?.date || "Unknown date";
-        const reason = ev?.reason || "No reason provided";
-        const evidenceLink = ev?.url ? `\n  - [Evidence](${ev.url})` : "";
-        const line = `- **${reason}**\n  - Date: ${date}${evidenceLink}`;
-
-        if (textLen + line.length > MAX_DISCORD_TEXT) {
-            truncated = true;
-            break;
-        }
-        lines.push(line);
-        textLen += line.length;
-        shownCount += 1;
-    }
-
-    if (lines.length > 0) {
-        for (const chunk of chunkText(lines.join("\n\n"), 3500)) {
-            container.addTextDisplayComponents(td => td.setContent(chunk));
-        }
-    }
-
-    if (truncated) {
-        const remaining = Math.max(0, sortedEvidence.length - shownCount);
+    if (Object.keys(sourceErrors).length > 0) {
         container.addSeparatorComponents(sep => sep);
-        container.addTextDisplayComponents(td => td.setContent(`*... and ${remaining}+ more records.*`));
+        const errorLines = Object.entries(sourceErrors).map(([source, message]) => `- **${source}:** ${message}`);
+        container.addTextDisplayComponents(td => td.setContent(`### Source Availability\n${errorLines.join("\n")}`));
+    }
+
+    if (xTrackerRecords.length > 0) {
+        container.addSeparatorComponents(sep => sep);
+        container.addTextDisplayComponents(td =>
+            td.setContent("### xTracker\nOnly evidence from the last **1 year** is displayed.")
+        );
+
+        const sortedEvidence = [...xTrackerRecords].sort((a, b) => new Date(b?.date).getTime() - new Date(a?.date).getTime());
+        const lines = [];
+        let textLen = 0;
+        let shownCount = 0;
+        let truncated = false;
+
+        for (const ev of sortedEvidence) {
+            const date = ev?.date || "Unknown date";
+            const reason = ev?.reason || "No reason provided";
+            const evidenceLink = ev?.url ? `\n  - [Evidence](${ev.url})` : "";
+            const line = `- **${reason}**\n  - Date: ${date}${evidenceLink}`;
+
+            if (textLen + line.length > MAX_DISCORD_TEXT) {
+                truncated = true;
+                break;
+            }
+            lines.push(line);
+            textLen += line.length;
+            shownCount += 1;
+        }
+
+        if (lines.length > 0) {
+            for (const chunk of chunkText(lines.join("\n\n"), 3500)) {
+                container.addTextDisplayComponents(td => td.setContent(chunk));
+            }
+        }
+
+        if (truncated) {
+            const remaining = Math.max(0, sortedEvidence.length - shownCount);
+            container.addTextDisplayComponents(td => td.setContent(`*... and ${remaining}+ more xTracker records.*`));
+        }
+    }
+
+    if (clanwareCases.length > 0) {
+        container.addSeparatorComponents(sep => sep);
+        container.addTextDisplayComponents(td =>
+            td.setContent("### Clanware\nArchived exploiter cases are included in this source.")
+        );
+
+        const lines = [];
+        let textLen = 0;
+        let shownCount = 0;
+        let truncated = false;
+
+        for (const entry of clanwareCases) {
+            const status = entry?.status || "Unknown";
+            const strike = Number.isFinite(Number(entry?.strike)) ? ` | Strike ${entry.strike}` : "";
+            const created = entry?.dateCreated || "Unknown";
+            const updated = entry?.dateUpdated || "Unknown";
+            const endDate = entry?.endDate || "N/A";
+            const counts = `Evidence: ${entry?.evidenceCount ?? 0} | Alts: ${entry?.altsCount ?? 0} | Account Sharing: ${entry?.accountSharingCount ?? 0}`;
+            const link = entry?.url ? `\n  - [Case API Record](${entry.url})` : "";
+            const line =
+                `- **Case #${entry?.caseId ?? "?"}** — ${status}${strike}\n` +
+                `  - Created: ${created}\n` +
+                `  - Updated: ${updated}\n` +
+                `  - End Date: ${endDate}\n` +
+                `  - ${counts}${link}`;
+
+            if (textLen + line.length > MAX_DISCORD_TEXT) {
+                truncated = true;
+                break;
+            }
+
+            lines.push(line);
+            textLen += line.length;
+            shownCount += 1;
+        }
+
+        if (lines.length > 0) {
+            for (const chunk of chunkText(lines.join("\n\n"), 3500)) {
+                container.addTextDisplayComponents(td => td.setContent(chunk));
+            }
+        }
+
+        if (truncated) {
+            const remaining = Math.max(0, clanwareCases.length - shownCount);
+            container.addTextDisplayComponents(td => td.setContent(`*... and ${remaining}+ more Clanware cases.*`));
+        }
     }
 
     return container;
 }
 
 function buildInventoryContainer(result, accentColor) {
+    if (isInventoryPrivate(result)) {
+        return buildPrivateInventoryNoticeContainer("Inventory Details", accentColor);
+    }
+
     if (result?.inventory?.error) {
         return buildErrorContainer("Inventory Details", result.inventory.error, accentColor);
     }
@@ -645,17 +834,26 @@ module.exports = {
     chunkText,
     asArray,
     formatRobux,
+    isInventoryPrivate,
+    getCheatingRecord,
     makeCustomId,
     parseCustomId,
     addExpandableSection,
+    addPrivateInventoryNotice,
+    getCheatingRecordPreviewContent,
+    addCheatingRecordAlert,
     buildErrorContainer,
+    buildPrivateInventoryNoticeContainer,
     buildJoinProfileContainer,
     buildConnectionsContainer,
     buildGroupsContainer,
     buildGamepassesContainer,
     buildFavoritesContainer,
     buildBadgesContainer,
-    buildXTrackerContainer,
+    buildCheatingRecordContainer,
+    getXTrackerPreviewContent: getCheatingRecordPreviewContent,
+    addXTrackerAlert: addCheatingRecordAlert,
+    buildXTrackerContainer: buildCheatingRecordContainer,
     buildInventoryContainer,
     buildAIAnalysisContainer
 };
