@@ -48,12 +48,21 @@ async function getDiscordIdByRoblox(robloxId) {
  * @returns {Promise<void>}
  */
 async function upsertRobloxId(discordId, robloxId) {
-    await pool.query(
-        `INSERT INTO ${ROBLOX_IDS_TABLE} (discordid, robloxid)
-     VALUES ($1, $2)
-     ON CONFLICT (discordid) DO UPDATE SET robloxid = EXCLUDED.robloxid`,
-        [toId(discordId), toId(robloxId)]
-    );
+    try {
+        await pool.query(
+            `INSERT INTO ${ROBLOX_IDS_TABLE} (discordid, robloxid)
+         VALUES ($1, $2)
+         ON CONFLICT (discordid) DO UPDATE SET robloxid = EXCLUDED.robloxid`,
+            [toId(discordId), toId(robloxId)]
+        );
+    } catch (error) {
+        if (error && error.code === '23505' && error.constraint === 'robloxids_robloxid_unique') {
+            const conflict = new Error('That Roblox account is already linked to another Discord user.');
+            conflict.cause = error;
+            throw conflict;
+        }
+        throw error;
+    }
 }
 
 /**

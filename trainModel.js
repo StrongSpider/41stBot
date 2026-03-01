@@ -32,7 +32,7 @@ async function main() {
         console.log('\nExample usage:');
         console.log('  const ml = require("./src/api/ml");');
         console.log('  const result = await ml.predict(12345);');
-        console.log('  console.log(result.prediction);');
+        console.log('  console.log(result.cumulativeScore, result.breakdown);');
 
     } catch (err) {
         console.error('❌ Error:', err.message);

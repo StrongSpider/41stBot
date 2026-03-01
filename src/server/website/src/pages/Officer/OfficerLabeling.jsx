@@ -8,6 +8,22 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Separator } from "@/components/ui/separator";
 import { Loader2, ShieldCheck, XCircle, AlertTriangle, Users, Calendar, DollarSign, Package, AlertCircle } from "lucide-react";
 
+function buildTrainingSnapshotPayload(candidate) {
+    if (!candidate) return null;
+
+    return {
+        robloxId: candidate.robloxId,
+        username: candidate.username,
+        profile: candidate.profile,
+        connections: candidate.connections,
+        groups: candidate.groups,
+        inventory: candidate.inventory,
+        gamePasses: candidate.gamePasses,
+        badges: candidate.badges,
+        stats: candidate.stats
+    };
+}
+
 // --- Main Page Component ---
 // --- Main Page Component ---
 export default function OfficerLabeling() {
@@ -79,7 +95,8 @@ export default function OfficerLabeling() {
             await ApiService.candidates.submitLabel({
                 targetRobloxId: candidate.robloxId,
                 officerDiscordId: user?.id,
-                label: label
+                label: label,
+                snapshot: buildTrainingSnapshotPayload(candidate)
             });
 
             fetchCandidate();

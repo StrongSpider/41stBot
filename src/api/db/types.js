@@ -77,7 +77,7 @@
  * @property {string} target_roblox_id
  * @property {string} officer_discord_id
  * @property {string} label Label text (REAL, ALT, etc.)
- * @property {Object} snapshot JSON snapshot of data at time of labeling
+ * @property {Object} featuresSnapshot JSON snapshot of data/features at time of labeling
  * @property {string} created_at ISO timestamp
  */
 

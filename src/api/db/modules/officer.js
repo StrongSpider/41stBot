@@ -4,6 +4,27 @@ const { pool } = require('../connection');
 const { toNumOrNull } = require('../utils');
 const { SUSPICIOUS_PLACES_TABLE, OFFICER_LABELS_TABLE } = require('../constants');
 
+let officerSnapshotColumnSupported = null;
+
+async function supportsOfficerSnapshotColumn() {
+    if (officerSnapshotColumnSupported !== null) {
+        return officerSnapshotColumnSupported;
+    }
+
+    const res = await pool.query(
+        `SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_name = $1
+              AND column_name = 'features_snapshot'
+        ) AS has_column`,
+        [OFFICER_LABELS_TABLE]
+    );
+
+    officerSnapshotColumnSupported = !!res.rows[0]?.has_column;
+    return officerSnapshotColumnSupported;
+}
+
 // ===========================================
 // Suspicious Places
 // ===========================================
@@ -80,15 +101,24 @@ async function isSuspiciousPlace(placeId) {
  * @param {string} targetRobloxId 
  * @param {string} officerDiscordId 
  * @param {string} label 
+ * @param {Object|null} [featuresSnapshot]
  * @returns {Promise<number>} Label ID
  */
-async function addOfficerLabel(targetRobloxId, officerDiscordId, label) {
-    const res = await pool.query(
-        `INSERT INTO ${OFFICER_LABELS_TABLE} (target_roblox_id, officer_discord_id, label)
-     VALUES ($1, $2, $3)
-     RETURNING id`,
-        [toNumOrNull(targetRobloxId), String(officerDiscordId), label]
-    );
+async function addOfficerLabel(targetRobloxId, officerDiscordId, label, featuresSnapshot = null) {
+    const includeSnapshot = featuresSnapshot && await supportsOfficerSnapshotColumn();
+    const query = includeSnapshot
+        ? `INSERT INTO ${OFFICER_LABELS_TABLE} (target_roblox_id, officer_discord_id, label, features_snapshot)
+           VALUES ($1, $2, $3, $4::jsonb)
+           RETURNING id`
+        : `INSERT INTO ${OFFICER_LABELS_TABLE} (target_roblox_id, officer_discord_id, label)
+           VALUES ($1, $2, $3)
+           RETURNING id`;
+
+    const params = includeSnapshot
+        ? [toNumOrNull(targetRobloxId), String(officerDiscordId), label, JSON.stringify(featuresSnapshot)]
+        : [toNumOrNull(targetRobloxId), String(officerDiscordId), label];
+
+    const res = await pool.query(query, params);
     return res.rows[0].id;
 }
 
@@ -114,7 +144,7 @@ async function getOfficerLabels(targetRobloxId) {
         targetRobloxId: Number(r.target_roblox_id),
         officerDiscordId: String(r.officer_discord_id),
         label: r.label,
-        featuresSnapshot: r.features_snapshot,
+        featuresSnapshot: r.features_snapshot || null,
         createdAt: r.created_at
     }));
 }

@@ -575,10 +575,9 @@ function buildAIAnalysisContainer(result, accentColor) {
         td.setContent(`**Confidence:** ${prediction.confidence}%`)
     );
 
-    // Context / Explanation
-    if (prediction.probability !== undefined) {
+    if (prediction.summary) {
         container.addTextDisplayComponents(td =>
-            td.setContent(`*Probability of being an alternative account: ${Math.round(prediction.probability * 100)}%*`)
+            td.setContent(`*${prediction.summary}*`)
         );
     }
 
@@ -595,70 +594,41 @@ function buildAIAnalysisContainer(result, accentColor) {
         }
     }
 
-    // Contributors
-    if (prediction.contributors && prediction.contributors.length > 0) {
-        // Sort contributors: Risk (positive) first, then Trust (negative)
-        const riskFactors = prediction.contributors.filter(c => c.contribution > 0).sort((a, b) => b.contribution - a.contribution);
-        const trustFactors = prediction.contributors.filter(c => c.contribution < 0).sort((a, b) => a.contribution - b.contribution);
+    const breakdown = prediction.breakdown || prediction.areaScores;
+    if (breakdown && Object.keys(breakdown).length > 0) {
+        const sortedAreas = Object.values(breakdown)
+            .sort((a, b) => (b.score || 0) - (a.score || 0));
 
-        const riskMap = {
-            // Badge Features
-            badgeAvgTimeGap: { title: "Badge Acquisition Speed", desc: "User earns badges unusually fast, suggesting automation." },
-            badgeClusterCount: { title: "Badge Clustering", desc: "Many badges earned in rapid succession." },
-            suspiciousBadgeCount: { title: "Suspicious Games", desc: "Detected activity in known farming games." },
-            badgeCount: { title: "Badge Count", desc: "Total number of badges." },
-            badgeTimeVariance: { title: "Badge Consistency", desc: "Regularity of badge acquisition." },
+        container.addSeparatorComponents(sep => sep);
+        container.addTextDisplayComponents(td => td.setContent("### Breakdown"));
 
-            // Account Features
-            accountAge: { title: "Account Age", desc: "Age of the account." },
+        const areaLines = sortedAreas.map(area => {
+            const suspicious = Array.isArray(area.suspiciousSignals) ? area.suspiciousSignals : [];
+            const reassuring = Array.isArray(area.reassuringSignals) ? area.reassuringSignals : [];
 
-            // Social Features
-            friendCount: { title: "Friend Count", desc: "Number of friends." },
-            followerCount: { title: "Follower Count", desc: "Number of followers." },
-            followingCount: { title: "Following Count", desc: "Number of followed users." },
-            groupCount: { title: "Group Membership", desc: "Number of groups joined." },
-            groupBaseRankCount: { title: "Group Activity", desc: "Number of base-rank roles (lurker)." },
-
-            // Asset Features
-            inventoryCount: { title: "Inventory Size", desc: "Total items in inventory." },
-            totalItems: { title: "Total Assets", desc: "Total assets owned." },
-            inv_Hat: { title: "Hats Owned", desc: "Number of hats." },
-            inv_Hair: { title: "Hair Owned", desc: "Number of hair assets." },
-            inv_Face: { title: "Faces Owned", desc: "Number of faces." },
-            inv_Shirt: { title: "Shirts Owned", desc: "Number of shirts." },
-            inv_Pants: { title: "Pants Owned", desc: "Number of pants." },
-
-            // Spending Features
-            gamePassCount: { title: "GamePasses Owned", desc: "Number of GamePasses purchased." },
-            gamePassTotalSpent: { title: "Total Spent", desc: "Total Robux spent on GamePasses." }
-        };
-
-        const formatLine = (c, isRisk) => {
-            const info = riskMap[c.key] || { title: c.key, desc: isRisk ? "Increases Suspicion" : "Trust Indicator" };
-            const val = typeof c.rawVal === 'number' ? Math.round(c.rawVal * 100) / 100 : c.rawVal;
-            const icon = isRisk ? "🚩" : "✅";
-
-            return `**${icon} ${info.title}**\n> ${info.desc}\n> *Value: ${val}*`;
-        };
-
-        if (riskFactors.length > 0) {
-            container.addSeparatorComponents(sep => sep);
-            container.addTextDisplayComponents(td => td.setContent("### 🚨 Suspicious Indicators"));
-
-            const riskLines = riskFactors.slice(0, 5).map(c => formatLine(c, true)); // Top 5 Risks
-            for (const chunk of chunkText(riskLines.join("\n\n"), 3500)) {
-                container.addTextDisplayComponents(td => td.setContent(chunk));
+            let line = `**${area.title}** - ${area.score}% (${area.direction || "neutral"})`;
+            if (suspicious.length > 0) {
+                line += `\n${suspicious.map(signal => `- 🚩 ${signal.explanation}`).join("\n")}`;
             }
+            if (reassuring.length > 0) {
+                line += `\n${reassuring.map(signal => `- ✅ ${signal.explanation}`).join("\n")}`;
+            }
+            return line;
+        });
+
+        for (const chunk of chunkText(areaLines.join("\n\n"), 3500)) {
+            container.addTextDisplayComponents(td => td.setContent(chunk));
         }
+    } else if (prediction.contributors && prediction.contributors.length > 0) {
+        container.addSeparatorComponents(sep => sep);
+        container.addTextDisplayComponents(td => td.setContent("### Top Signals"));
 
-        if (trustFactors.length > 0) {
-            container.addSeparatorComponents(sep => sep);
-            container.addTextDisplayComponents(td => td.setContent("### 🛡️ Trust Indicators"));
+        const signalLines = prediction.contributors
+            .slice(0, 6)
+            .map(signal => `- ${signal.contribution > 0 ? "🚩" : "✅"} ${signal.description}`);
 
-            const trustLines = trustFactors.slice(0, 5).map(c => formatLine(c, false)); // Top 5 Trust Factors
-            for (const chunk of chunkText(trustLines.join("\n\n"), 3500)) {
-                container.addTextDisplayComponents(td => td.setContent(chunk));
-            }
+        for (const chunk of chunkText(signalLines.join("\n"), 3500)) {
+            container.addTextDisplayComponents(td => td.setContent(chunk));
         }
     }
 

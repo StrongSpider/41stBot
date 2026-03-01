@@ -1,6 +1,9 @@
 const database = require('../../api/database.js');
-const { performBackgroundCheck } = require('../../api/backgroundCheck.js');
+const { performBackgroundCheck, getAIBackgroundCheck } = require('../../api/backgroundCheck.js');
+const { createTrainingSnapshot } = require('../../api/ml/featureExtractor.js');
 const Logger = require('../../api/logger.js');
+
+const logger = new Logger('LabelsController', 'SERVER');
 
 const LabelsController = {
     getCandidates: async (req, res) => {
@@ -29,24 +32,43 @@ const LabelsController = {
                 // prediction: ...
             });
         } catch (err) {
-            new Logger('LabelsController', 'SERVER').error('[Labeling Candidate Error] ' + err);
+            logger.error('[Labeling Candidate Error] ' + err);
             res.status(500).json({ error: 'Failed to fetch candidate' });
         }
     },
 
     submitLabel: async (req, res) => {
         try {
-            const { targetRobloxId, officerDiscordId, label } = req.body;
+            const { targetRobloxId, officerDiscordId, label, snapshot } = req.body;
             if (!targetRobloxId || !label) {
                 return res.status(400).json({ error: 'Missing required fields' });
             }
 
             const effectiveOfficerId = req.session?.user?.id || officerDiscordId || 'UNKNOWN';
-            const id = await database.addOfficerLabel(targetRobloxId, effectiveOfficerId, label, {});
+            let trainingSnapshot = null;
 
-            res.json({ success: true, id });
+            try {
+                if (snapshot) {
+                    trainingSnapshot = createTrainingSnapshot(snapshot);
+                } else {
+                    const bgCheck = await getAIBackgroundCheck(targetRobloxId);
+                    if (bgCheck?.success) {
+                        trainingSnapshot = createTrainingSnapshot(bgCheck);
+                    }
+                }
+            } catch (snapshotError) {
+                logger.warn(`[Submit Label Snapshot Warning] ${snapshotError.message}`);
+            }
+
+            const id = await database.addOfficerLabel(targetRobloxId, effectiveOfficerId, label, trainingSnapshot);
+
+            res.json({
+                success: true,
+                id,
+                snapshotSaved: !!trainingSnapshot
+            });
         } catch (err) {
-            new Logger('LabelsController', 'SERVER').error('[Submit Label Error] ' + err);
+            logger.error('[Submit Label Error] ' + err);
             res.status(500).json({ error: 'Failed to save label' });
         }
     },
@@ -66,7 +88,7 @@ const LabelsController = {
             });
             res.json(counts);
         } catch (err) {
-            new Logger('LabelsController', 'SERVER').error('[Label Stats Error] ' + err);
+            logger.error('[Label Stats Error] ' + err);
             res.status(500).json({ error: 'Failed to fetch stats' });
         }
     }

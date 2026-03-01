@@ -45,26 +45,16 @@ async function StartAuthentication(discord_id, roblox_id) {
     if (ActiveAuthentications.get(key)) throw new Error('Authentication already started')
 
     const activationString = makeToken()
-
-    const successEvent = 'UserAuthenticated-' + key
     const timeoutEvent = 'EventEnded-' + key
 
     // Store challenge state
     ActiveAuthentications.set(key, { discordId: String(discord_id), robloxId: key, token: activationString })
-
-    // One time success handler
-    AuthenticationEvent.once(successEvent, () => {
-        ActiveAuthentications.delete(key)
-        try { database.upsertRobloxId(discord_id, roblox_id) } catch { }
-        AuthenticationEvent.removeAllListeners(successEvent)
-    })
 
     // Auto cancel when the window expires
     setTimeout(() => {
         if (!ActiveAuthentications.get(key)) return
         ActiveAuthentications.delete(key)
         AuthenticationEvent.emit(timeoutEvent)
-        AuthenticationEvent.removeAllListeners(successEvent)
     }, AUTH_WINDOW_MS)
 
     return { AuthenticationString: activationString, AuthenticationEvent }
@@ -83,6 +73,8 @@ async function ConfirmAuthentication(roblox_id, activationString) {
 
     const haystack = String(activationString || '')
     if (haystack.includes(auth.token)) {
+        ActiveAuthentications.delete(key)
+        await database.upsertRobloxId(auth.discordId, auth.robloxId)
         AuthenticationEvent.emit('UserAuthenticated-' + key)
     } else {
         ActiveAuthentications.delete(key)

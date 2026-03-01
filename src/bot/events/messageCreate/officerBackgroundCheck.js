@@ -25,6 +25,8 @@ module.exports = async function officerBackgroundCheck(message) {
         const username = message.content.replace(";bgcheck ", "").trim();
         if (!username) return;
 
+        logger.info(`Running background check for ${username} (requested by ${message.author.tag})`);
+
         loadingMsg = await message.reply({
             content: `<a:loading:1439026179993767946> Loading background check for **${username}**...`,
             components: []

@@ -3,7 +3,7 @@
 const { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle, ComponentType, MessageFlags } = require('discord.js')
 const { StartAuthentication, ConfirmAuthentication } = require('../../api/authenticator.js')
 const { getIdFromUsername, getPlayerInfo, getUsernameFromId } = require('noblox.js')
-const { getRobloxIdByDiscord } = require('../../api/database.js')
+const { getRobloxIdByDiscord, getDiscordIdByRoblox } = require('../../api/database.js')
 const config = require('../../../config.json')
 const { EMBED_COLOR } = config.GENERAL
 
@@ -43,6 +43,15 @@ module.exports = {
       try { userid = await getIdFromUsername(username) } catch { }
       if (userid == null) {
         return interaction.reply({ content: '<:warning:1297618648810393630> `User not found on Roblox.`', flags: MessageFlags.Ephemeral })
+      }
+
+      let existingDiscordForRoblox = null
+      try { existingDiscordForRoblox = await getDiscordIdByRoblox(userid) } catch { }
+      if (existingDiscordForRoblox && existingDiscordForRoblox !== interaction.user.id) {
+        return interaction.reply({
+          content: '<:warning:1297618648810393630> `That Roblox account is already linked to another Discord user.`',
+          flags: MessageFlags.Ephemeral
+        })
       }
 
       // Start auth flow. Returns a one-time string and an event emitter to signal completion.
