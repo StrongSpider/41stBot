@@ -1,2 +1,157 @@
 @import "tailwindcss";
 
+:root {
+  --activity-bg-top: #020617;
+  --activity-bg-bottom: #08111f;
+  --activity-panel: rgba(15, 23, 42, 0.72);
+  --activity-panel-strong: rgba(2, 6, 23, 0.84);
+  --activity-border: rgba(255, 255, 255, 0.1);
+  --activity-grid: rgba(148, 163, 184, 0.08);
+  --activity-accent: #34d399;
+  --activity-accent-strong: #10b981;
+  --activity-accent-soft: rgba(52, 211, 153, 0.12);
+}
+
+body {
+  background:
+    radial-gradient(circle at top, rgba(16, 185, 129, 0.08), transparent 32%),
+    linear-gradient(180deg, var(--activity-bg-top), var(--activity-bg-bottom));
+}
+
+.activity-shell {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(20, 184, 166, 0.18), transparent 22%),
+    radial-gradient(circle at 88% 12%, rgba(56, 189, 248, 0.16), transparent 24%),
+    linear-gradient(180deg, var(--activity-bg-top), var(--activity-bg-bottom));
+}
+
+.activity-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.7;
+  background-image:
+    linear-gradient(to right, transparent 0, transparent calc(100% - 1px), var(--activity-grid) calc(100% - 1px)),
+    linear-gradient(to bottom, transparent 0, transparent calc(100% - 1px), var(--activity-grid) calc(100% - 1px));
+  background-size: 72px 72px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.75), transparent 88%);
+}
+
+.activity-panel {
+  border: 1px solid var(--activity-border);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.82), rgba(2, 6, 23, 0.72));
+  box-shadow: 0 20px 60px rgba(2, 6, 23, 0.35);
+  backdrop-filter: blur(14px);
+  border-radius: 28px;
+}
+
+.activity-badge {
+  border: 1px solid rgba(94, 234, 212, 0.14);
+  background: rgba(13, 20, 35, 0.72);
+  color: #d1fae5;
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.activity-icon-button,
+.activity-button {
+  border: 1px solid var(--activity-border);
+  background: rgba(15, 23, 42, 0.7);
+  color: #e2e8f0;
+  border-radius: 999px;
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.activity-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.activity-icon-button:hover,
+.activity-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(94, 234, 212, 0.24);
+  background: rgba(30, 41, 59, 0.82);
+}
+
+.activity-icon-button:focus-visible,
+.activity-button:focus-visible {
+  outline: 2px solid rgba(94, 234, 212, 0.65);
+  outline-offset: 2px;
+}
+
+.activity-button {
+  padding: 0.8rem 1.2rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.activity-button-primary {
+  border-color: rgba(16, 185, 129, 0.28);
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.26), rgba(5, 150, 105, 0.2));
+  color: #ecfdf5;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 10px 30px rgba(16, 185, 129, 0.18);
+}
+
+.activity-button-primary:hover {
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.34), rgba(5, 150, 105, 0.24));
+}
+
+.activity-stat {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(2, 6, 23, 0.54);
+  border-radius: 20px;
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.activity-stat-label {
+  color: #94a3b8;
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.activity-stat-value {
+  color: #f8fafc;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.activity-sidebar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(2, 6, 23, 0.46);
+  padding: 0.85rem 0.95rem;
+}
+
+.activity-sidebar-row span {
+  color: #cbd5e1;
+}
+
+.activity-sidebar-row strong {
+  color: #f8fafc;
+  font-weight: 600;
+}
