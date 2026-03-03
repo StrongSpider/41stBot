@@ -563,7 +563,7 @@ function generateRiskVisual(prediction) {
     const score = prediction.cumulativeScore || 0; // 0-100
 
     // Background
-    ctx.fillStyle = "#1a1a1a";
+    ctx.fillStyle = "black";
     ctx.fillRect(0, 0, width, height);
 
     // Title
@@ -604,7 +604,7 @@ function generateRiskVisual(prediction) {
     // Confidence Text
     ctx.textAlign = "right";
     ctx.font = "14px sans-serif";
-    ctx.fillStyle = "#aaaaaa";
+    ctx.fillStyle = "#ffffff";
     ctx.fillText(`Confidence: ${prediction.confidence}%`, width - 20, 130);
 
     return canvas.toBuffer("image/png");
