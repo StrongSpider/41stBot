@@ -4,10 +4,12 @@ data
 
 config.json
 
-src/website/dist
-src/website/node_modules
+src/server/website/dist
+src/server/website/node_modules
 
 src/scripts
 
 .vscode
 .git_old
+
+*.d.ts
