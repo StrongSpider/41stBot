@@ -40,7 +40,7 @@ cookieManager.attachResponseInterceptor(robloxHttp);
 const LoggerClass = require('./logger.js')
 const logger = new LoggerClass('BackgroundCheck', 'API')
 
-const BADGE_GRAPH_WATERMARK_PATH = path.join(__dirname, '../server/website/public/icon.png');
+const BADGE_GRAPH_WATERMARK_PATH = path.join(__dirname, '../server/website/public/GraphBackground.jpg');
 
 let badgeGraphWatermark = null;
 let hasAttemptedBadgeGraphWatermarkLoad = false;
@@ -57,7 +57,7 @@ function getBadgeGraphWatermark() {
         watermark.src = fs.readFileSync(BADGE_GRAPH_WATERMARK_PATH);
         badgeGraphWatermark = watermark;
     } catch (err) {
-        logger.warn(`Failed to load badge graph watermark icon: ${toErrMsg(err)}`);
+        logger.warn(`Failed to load badge graph background image: ${toErrMsg(err)}`);
         badgeGraphWatermark = null;
     }
 
@@ -438,22 +438,11 @@ function generateBadgeGraph(badges, username, suspiciousPlaces = []) {
 
     const watermark = getBadgeGraphWatermark();
     if (watermark?.width && watermark?.height) {
-        const plotWidth = width - marginLeft - marginRight;
-        const plotHeight = height - marginTop - marginBottom;
-        const scale = Math.min(
-            (plotWidth * 0.65) / watermark.width,
-            (plotHeight * 0.65) / watermark.height
-        );
-        const watermarkWidth = watermark.width * scale;
-        const watermarkHeight = watermark.height * scale;
-        const watermarkX = marginLeft + ((plotWidth - watermarkWidth) / 2);
-        const watermarkY = marginTop + ((plotHeight - watermarkHeight) / 2);
-
         ctx.save();
-        ctx.globalAlpha = 0.08;
+        ctx.globalAlpha = 0.1;
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
-        ctx.drawImage(watermark, watermarkX, watermarkY, watermarkWidth, watermarkHeight);
+        ctx.drawImage(watermark, 0, 0, width, height);
         ctx.restore();
     }
 
