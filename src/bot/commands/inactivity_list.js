@@ -6,6 +6,7 @@ const { EMBED_COLOR } = config.GENERAL
 const { INACTIVITY_MANAGEMENT: INACTIVITY_MANAGEMENT_ROLE_ID } = config.DISCORD.ROLES
 const { DEVELOPER_USER_ID: DEVELOPER_DISCORD_USER_ID } = config.DISCORD.BOT;
 const database = require('../../api/database.js')
+const { hasDeveloperOrAdminOverride } = require('../utils/interactionPermissions.js')
 
 /**
  * Convert a ms timestamp to a Discord date tag
@@ -27,8 +28,8 @@ module.exports = {
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */
     async execute(interaction) {
-        // Either has the management role or is the developer
-        if (!interaction.member?.roles?.cache?.has(INACTIVITY_MANAGEMENT_ROLE_ID) && interaction.user.id !== DEVELOPER_DISCORD_USER_ID) {
+        // Either has the management role or has the admin/developer override
+        if (!interaction.member?.roles?.cache?.has(INACTIVITY_MANAGEMENT_ROLE_ID) && !hasDeveloperOrAdminOverride(interaction, DEVELOPER_DISCORD_USER_ID)) {
             return interaction.reply({ content: '<:warning:1297618648810393630> `You do not have permission to use this command!`', flags: MessageFlags.Ephemeral })
         }
 

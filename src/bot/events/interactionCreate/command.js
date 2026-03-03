@@ -11,6 +11,7 @@ const LoggerClass = require('../../../api/logger.js')
 const logger = new LoggerClass('Command', 'BOT')
 
 const { MessageFlags } = require('discord.js')
+const { hasDeveloperOrAdminOverride } = require('../../utils/interactionPermissions.js')
 
 /**
  * @param {import('discord.js').ChatInputCommandInteraction | import('discord.js').ContextMenuCommandInteraction} interaction
@@ -45,9 +46,9 @@ module.exports = async function commandHandler(interaction) {
         // Default to ALL if not specified
         command.permission = command.permission || 'ALL'
 
-        // Permission check with developer override
-        const isDev = interaction.user?.id === DEVELOPER_DISCORD_USER_ID
-        if (!isDev && command.permission !== 'ALL') {
+        // Permission check with developer/admin override
+        const hasOverride = hasDeveloperOrAdminOverride(interaction, DEVELOPER_DISCORD_USER_ID)
+        if (!hasOverride && command.permission !== 'ALL') {
             const member = interaction.member
             const hasRole = (roleId) => Boolean(roleId && member && member.roles?.cache?.has(roleId))
 

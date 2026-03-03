@@ -8,6 +8,7 @@ const { getIdFromUsername, getUsernameFromId } = require('../../api/roblox.js')
 const { sendEventUpdateWebhook } = require('../../api/webhook.js')
 const database = require('../../api/database.js')
 const { formatEventEpLockMessage } = require('../utils/eventEpLock.js')
+const { hasDeveloperOrAdminOverride } = require('../utils/interactionPermissions.js')
 
 /**
  * Build the summary used in the original event message.
@@ -165,9 +166,9 @@ module.exports = {
 
         const discordUserId = interaction.user.id
 
-        // Authorization: host or supervisor or HICOM/Developer only can edit
+        // Authorization: host or supervisor or elevated access can edit
         const userRobloxId = await database.getRobloxIdByDiscord(discordUserId)
-        const isHicom = interaction.member.roles.cache.has(DISCORD_HICOM_ROLE_ID) || interaction.user.id === DEVELOPER_DISCORD_USER_ID
+        const isHicom = interaction.member.roles.cache.has(DISCORD_HICOM_ROLE_ID) || hasDeveloperOrAdminOverride(interaction, DEVELOPER_DISCORD_USER_ID)
         const isHost = event.host == userRobloxId
         const isSupervisor = event.supervisor == userRobloxId
         if (!(isHost || isSupervisor || isHicom)) {

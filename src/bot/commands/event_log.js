@@ -9,6 +9,7 @@ const { getIdFromUsername, getUsernameFromId } = require('../../api/roblox.js')
 const { sendEventCreateWebhook } = require('../../api/webhook.js')
 const database = require('../../api/database.js')
 const { formatEventEpLockMessage } = require('../utils/eventEpLock.js')
+const { hasDeveloperOrAdminOverride } = require('../utils/interactionPermissions.js')
 
 const LoggerClass = require('../../api/logger.js')
 const logger = new LoggerClass('EventLog', 'BOT')
@@ -198,9 +199,11 @@ module.exports = {
 
         await interaction.deferReply({ flags: MessageFlags.Ephemeral })
 
+        const hasElevatedAccess = hasDeveloperOrAdminOverride(interaction, DEVELOPER_DISCORD_USER_ID)
+
         // Resolve role based target channel for publishing
         const hasMinor = interaction.member.roles.cache.has(DISCORD_MINOR_OFFICER_ROLE_ID)
-        const hasOfficer = interaction.member.roles.cache.has(DISCORD_OFFICER_ROLE_ID)
+        const hasOfficer = interaction.member.roles.cache.has(DISCORD_OFFICER_ROLE_ID) || hasElevatedAccess
 
         const officerChannelId = DISCORD_CHANNEL_IDS.OFFICER_EVENT_LOGS
         const minorChannelId = DISCORD_CHANNEL_IDS.MINOR_OFFICER_EVENT_LOGS
@@ -216,7 +219,7 @@ module.exports = {
 
 
         if (baseEpPoints > 3) {
-            if (!interaction.member?.roles?.cache?.has(DISCORD_HICOM_ROLE_ID) && interaction.user.id !== DEVELOPER_DISCORD_USER_ID) {
+            if (!interaction.member?.roles?.cache?.has(DISCORD_HICOM_ROLE_ID) && !hasElevatedAccess) {
                 baseEpPoints = 3
             }
         }

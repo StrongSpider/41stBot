@@ -6,6 +6,7 @@ const { EMBED_COLOR } = config.GENERAL
 const { DEVELOPER_USER_ID: DEVELOPER_DISCORD_USER_ID } = config.DISCORD.BOT
 const { getIdFromUsername } = require('noblox.js')
 const database = require('../../api/database.js')
+const { hasDeveloperOrAdminOverride } = require('../utils/interactionPermissions.js')
 
 /**
  * Resolve the target guild member from the slash option
@@ -49,8 +50,9 @@ module.exports = {
                 return interaction.reply({ content: '<:warning:1297618648810393630> `Could not resolve that member.`', flags: MessageFlags.Ephemeral })
             }
 
-            // Role hierarchy check with developer override
-            const invokerHigherOrDev = interaction.member.roles.highest.position > member.roles.highest.position || interaction.user.id === DEVELOPER_DISCORD_USER_ID
+            // Role hierarchy check with admin/developer override
+            const invokerHigherOrDev = interaction.member.roles.highest.position > member.roles.highest.position
+                || hasDeveloperOrAdminOverride(interaction, DEVELOPER_DISCORD_USER_ID)
             if (!invokerHigherOrDev) {
                 return interaction.reply({ content: '<:warning:1297618648810393630> `You cannot force verify someone above you!`', flags: MessageFlags.Ephemeral })
             }

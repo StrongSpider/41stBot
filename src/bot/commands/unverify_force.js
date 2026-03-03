@@ -6,6 +6,7 @@ const { EMBED_COLOR } = config.GENERAL
 const { DEVELOPER_USER_ID: DEVELOPER_DISCORD_USER_ID } = config.DISCORD.BOT
 const { getIdFromUsername } = require('noblox.js')
 const database = require('../../api/database.js')
+const { hasDeveloperOrAdminOverride } = require('../utils/interactionPermissions.js')
 
 // Get guild member object
 async function getMember(guild, userid) {
@@ -70,9 +71,10 @@ module.exports = {
 
             const verifiedMember = await getMember(interaction.guild, verifiedMemberId)
 
-            // Role hierarchy check with developer override
+            // Role hierarchy check with admin/developer override
             if (verifiedMember !== null) {
-                const invokerHigherOrDev = interaction.member.roles.highest.position > verifiedMember.roles.highest.position || interaction.user.id === DEVELOPER_DISCORD_USER_ID
+                const invokerHigherOrDev = interaction.member.roles.highest.position > verifiedMember.roles.highest.position
+                    || hasDeveloperOrAdminOverride(interaction, DEVELOPER_DISCORD_USER_ID)
                 if (!invokerHigherOrDev) {
                     return interaction.reply({ content: '<:warning:1297618648810393630> `You cannot force unverify someone above you!`', flags: MessageFlags.Ephemeral })
                 }
