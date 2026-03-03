@@ -5,6 +5,11 @@ const config = require('../../../config.json')
 const { EMBED_COLOR } = config.GENERAL
 const { getUsernameFromId } = require('../../api/roblox.js')
 const database = require('../../api/database.js')
+const {
+    resolveEventReference,
+    isEventReferenceError,
+    formatEventReferenceError
+} = require('../utils/eventReference.js')
 
 /**
  * Resolve a Roblox id to a readable tag
@@ -57,7 +62,7 @@ module.exports = {
         .addStringOption(option =>
             option
                 .setName('event-id')
-                .setDescription('Event ID to check')
+                .setDescription('Event ID or log message link to check')
                 .setRequired(true)
         ),
     /**
@@ -67,13 +72,16 @@ module.exports = {
         try {
             await interaction.deferReply()
 
-            const eventId = interaction.options.getString('event-id', true)
+            const eventReference = await resolveEventReference(interaction.options.getString('event-id', true))
+            const eventId = eventReference.eventId
 
             // Load event. If not found, return a clear message.
-            let event = null
-            try {
-                event = await database.getAllTimeEventById(eventId)
-            } catch { }
+            let event = eventReference.event
+            if (!event) {
+                try {
+                    event = await database.getAllTimeEventById(eventId)
+                } catch { }
+            }
             if (!event) {
                 await interaction.editReply({ content: '<:warning:1297618648810393630> `The requested event does not exist!`' })
                 return
@@ -110,6 +118,10 @@ module.exports = {
 
             await interaction.editReply({ embeds: [embed] })
         } catch (err) {
+            if (isEventReferenceError(err)) {
+                await interaction.editReply({ content: formatEventReferenceError(err) }).catch(() => { })
+                return
+            }
             const msg = err instanceof Error && err.message ? err.message : 'Unknown error'
             const safe = 'Failed to get event. ' + msg
             if (interaction.deferred || interaction.replied) {

@@ -9,6 +9,11 @@ const { sendEventUpdateWebhook } = require('../../api/webhook.js')
 const database = require('../../api/database.js')
 const { formatEventEpLockMessage } = require('../utils/eventEpLock.js')
 const { hasDeveloperOrAdminOverride } = require('../utils/interactionPermissions.js')
+const {
+    resolveEventReference,
+    isEventReferenceError,
+    formatEventReferenceError
+} = require('../utils/eventReference.js')
 
 /**
  * Build the summary used in the original event message.
@@ -148,7 +153,7 @@ module.exports = {
         .addStringOption(opt =>
             opt
                 .setName('event-id')
-                .setDescription('Event ID to edit')
+                .setDescription('Event ID or log message link to edit')
                 .setRequired(true)
         ),
     /**
@@ -160,7 +165,17 @@ module.exports = {
             return interaction.reply({ content: formatEventEpLockMessage(lockState), flags: MessageFlags.Ephemeral })
         }
 
-        const eventId = interaction.options.getString('event-id')
+        let eventId
+        try {
+            const eventReference = await resolveEventReference(interaction.options.getString('event-id', true))
+            eventId = eventReference.eventId
+        } catch (err) {
+            if (isEventReferenceError(err)) {
+                return interaction.reply({ content: formatEventReferenceError(err), flags: MessageFlags.Ephemeral })
+            }
+            throw err
+        }
+
         const event = await database.getWeeklyEvent(eventId).catch(() => null)
         if (!event) return interaction.reply({ content: '<:warning:1297618648810393630> `Event not found.`', flags: MessageFlags.Ephemeral })
 
