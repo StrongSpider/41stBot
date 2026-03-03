@@ -84,7 +84,7 @@ module.exports = {
                     recText = `\n\n**Recommended Actions:**\n${recs.map(r => `- ${r}`).join("\n")}`;
                 }
 
-                const content = `**Rating:** ${rating} (${score}%)\n**Confidence:** ${result.aiPrediction.confidence}%${recText}`;
+                const content = `**Rating:** ${rating} (Alt Score: ${score}%)\n**Confidence:** ${result.aiPrediction.confidence}%${recText}`;
 
                 ui.addExpandableSection(selectionContainer, {
                     title,

@@ -524,6 +524,7 @@ function generateRiskVisual(prediction) {
     const height = 150;
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext("2d");
+    const score = prediction.cumulativeScore || 0; // 0-100
 
     // Background
     ctx.fillStyle = "#1a1a1a";
@@ -532,7 +533,7 @@ function generateRiskVisual(prediction) {
     // Title
     ctx.font = "bold 20px sans-serif";
     ctx.fillStyle = "#ffffff";
-    ctx.fillText("AI Suspicion Analysis", 20, 35);
+    ctx.fillText(`AI Alternate Account Suspicion (${score}%)`, 20, 35);
 
     // Score Bar (Gradient)
     const barX = 20;
@@ -549,7 +550,6 @@ function generateRiskVisual(prediction) {
     ctx.fillRect(barX, barY, barW, barH);
 
     // Marker
-    const score = prediction.cumulativeScore || 0; // 0-100
     const markerX = barX + (score / 100) * barW;
 
     ctx.lineWidth = 3;
@@ -563,7 +563,7 @@ function generateRiskVisual(prediction) {
     ctx.font = "bold 16px sans-serif";
     ctx.fillStyle = "#ffffff";
     ctx.textAlign = "left";
-    ctx.fillText(`${prediction.suspicionString} (${score}%)`, 20, 130);
+    ctx.fillText(`${prediction.suspicionString}`, 20, 130);
 
     // Confidence Text
     ctx.textAlign = "right";

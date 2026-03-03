@@ -755,7 +755,7 @@ function buildAIAnalysisContainer(result, accentColor) {
 
     // Header
     container.addTextDisplayComponents(td =>
-        td.setContent(`## 🤖 AI Analysis: ${prediction.suspicionString} (${prediction.cumulativeScore}%)`)
+        td.setContent(`## 🤖 AI Analysis: ${prediction.suspicionString} (${prediction.cumulativeScore}% alt)`)
     );
     container.addSeparatorComponents(sep => sep);
 
