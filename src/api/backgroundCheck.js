@@ -1,8 +1,10 @@
 'use strict';
 
 const axios = require('axios');
+const fs = require('fs');
 const https = require('https');
-const { createCanvas } = require('canvas');
+const path = require('path');
+const { createCanvas, Image } = require('canvas');
 
 const roblox = require('./roblox.js');
 const assets = require('./assets.js');
@@ -37,6 +39,30 @@ cookieManager.attachResponseInterceptor(robloxHttp);
 
 const LoggerClass = require('./logger.js')
 const logger = new LoggerClass('BackgroundCheck', 'API')
+
+const BADGE_GRAPH_WATERMARK_PATH = path.join(__dirname, '../server/website/public/icon.png');
+
+let badgeGraphWatermark = null;
+let hasAttemptedBadgeGraphWatermarkLoad = false;
+
+function getBadgeGraphWatermark() {
+    if (hasAttemptedBadgeGraphWatermarkLoad) {
+        return badgeGraphWatermark;
+    }
+
+    hasAttemptedBadgeGraphWatermarkLoad = true;
+
+    try {
+        const watermark = new Image();
+        watermark.src = fs.readFileSync(BADGE_GRAPH_WATERMARK_PATH);
+        badgeGraphWatermark = watermark;
+    } catch (err) {
+        logger.warn(`Failed to load badge graph watermark icon: ${toErrMsg(err)}`);
+        badgeGraphWatermark = null;
+    }
+
+    return badgeGraphWatermark;
+}
 
 function toErrMsg(err) {
     if (!err) return 'Unknown error';
@@ -409,6 +435,27 @@ function generateBadgeGraph(badges, username, suspiciousPlaces = []) {
 
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, width, height);
+
+    const watermark = getBadgeGraphWatermark();
+    if (watermark?.width && watermark?.height) {
+        const plotWidth = width - marginLeft - marginRight;
+        const plotHeight = height - marginTop - marginBottom;
+        const scale = Math.min(
+            (plotWidth * 0.65) / watermark.width,
+            (plotHeight * 0.65) / watermark.height
+        );
+        const watermarkWidth = watermark.width * scale;
+        const watermarkHeight = watermark.height * scale;
+        const watermarkX = marginLeft + ((plotWidth - watermarkWidth) / 2);
+        const watermarkY = marginTop + ((plotHeight - watermarkHeight) / 2);
+
+        ctx.save();
+        ctx.globalAlpha = 0.08;
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(watermark, watermarkX, watermarkY, watermarkWidth, watermarkHeight);
+        ctx.restore();
+    }
 
     ctx.fillStyle = "white";
     ctx.font = "30px sans-serif";
