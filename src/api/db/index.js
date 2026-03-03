@@ -18,7 +18,6 @@ module.exports = {
     ...groups,
     ...officer,
     ...roles,
-    ...roles,
     ...admin,
     ...botState,
     ...require('./modules/robloxUsers')

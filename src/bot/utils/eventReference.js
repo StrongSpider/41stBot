@@ -1,8 +1,11 @@
 'use strict'
 
 const database = require('../../api/database.js')
+const {
+    normalizeDiscordMessageUrl,
+    parseDiscordMessageUrl
+} = require('./discordMessage.js')
 
-const DISCORD_MESSAGE_URL_REGEX = /^https?:\/\/discord\.com\/channels\/\d+\/\d+\/\d+$/i
 const DISCORD_MESSAGE_URL_HINT_REGEX = /discord(?:app)?\.com\/channels\//i
 const GENERIC_URL_REGEX = /^[a-z][a-z0-9+.-]*:\/\//i
 
@@ -24,13 +27,7 @@ class EventReferenceError extends Error {
  * @returns {string}
  */
 function normalizeMessageUrl(input) {
-    let s = String(input || '').trim()
-    s = s.replace(/^<|>$/g, '')
-    s = s.replace('discordapp.com', 'discord.com')
-    s = s.replace(/^(https?:\/\/)(?:ptb\.|canary\.)?discord\.com/i, '$1discord.com')
-    s = s.replace(/[?#].*$/g, '')
-    s = s.replace(/\/+$/g, '')
-    return s
+    return normalizeDiscordMessageUrl(input)
 }
 
 /**
@@ -54,15 +51,15 @@ async function resolveEventReference(input) {
     }
 
     if (looksLikeDiscordMessageUrl(raw)) {
-        const messageUrl = normalizeMessageUrl(raw)
-        if (!DISCORD_MESSAGE_URL_REGEX.test(messageUrl)) {
+        const parsedMessageUrl = parseDiscordMessageUrl(raw)
+        if (!parsedMessageUrl) {
             throw new EventReferenceError(
                 'invalid_message_url',
                 'Please provide a full Discord message link in the form https://discord.com/channels/<guild>/<channel>/<message>.'
             )
         }
 
-        const event = await database.findEventByMessage(messageUrl)
+        const event = await database.findEventByMessage(parsedMessageUrl.url)
         if (!event) {
             throw new EventReferenceError(
                 'message_not_indexed',
@@ -74,7 +71,7 @@ async function resolveEventReference(input) {
             eventId: event.eventId,
             event,
             source: 'message-url',
-            reference: messageUrl
+            reference: parsedMessageUrl.url
         }
     }
 

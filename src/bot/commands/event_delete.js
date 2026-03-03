@@ -3,6 +3,7 @@
 const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } = require('discord.js')
 const { sendEventDeleteWebhook } = require('../../api/webhook.js')
 const database = require('../../api/database.js')
+const { fetchGuildMessageByUrl } = require('../utils/discordMessage.js')
 const { formatEventEpLockMessage } = require('../utils/eventEpLock.js')
 const {
     resolveEventReference,
@@ -78,15 +79,7 @@ module.exports = {
                 // Delete event message
                 try {
                     if (event.message) {
-                        // Extract channelId and messageId from jump URL
-                        const parts = event.message.split('/')
-                        const channelId = parts[parts.length - 2]
-                        const messageId = parts[parts.length - 1]
-
-                        const channel = await interaction.guild.channels.fetch(channelId)
-
-                        const originalMessage = await channel.messages.fetch(messageId)
-
+                        const originalMessage = await fetchGuildMessageByUrl(interaction.guild, event.message)
                         await originalMessage.delete()
                     }
                 } catch { }
@@ -102,7 +95,7 @@ module.exports = {
         })
 
         collector.on('end', () => {
-            interaction.editReply({ components: [] })
+            interaction.editReply({ components: [] }).catch(() => { })
         })
     }
 }

@@ -2,109 +2,20 @@
 
 const { SlashCommandBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } = require('discord.js')
 const config = require('../../../config.json')
-const { HICOM: DISCORD_HICOM_ROLE_ID, OFFICER: DISCORD_OFFICER_ROLE_ID } = config.DISCORD.ROLES
+const { HICOM: DISCORD_HICOM_ROLE_ID } = config.DISCORD.ROLES
 const { DEVELOPER_USER_ID: DEVELOPER_DISCORD_USER_ID } = config.DISCORD.BOT
 const { getIdFromUsername, getUsernameFromId } = require('../../api/roblox.js')
 const { sendEventUpdateWebhook } = require('../../api/webhook.js')
 const database = require('../../api/database.js')
+const { fetchGuildMessageByUrl } = require('../utils/discordMessage.js')
 const { formatEventEpLockMessage } = require('../utils/eventEpLock.js')
 const { hasDeveloperOrAdminOverride } = require('../utils/interactionPermissions.js')
+const { buildEventSummary, parseEventSummaryContent } = require('../utils/eventSummary.js')
 const {
     resolveEventReference,
     isEventReferenceError,
     formatEventReferenceError
 } = require('../utils/eventReference.js')
-
-/**
- * Build the summary used in the original event message.
- * @param {{eventName:string, note:string, baseEpPoints:number, attendees:Array<{discordId:string}>, extraRecipients:Array<{discordId:string}>, supervisor:{discordId:string}|null, host:{discordId:string}}} data
- * @param {import('discord.js').Guild} guild
- */
-function buildEventSummary({ eventName, note, baseEpPoints, attendees, extraRecipients, supervisor, host }, guild) {
-    const lines = []
-    lines.push(`Event: ${eventName}`)
-    lines.push(`Host: <@${host.discordId}>`)
-    if (supervisor) lines.push(`Supervisor: <@${supervisor.discordId}>`)
-
-    // Remove host from attendees so the host is listed only once
-    const filteredAttendees = attendees.filter(u => u.discordId !== host.discordId)
-
-    // Partition attendees by officer role membership
-    const officerAttendees = filteredAttendees.filter(u => {
-        const member = guild.members.cache.get(u.discordId)
-        return member && member.roles.cache.has(DISCORD_OFFICER_ROLE_ID)
-    })
-    const regularAttendees = filteredAttendees.filter(u => {
-        const member = guild.members.cache.get(u.discordId)
-        return !member || !member.roles.cache.has(DISCORD_OFFICER_ROLE_ID)
-    })
-
-    if (officerAttendees.length) {
-        const offText = officerAttendees.map(u => `<@${u.discordId}>`).join(' ')
-        lines.push(`Officers: ${offText}`)
-    }
-    if (regularAttendees.length) {
-        const regText = regularAttendees.map(u => `<@${u.discordId}>`).join(' ')
-        lines.push(`Attendees: ${regText}`)
-    }
-
-    if (extraRecipients.length) {
-        const extraText = extraRecipients.map(u => `<@${u.discordId}>`).join(' ')
-        lines.push(`Extra EP: ${extraText}`)
-    }
-    if (baseEpPoints > 1) lines.push(`Modifier: ${baseEpPoints}x EP`)
-    if (note) lines.push(`Note: ${note}`)
-    return lines.join('\n')
-}
-
-/**
- * Parse an existing summary message to recover note, base EP,
- * extra-recipient mentions, and base EP recipients.
- * @param {string} content
- * @returns {{ note:string, baseEpPoints:number, extraDiscordIds:string[], baseDiscordIds:string[] }}
- */
-function parseOriginalSummaryContent(content) {
-    const lines = content.split('\n')
-    let note = ''
-    let baseEpPoints = 1
-    const extraDiscordIds = []
-    const officers = []
-    const attendees = []
-
-    // Extract note, EP modifier, and extra EP lines
-    for (const line of lines) {
-        if (line.startsWith('Note: ')) {
-            note = line.slice('Note: '.length)
-        } else if (line.startsWith('Modifier: ')) {
-            // Expect "Modifier: {n}x EP"
-            const m = line.match(/Modifier: (\d+)x EP/)
-            if (m) baseEpPoints = parseInt(m[1], 10)
-        } else if (line.startsWith('Extra EP: ')) {
-            const mentionRegex = /<@!?(\d+)>/g
-            let mm
-            const extraLine = line.slice('Extra EP: '.length)
-            while ((mm = mentionRegex.exec(extraLine)) !== null) extraDiscordIds.push(mm[1])
-        }
-    }
-
-    // Extract officer and attendee base EP recipients
-    for (const line of lines) {
-        if (line.startsWith('Officers: ')) {
-            const rx = /<@!?(\d+)>/g
-            let m
-            const text = line.slice('Officers: '.length)
-            while ((m = rx.exec(text)) !== null) officers.push(m[1])
-        } else if (line.startsWith('Attendees: ')) {
-            const rx = /<@!?(\d+)>/g
-            let m
-            const text = line.slice('Attendees: '.length)
-            while ((m = rx.exec(text)) !== null) attendees.push(m[1])
-        }
-    }
-
-    const baseDiscordIds = [...officers, ...attendees]
-    return { note, baseEpPoints, extraDiscordIds, baseDiscordIds }
-}
 
 /**
  * Resolve a Roblox id from a username and ensure the user is verified.
@@ -371,16 +282,10 @@ module.exports = {
                 let messageEditError = null
                 if (event.message) {
                     try {
-                        // Extract channelId and messageId from jump URL
-                        const parts = event.message.split('/')
-                        const channelId = parts[parts.length - 2]
-                        const messageId = parts[parts.length - 1]
-
-                        const channel = await interaction.guild.channels.fetch(channelId)
-                        const originalMessage = await channel.messages.fetch(messageId)
+                        const originalMessage = await fetchGuildMessageByUrl(interaction.guild, event.message)
 
                         // Recover note, base EP modifier, extra recipients, and original base EP recipients
-                        const { note, baseEpPoints, extraDiscordIds, baseDiscordIds } = parseOriginalSummaryContent(originalMessage.content)
+                        const { note, baseEpPoints, extraDiscordIds, baseDiscordIds } = parseEventSummaryContent(originalMessage.content)
 
                         // Build new base EP list based on updated attendees
                         const newAttendeeDiscordIds = []
@@ -417,7 +322,10 @@ module.exports = {
                         const hostDiscordId = await database.getDiscordIdByRoblox(event.host)
                         const supDiscordId = event.supervisor && event.supervisor !== -1 ? await database.getDiscordIdByRoblox(event.supervisor) : null
                         const attendeeObjs = []
-                        for (const rid of event.attendees || []) attendeeObjs.push({ discordId: await database.getDiscordIdByRoblox(rid) })
+                        for (const rid of event.attendees || []) {
+                            const discordId = await database.getDiscordIdByRoblox(rid)
+                            if (discordId) attendeeObjs.push({ discordId })
+                        }
 
                         const updatedSummary = buildEventSummary({
                             eventName: event.type,

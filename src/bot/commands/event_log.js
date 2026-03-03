@@ -10,6 +10,7 @@ const { sendEventCreateWebhook } = require('../../api/webhook.js')
 const database = require('../../api/database.js')
 const { formatEventEpLockMessage } = require('../utils/eventEpLock.js')
 const { hasDeveloperOrAdminOverride } = require('../utils/interactionPermissions.js')
+const { buildEventSummary } = require('../utils/eventSummary.js')
 
 const LoggerClass = require('../../api/logger.js')
 const logger = new LoggerClass('EventLog', 'BOT')
@@ -33,48 +34,6 @@ async function resolveUserCredentials(username, errorList) {
         errorList.push(`\`${username}: user not verified\``)
         return null
     }
-}
-
-/**
- * Build the summary posted in officer channels and used for previews
- * @param {{ eventName:string, note:string, baseEpPoints:number, attendees:Array<{discordId:string}>, extraRecipients:Array<{discordId:string}>, supervisor:{discordId:string}|null, host:{discordId:string} }} data
- * @param {import('discord.js').Guild} guild
- */
-function buildEventSummary({ eventName, note, baseEpPoints, attendees, extraRecipients, supervisor, host }, guild) {
-    const lines = []
-    lines.push(`Event: ${eventName}`)
-    lines.push(`Host: <@${host.discordId}>`)
-    if (supervisor) lines.push(`Supervisor: <@${supervisor.discordId}>`)
-
-    // Remove host from attendees if present
-    const filteredAttendees = attendees.filter(u => u.discordId !== host.discordId)
-
-    // Partition attendees by officer role membership
-    const officerAttendees = filteredAttendees.filter(u => {
-        const member = guild.members.cache.get(u.discordId)
-        return member && member.roles.cache.has(DISCORD_OFFICER_ROLE_ID)
-    })
-    const regularAttendees = filteredAttendees.filter(u => {
-        const member = guild.members.cache.get(u.discordId)
-        return !member || !member.roles.cache.has(DISCORD_OFFICER_ROLE_ID)
-    })
-
-    if (officerAttendees.length) {
-        const offText = officerAttendees.map(u => `<@${u.discordId}>`).join(' ')
-        lines.push(`Officers: ${offText}`)
-    }
-    if (regularAttendees.length) {
-        const regText = regularAttendees.map(u => `<@${u.discordId}>`).join(' ')
-        lines.push(`Attendees: ${regText}`)
-    }
-
-    if (extraRecipients.length) {
-        const extraText = extraRecipients.map(u => `<@${u.discordId}>`).join(' ')
-        lines.push(`Extra EP: ${extraText}`)
-    }
-    if (baseEpPoints > 1) lines.push(`Modifier: ${baseEpPoints}x EP`)
-    if (note) lines.push(`Note: ${note}`)
-    return lines.join('\n')
 }
 
 /**
