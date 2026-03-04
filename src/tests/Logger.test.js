@@ -77,6 +77,8 @@ describe('Logger', () => {
     })
 
     it('should format Error arguments as stacks and use js codeblock', async () => {
+        allowLoggerErrors('Caught error: Error: Test Error')
+
         const logger = new Logger('TestContext', 'SERVER')
         const error = new Error('Test Error')
         logger.error('Caught error:', error)
@@ -154,6 +156,8 @@ describe('Logger', () => {
         })
 
         it('should log error statically', () => {
+            allowLoggerErrors('Static Error')
+
             Logger.error('Static Error')
             expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('ERROR'))
         })

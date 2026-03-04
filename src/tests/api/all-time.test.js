@@ -50,6 +50,8 @@ describe('GET /api/all-time', () => {
     });
 
     it('should handle database errors gracefully', async () => {
+        allowLoggerErrors('getAllTime error: Error: DB Error');
+
         mockListAllTimeEvents.mockRejectedValue(new Error('DB Error'));
 
         const res = await request(app).get('/api/all-time');
