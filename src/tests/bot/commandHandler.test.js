@@ -63,6 +63,45 @@ function createInteraction({ command, userId, isAdmin = false }) {
     }
 }
 
+function createSubcommandInteraction({ groupCommand, resolvedCommand, userId, isAdmin = false, subcommand = 'edit' }) {
+    return {
+        commandName: groupCommand,
+        user: {
+            id: userId,
+            username: userId
+        },
+        member: {
+            roles: {
+                cache: new Map()
+            },
+            permissions: new PermissionsBitField(
+                isAdmin ? PermissionsBitField.Flags.Administrator : undefined
+            )
+        },
+        memberPermissions: new PermissionsBitField(
+            isAdmin ? PermissionsBitField.Flags.Administrator : undefined
+        ),
+        options: {
+            getSubcommandGroup: jest.fn().mockReturnValue(null),
+            getSubcommand: jest.fn().mockReturnValue(subcommand)
+        },
+        client: {
+            commands: new Map([[
+                groupCommand,
+                {
+                    resolve: jest.fn().mockReturnValue(resolvedCommand)
+                }
+            ]])
+        },
+        isChatInputCommand: () => true,
+        isContextMenuCommand: () => false,
+        inGuild: () => true,
+        isRepliable: () => true,
+        reply: jest.fn().mockResolvedValue(undefined),
+        followUp: jest.fn().mockResolvedValue(undefined)
+    }
+}
+
 describe('interactionCreate/command', () => {
     it('lets guild administrators execute restricted slash commands', async () => {
         const command = {
@@ -97,5 +136,24 @@ describe('interactionCreate/command', () => {
         expect(interaction.reply).toHaveBeenCalledWith(expect.objectContaining({
             content: '<:warning:1297618648810393630> You do not have permission to use this command.'
         }))
+    })
+
+    it('resolves grouped slash commands before checking permissions', async () => {
+        const command = {
+            permission: 'OFFICER',
+            execute: jest.fn().mockResolvedValue(undefined)
+        }
+        const interaction = createSubcommandInteraction({
+            groupCommand: 'quota',
+            resolvedCommand: command,
+            userId: 'admin-user',
+            isAdmin: true,
+            subcommand: 'edit'
+        })
+
+        await commandHandler(interaction)
+
+        expect(command.execute).toHaveBeenCalledWith(interaction)
+        expect(interaction.reply).not.toHaveBeenCalled()
     })
 })

@@ -5,8 +5,8 @@ const config = require('../../../config.json')
 const { EMBED_COLOR } = config.GENERAL
 const { getUsernameFromId } = require('../../api/roblox.js')
 const database = require('../../api/database.js')
-const { resolveEventDateFilters, eventMatchesDateRange } = require('../utils/eventDateFilters')
-const { respondWithEventTypeAutocomplete } = require('../utils/eventTypeAutocomplete')
+const { resolveEventDateFilters, eventMatchesDateRange } = require('../utils/eventDateFilters.js')
+const { respondWithEventTypeAutocomplete } = require('../utils/eventTypeAutocomplete.js')
 
 /**
  * Validate an event pattern allowing a single trailing * for prefix matches
@@ -40,7 +40,7 @@ function toRegex(pattern) {
 module.exports = {
     permission: 'ALL',
     data: new SlashCommandBuilder()
-        .setName('events-list')
+        .setName('event-list')
         .setDescription("List a user's events")
         .addUserOption(option =>
             option.setName('user')

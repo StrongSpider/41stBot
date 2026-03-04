@@ -12,6 +12,7 @@ const logger = new LoggerClass('Command', 'BOT')
 
 const { MessageFlags } = require('discord.js')
 const { hasDeveloperOrAdminOverride } = require('../../utils/interactionPermissions.js')
+const { resolveCommand } = require('../../commandRegistry.js')
 
 /**
  * @param {import('discord.js').ChatInputCommandInteraction | import('discord.js').ContextMenuCommandInteraction} interaction
@@ -37,7 +38,7 @@ module.exports = async function commandHandler(interaction) {
         } catch { }
 
         const cmds = interaction.client?.commands
-        const command = cmds && typeof cmds.get === 'function' ? cmds.get(interaction.commandName) : null
+        const command = resolveCommand(cmds, interaction)
         if (!command) {
             logger.error('No command matching', String(interaction.commandName), 'was found')
             return

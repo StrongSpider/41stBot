@@ -1,6 +1,7 @@
 'use strict'
 const LoggerClass = require('../../../api/logger.js')
 const logger = new LoggerClass('Autocomplete', 'BOT')
+const { resolveCommand } = require('../../commandRegistry.js')
 
 /**
  * @param {import('discord.js').AutocompleteInteraction} interaction
@@ -17,11 +18,10 @@ module.exports = async function autocompleteHandler(interaction) {
             return
         }
 
-        const name = interaction.commandName
         const commands = interaction.client && interaction.client.commands
-        const command = commands && typeof commands.get === 'function' ? commands.get(name) : null
+        const command = resolveCommand(commands, interaction)
         if (!command) {
-            logger.error('no command found for ' + String(name))
+            logger.error('no command found for ' + String(interaction.commandName))
             return
         }
 

@@ -3,6 +3,7 @@
 const { Client, Collection, GatewayIntentBits, Partials } = require('discord.js')
 const path = require('path')
 const fs = require('fs')
+const { loadCommandRegistry } = require('./commandRegistry.js')
 
 const LoggerClass = require('../api/logger.js')
 const logger = new LoggerClass('Index', 'BOT')
@@ -36,34 +37,19 @@ const client = new Client({
 client.commands = new Collection()
 
 /**
- * Load all command modules from ./commands
- * Expects each file to export { data: SlashCommandBuilder, execute: Function }
+ * Load slash/context commands from ./commands and group selected slash commands
+ * into Discord subcommands.
  */
 function loadCommands() {
   const commandsDir = path.join(__dirname, 'commands')
-  let count = 0
   try {
-    const files = fs.readdirSync(commandsDir).filter(f => f.endsWith('.js'))
-    for (const file of files) {
-      const filePath = path.join(commandsDir, file)
-      try {
-        const mod = require(filePath)
-        if (mod && mod.data && typeof mod.data.name === 'string' && typeof mod.execute === 'function') {
-          client.commands.set(mod.data.name, mod)
-          count++
-        } else {
-          logger.warn('Command file missing data or execute: ' + filePath)
-        }
-      } catch (e) {
-        const msg = e && e.message ? e.message : String(e)
-        logger.error('Failed to load command ' + filePath + ' - ' + msg)
-      }
-    }
+    const registry = loadCommandRegistry(commandsDir, logger)
+    client.commands = registry.commands
   } catch (e) {
     const msg = e && e.message ? e.message : String(e)
     logger.error('Failed to scan commands directory: ' + msg)
   }
-  logger.info('Loaded commands: ' + count)
+  logger.info('Loaded commands: ' + client.commands.size)
 }
 
 /**
