@@ -97,7 +97,7 @@ module.exports = {
             const used = new Set(parts.map((p) => p.toLowerCase()));
             const suggestions = [];
             for (const { name, lc } of usernameEntries) {
-                if (suggestions.length === 5) break;
+                if (suggestions.length === 25) break;
                 if (used.has(lc)) continue;
                 if (lc.startsWith(partial)) suggestions.push(name);
             }

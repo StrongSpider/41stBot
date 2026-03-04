@@ -93,7 +93,7 @@ module.exports = {
       const term = String(focused || '').toLowerCase()
       const matches = (await database.getEventTypes())
         .filter(e => !term || e.toLowerCase().startsWith(term))
-        .slice(0, 5)
+        .slice(0, 25)
       suggestions = matches.map(e => ({ name: e, value: e }))
     }
 
