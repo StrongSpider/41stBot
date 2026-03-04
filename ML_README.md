@@ -1,289 +1,171 @@
-# Suspicious Account Detector - ML System
+# Suspicious Account Detector
 
-An AI system that detects suspicious accounts using background check data and officer-labeled training data.
+Machine-learning tooling for labeling, training, and scoring suspicious Roblox accounts.
 
-## Overview
+The ML system lives under `src/api/ml` and is used by the broader background-check flow.
 
-The system analyzes Roblox account background check data across 6 key areas to determine suspicion levels:
+## Before You Train
 
-### Analyzed Areas
+Make sure the base project install is already complete:
 
-1. **Badge Anomalies** - Detects unusual badge patterns
-   - Extremely high badge counts (badge farming)
-   - Badges from flagged suspicious places
-   - Missing badges on mature accounts
+1. Root dependencies are installed with `npm install`
+2. `config.json` exists and contains working `POSTGRES`, `ROBLOX`, and external API settings
+3. `schema.sql` has been loaded so `officer_labels` and the supporting tables exist
 
-2. **Inventory Anomalies** - Identifies suspicious items
-   - Excessive inventory counts (item duping)
-   - Unusual development item ratios
-   - Very high inventory values
+Training can fall back to live background checks when saved snapshots are missing, so a valid Roblox cookie and working API integrations matter.
 
-3. **Game Pass Anomalies** - Flags game pass patterns
-   - High game pass spending (RBC farming indicators)
-   - Excessive game pass creation
-   - Suspicious pricing patterns
+## File Layout
 
-4. **Group Anomalies** - Detects group-related issues
-   - Very high group membership counts
-   - Predominantly base rank groups
-   - Signs of spam/alt activity
-
-5. **xTracker Evidence** - External violation reports
-   - Reports from xTracker database
-   - Multiple independent violations
-   - Recent suspicious activity
-
-6. **Connection Anomalies** - Linked account patterns
-   - Multiple linked Discord/Roblox connections
-   - Potential account hijacking indicators
-
-## Architecture
-
-### Components
-
-```
+```text
 src/api/ml/
-├── index.js              # Main entry point
-├── featureExtractor.js   # Background check feature analysis
-├── trainer.js            # Model training from officer labels
-└── inference.js          # Prediction on new accounts
+├── index.js
+├── featureExtractor.js
+├── trainer.js
+└── inference.js
 ```
 
-### Data Flow
+Trained models are stored in:
 
-1. **Background Check Data** → Feature Extractor
-2. **Officer Labels** + **Features** → Trainer
-3. **Trained Model** + **New Features** → Inference
-4. **Prediction** with area scores & rating
+```text
+src/models/suspicious_account_model.json
+```
 
-## Training
+## Training Data
 
-### Step 1: Collect Training Data
+The trainer uses officer labels from the `officer_labels` table.
 
-Officers label accounts in the database via the `officer_labels` table:
+Supported labels:
+
+- `REAL`
+- `LIKELY_REAL`
+- `LIKELY_ALT`
+- `ALT`
+
+Labels are usually created through the portal/API, which also stores a training snapshot when possible. Snapshot-backed labels make retraining faster and less dependent on live Roblox lookups.
+
+You can also insert labels manually:
 
 ```sql
 INSERT INTO officer_labels (target_roblox_id, officer_discord_id, label)
 VALUES (12345, 'discord_id_here', 'ALT');
 ```
 
-Supported labels:
-- `REAL` - Verified legitimate account
-- `LIKELY_REAL` - Probable legitimate account
-- `LIKELY_ALT` - Probable alt account
-- `ALT` - Confirmed alt account
+## Train The Model
 
-### Step 2: Train Model
+From the repo root:
 
 ```bash
 node trainModel.js
 ```
 
-This will:
-1. Fetch all officer labels from database
-2. Extract background check features for each account
-3. Calculate feature weights based on label distributions
-4. Save trained model to `models/suspicious_account_model.json`
+What happens during training:
 
-### Step 3: Make Predictions
+1. Officer labels are loaded from PostgreSQL
+2. Duplicate labels for the same account are aggregated into a consensus score
+3. Saved feature snapshots are reused when available
+4. Missing snapshots fall back to a live background check
+5. A neural-network model is trained and written to `src/models/suspicious_account_model.json`
 
-```javascript
+If no labels are available, the system falls back to a neutral default model instead of producing a trained file.
+
+## Use It In Code
+
+### Initialize
+
+```js
 const ml = require('./src/api/ml');
 
-// Initialize
 await ml.initialize();
-
-// Predict suspicion for single account
-const result = await ml.predict(12345);
-console.log(result.prediction);
-
-// Batch predictions
-const batch = await ml.predictBatch([123, 456, 789]);
-console.log(batch);
 ```
 
-## Prediction Output
+### Single prediction
 
-```javascript
+```js
+const ml = require('./src/api/ml');
+
+await ml.initialize();
+
+const result = await ml.predict(12345);
+console.log(result.cumulativeScore);
+console.log(result.suspicionString);
+console.log(result.summary);
+```
+
+### Batch prediction
+
+```js
+const ml = require('./src/api/ml');
+
+await ml.initialize();
+
+const results = await ml.predictBatch([123, 456, 789]);
+const flagged = results.filter((entry) => entry.rating >= 3);
+console.log(flagged);
+```
+
+## Prediction Shape
+
+`ml.predict()` returns a top-level result object like:
+
+```js
 {
   robloxId: 12345,
   username: 'example_user',
-  prediction: {
-    cumulativeScore: 72,        // 0-100 suspicion score
-    rating: 3,                  // 0-4: 0=LEGIT, 4=ALT
-    suspicionString: 'LIKELY_ALT',
-    confidence: 85,             // 0-100 prediction confidence
-    areaScores: {
-      badgeAnomalies: {
-        rawScore: 50,
-        weightedScore: 55,
-        flagged: true,
-        details: { /* ... */ }
-      },
-      // ... other areas
-    },
-    recommendation: [
-      'ACTION: Recommend immediate manual review',
-      'ACTION: Consider adding to verification list'
-    ]
+  cumulativeScore: 72,
+  rating: 3,
+  suspicionString: 'Likely Alternative Account',
+  confidence: 85,
+  probability: 0.72,
+  breakdown: {
+    profile: { title: 'Profile', score: 41, direction: 'neutral' },
+    badges: { title: 'Badges', score: 78, direction: 'suspicious' },
+    inventory: { title: 'Inventory', score: 64, direction: 'suspicious' },
+    gamePasses: { title: 'Game Passes', score: 52, direction: 'neutral' },
+    groups: { title: 'Groups', score: 69, direction: 'suspicious' },
+    connections: { title: 'Connections', score: 37, direction: 'reassuring' }
   },
-  timestamp: '2026-02-04T...'
+  recommendation: [
+    'Review badge timing and flagged badge places.',
+    'Check whether the inventory looks like a real played account.'
+  ],
+  summary: 'Highest concern came from badges and groups.',
+  timestamp: '2026-03-04T00:00:00.000Z'
 }
 ```
 
-## Ratings Explained
+## Ratings
 
-| Rating | String | Meaning |
-|--------|--------|---------|
-| 0 | LEGITIMATE | Account appears genuine, low suspicion |
-| 1 | LIKELY_LEGITIMATE | Mostly normal, some minor concerns |
-| 2 | SUSPICIOUS | Notable anomalies warrant investigation |
-| 3 | LIKELY_ALT | Strong indicators of alt account |
-| 4 | ALT | Confirmed or near-certain alt account |
+| Rating | Meaning |
+| --- | --- |
+| `0` | Legitimate Account |
+| `1` | Likely Legitimate |
+| `2` | Suspicious Activity Detected |
+| `3` | Likely Alternative Account |
+| `4` | Alternative Account |
 
-## Suspicion Scoring
+## What The Model Looks At
 
-`Cumulative Score = 0-100`
+The feature extractor currently scores six areas:
 
-- **0-20**: Legitimate account
-- **20-40**: Likely legitimate with minor concerns
-- **40-60**: Suspicious, needs review
-- **60-80**: Likely alt account
-- **80-100**: Confirmed alt account
+1. Profile age
+2. Badges
+3. Inventory
+4. Game passes
+5. Groups
+6. Social connections
 
-## Usage Examples
+Each prediction returns an area breakdown plus the strongest suspicious and reassuring signals.
 
-### Single Account Check
+## Accuracy Notes
 
-```javascript
-const ml = require('./src/api/ml');
+- Better officer labeling produces better results.
+- Missing Roblox data lowers confidence.
+- Small training sets are heavily confidence-limited.
+- If no trained model exists, inference falls back to a neutral "Model Unavailable" result.
 
-const result = await ml.predict('player_username_or_id');
-console.log(`Rating: ${result.prediction.suspicionString}`);
-console.log(`Score: ${result.prediction.cumulativeScore}/100`);
-console.log(`Recommendations:`, result.prediction.recommendation);
-```
+## Related Files
 
-### Batch Account Screening
-
-```javascript
-const userIds = [123, 456, 789, 1011];
-const results = await ml.predictBatch(userIds);
-
-// Filter for high-suspicion accounts
-const suspicious = results.filter(r => r.prediction.rating >= 3);
-console.log(`Found ${suspicious.length} likely alt accounts`);
-```
-
-### Integration with Discord Bot
-
-```javascript
-// In a Discord command
-const ml = require('.../ml');
-
-const robloxId = getUserRobloxId(discordUser);
-const prediction = await ml.predict(robloxId);
-
-if (prediction.prediction.rating >= 3) {
-    await flagAlert(prediction);
-}
-```
-
-## Model Performance
-
-### Factors Affecting Accuracy
-
-✅ **Improves with:**
-- More training data (officer labels)
-- Diverse label distribution
-- Recent xTracker data availability
-- Accurate background check data
-
-❌ **Limited by:**
-- New/unverified accounts
-- Accounts with private data
-- Limited external reports (xTracker)
-- Edge cases not in training data
-
-### Confidence Score
-
-The confidence (0-100) indicates how much you should trust the prediction:
-
-- **80-100**: High confidence prediction
-- **60-79**: Moderate confidence
-- **40-59**: Low confidence (manual review recommended)
-- **0-39**: Very low confidence (rely on manual analysis)
-
-## API Integration
-
-### As Middleware
-
-```javascript
-const ml = require('./src/api/ml');
-
-app.post('/api/verify/:robloxId', async (req, res) => {
-    const result = await ml.predict(req.params.robloxId);
-    
-    if (result.prediction.rating >= 3) {
-        return res.status(403).json({ error: 'Account appears suspicious' });
-    }
-    
-    // Continue with verification...
-});
-```
-
-### Periodic Screening
-
-```javascript
-// Scan all recent joiners daily
-async function screenNewMembers() {
-    const newUsers = await getLastNDayJoiners(7);
-    const predictions = await ml.predictBatch(newUsers.map(u => u.robloxId));
-    
-    const flagged = predictions.filter(p => p.prediction.rating >= 2);
-    await notifyOfficers(flagged);
-}
-```
-
-## Configuration
-
-### Model Location
-
-Default: `/src/models/suspicious_account_model.json`
-
-Change in `trainer.js`:
-```javascript
-const MODEL_FILE = path.join(__dirname, 'custom_path', 'model.json');
-```
-
-### Feature Weights
-
-The model learns weights automatically from training data. Default weights (when no training data) are in `trainer.js::getDefaultModel()`.
-
-## Troubleshooting
-
-### No training data available
-
-The system will use default model with reasonable heuristics. Train with real data as soon as possible.
-
-### Low confidence predictions
-
-- Ensure sufficient training examples (50+)
-- Check that background check data is complete
-- Verify xTracker API key is configured
-
-### Background check timeouts
-
-- Increase `REQUEST_TIMEOUT_MS` in `backgroundCheck.js`
-- Check network connectivity
-- Verify Roblox API availability
-
-## Future Improvements
-
-- [ ] Deep learning model (PyTorch/TensorFlow)
-- [ ] Real-time model updates
-- [ ] Anomaly detection for new patterns
-- [ ] Ensemble methods with multiple models
-- [ ] Cross-validation and hyperparameter tuning
-- [ ] API for external integration
-- [ ] Web dashboard for predictions
+- `trainModel.js`
+- `src/api/ml/trainer.js`
+- `src/api/ml/inference.js`
+- `src/server/controllers/LabelsController.js`

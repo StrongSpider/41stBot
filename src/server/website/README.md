@@ -1,16 +1,89 @@
-# React + Vite
+# 41st Portal Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + Vite frontend for the 41st officer/admin portal.
 
-Currently, two official plugins are available:
+This app is not standalone in production. The Express server in the repo root serves the built files from `dist/`.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Requirements
 
-## React Compiler
+- Root project dependencies installed
+- Frontend dependencies installed in this directory
+- A working root `config.json`
+- The backend server running if you want real API data
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Install
 
-## Expanding the ESLint configuration
+From the repo root:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+cd src/server/website
+npm install
+```
+
+## Scripts
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the Vite dev server |
+| `npm run build` | Build production assets into `dist/` |
+| `npm run preview` | Preview the production build locally |
+| `npm run lint` | Run ESLint |
+
+## Development Workflows
+
+### Option 1: Integrated dev through Express
+
+From the repo root, use the server in development mode:
+
+```bash
+npm run dev
+```
+
+That mode mounts Vite middleware inside the Express server, so the portal is served by the backend process instead of a separate Vite port.
+
+### Option 2: Standalone Vite frontend
+
+From `src/server/website`, run the frontend here:
+
+```bash
+npm run dev
+```
+
+Run the backend separately from the repo root:
+
+```bash
+npm run server
+```
+
+`vite.config.js` proxies `/api` and `/auth` to `http://localhost:8081`.
+
+If your backend runs on a different host or port, update `vite.config.js`.
+
+## Production Build
+
+From the repo root, the standard build command is:
+
+```bash
+npm run build
+```
+
+That writes the static frontend bundle to `src/server/website/dist`, which the Express server serves in production mode.
+
+From `src/server/website`, you can also build directly:
+
+```bash
+npm run build
+```
+
+## Auth Notes
+
+- Production login uses the backend Discord OAuth flow.
+- Development login in `src/server/controllers/AuthController.js` currently redirects to `http://localhost:3000/`.
+- If you run the frontend on a different dev URL, update that redirect or avoid using the dev auth shortcut as-is.
+
+## Useful Context
+
+- API client base URL: `/api`
+- Auth routes are proxied through `/auth`
+- Main app entry: `src/App.jsx`
+- Shared UI lives under `src/components/ui`
