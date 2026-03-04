@@ -51,7 +51,8 @@
   "PORTAL": {
     "SECRET": "",
     "PORT": 0,
-    "CORS_PORT": 0
+    "CORS_PORT": 0,
+    "HOST": ""
   },
   "POSTGRES": {
     "USER": "",

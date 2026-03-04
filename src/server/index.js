@@ -1,6 +1,6 @@
 const config = require('../../config.json')
 const { PORTAL = config.PORTAL } = config;
-const { PORT: PORTAL_PORT, CORS_PORT: PORTAL_CORS_PORT, SECRET: PORTAL_SECRET } = PORTAL;
+const { PORT: PORTAL_PORT, CORS_PORT: PORTAL_CORS_PORT, SECRET: PORTAL_SECRET, HOST: PORTAL_HOST } = PORTAL;
 const Logger = require('../api/logger.js');
 const session = require('express-session');
 const bodyParser = require('body-parser');
@@ -73,6 +73,6 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 
-app.listen(PORTAL_PORT, "192.168.1.100", () => {
+app.listen(PORTAL_PORT, PORTAL_HOST, () => {
     Logger.info(`App listening on port ${PORTAL_PORT}.`);
 });
