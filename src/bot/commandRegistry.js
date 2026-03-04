@@ -56,7 +56,6 @@ const GROUPED_COMMANDS = {
       'event-edit': { subcommand: 'edit' },
       'event-count': { subcommand: 'count' },
       'event-top': { subcommand: 'top' },
-      'event-id-from-message': { group: 'id', subcommand: 'frommessage' },
       'event-list': { subcommand: 'list' },
       'event-type-add': { group: 'type', subcommand: 'add' },
       'event-type-list': { group: 'type', subcommand: 'list' },
