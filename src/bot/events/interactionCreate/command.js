@@ -34,7 +34,7 @@ function getInteractionCommandLogName(interaction) {
         }
     } catch { }
 
-    return [commandName, groupName, subcommandName].filter(Boolean).join(' ')
+    return `\`${[commandName, groupName, subcommandName].filter(Boolean).join(' ')}\``
 }
 
 /**
