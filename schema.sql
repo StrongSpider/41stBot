@@ -140,6 +140,7 @@ CREATE TABLE IF NOT EXISTS officer_labels (
   target_roblox_id bigint NOT NULL,
   officer_discord_id text NOT NULL,
   label text NOT NULL CHECK (label IN ('REAL', 'LIKELY_REAL', 'LIKELY_ALT', 'ALT')),
+  features_snapshot jsonb,
   created_at timestamptz NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS officer_labels_target_idx ON officer_labels (target_roblox_id);
