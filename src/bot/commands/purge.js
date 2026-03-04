@@ -259,10 +259,10 @@ module.exports = {
     permission: 'FFCNC',
     data: new SlashCommandBuilder()
         .setName('purge')
-        .setDescription('Run weekly purge')
+        .setDescription('Run the weekly purge')
         .addBooleanOption(o => o
             .setName('test')
-            .setDescription('Test mode: run the purge flow but do not change any Discord roles')
+            .setDescription('Run the purge without changing any Discord roles')
             .setRequired(false)
         ),
     /**

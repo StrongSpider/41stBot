@@ -60,7 +60,7 @@ module.exports = {
   permission: 'FFCNC',
   data: new SlashCommandBuilder()
     .setName('distribute-weekly-medals')
-    .setDescription('List users at 25+ EP and 60+ EP and gives them medals'),
+    .setDescription('Award weekly medals for users at 25+ EP and 60+ EP'),
   /**
    * @param {import('discord.js').ChatInputCommandInteraction} interaction
    */

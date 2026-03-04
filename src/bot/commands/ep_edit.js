@@ -58,18 +58,18 @@ module.exports = {
     requiresEventEpWrite: true,
     data: new SlashCommandBuilder()
         .setName("ep-edit")
-        .setDescription("Add, subtract, or set EP for users")
+        .setDescription("Update event points for one or more users")
         .addStringOption((option) =>
             option
                 .setName("roblox-usernames")
-                .setDescription("Usernames to edit (space-separated)")
+                .setDescription("Enter Roblox usernames separated by spaces")
                 .setAutocomplete(true)
                 .setRequired(true)
         )
         .addStringOption((option) =>
             option
                 .setName("operation")
-                .setDescription("How to modify EP")
+                .setDescription("Choose how to update the event points")
                 .setChoices(
                     { name: "add", value: "add" },
                     { name: "subtract", value: "subtract" },
@@ -78,7 +78,7 @@ module.exports = {
                 .setRequired(true)
         )
         .addIntegerOption((option) =>
-            option.setName("amount").setDescription("EP amount").setRequired(true)
+            option.setName("amount").setDescription("Enter the event point amount").setRequired(true)
         ),
 
     /**

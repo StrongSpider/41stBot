@@ -11,11 +11,11 @@ module.exports = {
     permission: "OFFICER",
     data: new SlashCommandBuilder()
         .setName("graph-badges")
-        .setDescription("Graphs a user's badges over time")
+        .setDescription("Graph badge history for a Roblox user")
         .addStringOption((option) =>
             option
                 .setName("roblox-username")
-                .setDescription("Target Roblox username")
+                .setDescription("Enter the Roblox username to graph")
                 .setRequired(true)
         ),
 

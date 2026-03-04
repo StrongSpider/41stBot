@@ -64,7 +64,7 @@ module.exports = {
         .addStringOption(opt =>
             opt
                 .setName('event-id')
-                .setDescription('Event ID or log message link to edit')
+                .setDescription('Enter an event ID or log message link')
                 .setRequired(true)
         ),
     /**

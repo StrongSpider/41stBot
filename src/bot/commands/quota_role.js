@@ -7,10 +7,10 @@ module.exports = {
     permission: 'OFFICER',
     data: new SlashCommandBuilder()
         .setName('quota-role')
-        .setDescription(`List a role's users and their quota status`)
+        .setDescription('Show quota status for every user in a role')
         .addRoleOption(option =>
             option.setName('role')
-                .setDescription('Role to check quotas for')
+                .setDescription('Select the role to review')
                 .setRequired(true)),
     /**
      * @param {CommandInteraction} interaction 

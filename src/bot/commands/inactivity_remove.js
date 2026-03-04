@@ -25,7 +25,7 @@ module.exports = {
         .setDescription("Remove a user's inactivity notice")
         .addUserOption(option =>
             option.setName('user')
-                .setDescription('User to remove')
+                .setDescription('Select the user to update')
                 .setRequired(true)
         ),
     /**

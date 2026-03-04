@@ -56,17 +56,17 @@ module.exports = {
         .setDescription("Edit a user's inactivity notice")
         .addUserOption(option =>
             option.setName('user')
-                .setDescription('User to edit')
+                .setDescription('Select the user to update')
                 .setRequired(true)
         )
         .addStringOption(option =>
             option.setName('date')
-                .setDescription('Return date (MM/DD/YYYY)')
+                .setDescription('Enter the return date in MM/DD/YYYY format')
                 .setRequired(false)
         )
         .addStringOption(option =>
             option.setName('reason')
-                .setDescription('Reason for inactivity')
+                .setDescription('Enter the reason for the inactivity notice')
                 .setRequired(false)
         ),
     /**

@@ -32,11 +32,11 @@ module.exports = {
   permission: 'ALL',
   data: new SlashCommandBuilder()
     .setName('8ball')
-    .setDescription('Ask the 8ball a yes or no question')
+    .setDescription('Ask the magic 8-ball a yes or no question')
     .addStringOption(option =>
       option
         .setName('question')
-        .setDescription('The yes or no question to ask')
+        .setDescription('Enter your yes or no question')
     ),
   /**
    * @param {import('discord.js').ChatInputCommandInteraction} interaction

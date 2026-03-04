@@ -29,14 +29,14 @@ module.exports = {
     permission: 'HICOM',
     data: new SlashCommandBuilder()
         .setName('unverify-force')
-        .setDescription('Force unlink a Discord user to a Roblox account')
+        .setDescription('Force unlink a Discord user from Roblox')
         .addUserOption(opt =>
             opt.setName('member')
-                .setDescription('Target discord mention')
+                .setDescription('Select the Discord user to unlink')
         )
         .addStringOption(opt =>
             opt.setName('username')
-                .setDescription("Target's Roblox username")
+                .setDescription('Enter the Roblox username to unlink')
         ),
     /**
      * @param {import('discord.js').ChatInputCommandInteraction} interaction

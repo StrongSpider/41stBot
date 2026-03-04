@@ -7,15 +7,15 @@ module.exports = {
     permission: "FFCNC",
     data: new SlashCommandBuilder()
         .setName("add-suspicious-place")
-        .setDescription("Add a Roblox place to the suspicious places database")
+        .setDescription("Add a Roblox place to the suspicious-place list")
         .addIntegerOption(option =>
             option.setName("place_id")
-                .setDescription("The ID of the Roblox place to flag")
+                .setDescription("Enter the Roblox place ID")
                 .setRequired(true)
                 .setMinValue(1))
         .addStringOption(option =>
             option.setName("reason")
-                .setDescription("The reason why this place is considered suspicious")
+                .setDescription("Enter the reason this place should be flagged")
                 .setRequired(true)),
 
     /**

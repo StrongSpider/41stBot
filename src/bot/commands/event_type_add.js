@@ -33,7 +33,7 @@ module.exports = {
         .addStringOption(option =>
             option
                 .setName('event')
-                .setDescription('Event type string to add')
+                .setDescription('Enter the event type to add')
                 .setRequired(true)
         ),
     /**

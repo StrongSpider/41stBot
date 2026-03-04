@@ -798,11 +798,11 @@ module.exports = {
     permission: "OFFICER",
     data: new SlashCommandBuilder()
         .setName("background-check")
-        .setDescription("Runs a background check on a user")
+        .setDescription("Run a background check on a Roblox user")
         .addStringOption(option =>
             option
                 .setName("roblox-username")
-                .setDescription("Target Roblox username")
+                .setDescription("Enter the Roblox username to review")
                 .setRequired(true)
         ),
 

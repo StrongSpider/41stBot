@@ -45,41 +45,41 @@ module.exports = {
     permission: 'ALL',
     data: new SlashCommandBuilder()
         .setName('event-count')
-        .setDescription('Get the number of events')
+        .setDescription('Count matching events')
         .addBooleanOption(option =>
             option
                 .setName('all-time')
-                .setDescription('If true, count all-time events')
+                .setDescription('Use all-time event data')
         )
         .addStringOption(option =>
             option
                 .setName('after-date')
-                .setDescription('Count events on/after this date (MM/DD/YYYY)')
+                .setDescription('Enter the earliest event date in MM/DD/YYYY format')
         )
         .addStringOption(option =>
             option
                 .setName('before-date')
-                .setDescription('Count events on/before this date (MM/DD/YYYY)')
+                .setDescription('Enter the latest event date in MM/DD/YYYY format')
         )
         .addStringOption(option =>
             option
                 .setName('during')
-                .setDescription('Single date or range (MM/DD/YYYY or MM/DD/YYYY to MM/DD/YYYY)')
+                .setDescription('Enter one date or a date range in MM/DD/YYYY format')
         )
         .addUserOption(option =>
             option
                 .setName('user')
-                .setDescription('User to count')
+                .setDescription('Select the user to count')
         )
         .addBooleanOption(option =>
             option
                 .setName('as-host')
-                .setDescription('Show events hosted instead of attended')
+                .setDescription('Count hosted events instead of attended events')
         )
         .addStringOption(option =>
             option
                 .setName('event')
-                .setDescription('Filter by event type (exact or prefix with *)')
+                .setDescription('Enter an event type or wildcard, like Ranger*')
                 .setAutocomplete(true)
         ),
     /**

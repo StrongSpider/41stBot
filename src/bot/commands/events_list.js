@@ -44,33 +44,33 @@ module.exports = {
         .setDescription("List a user's events")
         .addUserOption(option =>
             option.setName('user')
-                .setDescription('User to list (defaults to you)')
+                .setDescription('Select the user to review, or leave blank for yourself')
         )
         .addBooleanOption(option =>
             option
                 .setName('as-host')
-                .setDescription('Show events hosted instead of attended')
+                .setDescription('Show hosted events instead of attended events')
         )
         .addStringOption(option =>
             option
                 .setName('event')
-                .setDescription('Event type filter (use * wildcard, e.g. Ranger*)')
+                .setDescription('Enter an event type or wildcard, like Ranger*')
                 .setAutocomplete(true)
         )
         .addStringOption(option =>
             option
                 .setName('after-date')
-                .setDescription('Events on/after this date (MM/DD/YYYY)')
+                .setDescription('Enter the earliest event date in MM/DD/YYYY format')
         )
         .addStringOption(option =>
             option
                 .setName('before-date')
-                .setDescription('Events on/before this date (MM/DD/YYYY)')
+                .setDescription('Enter the latest event date in MM/DD/YYYY format')
         )
         .addStringOption(option =>
             option
                 .setName('during')
-                .setDescription('Single date or range (MM/DD/YYYY or MM/DD/YYYY to MM/DD/YYYY)')
+                .setDescription('Enter one date or a date range in MM/DD/YYYY format')
         ),
 
     /**

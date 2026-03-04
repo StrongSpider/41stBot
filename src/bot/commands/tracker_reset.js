@@ -27,7 +27,7 @@ module.exports = {
     permission: 'FFCNC',
     data: new SlashCommandBuilder()
         .setName('tracker-reset')
-        .setDescription("Reset this week's tracker (events and EP)"),
+        .setDescription("Reset this week's event and EP tracker"),
     /**
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */

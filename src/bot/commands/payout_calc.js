@@ -32,10 +32,10 @@ module.exports = {
     permission: 'FFCNC',
     data: new SlashCommandBuilder()
         .setName('payout-calc')
-        .setDescription('Calculate payout based on 41st weights')
+        .setDescription('Calculate a payout using 41st weights')
         .addStringOption(option =>
             option.setName('game')
-                .setDescription('Game to calculate payout for')
+                .setDescription('Choose the game to calculate for')
                 .setRequired(true)
                 .addChoices(
                     { name: 'Ceremonial Game', value: 'ceremony' }
@@ -43,7 +43,7 @@ module.exports = {
         )
         .addIntegerOption(option =>
             option.setName('amount')
-                .setDescription('Base amount used for payout')
+                .setDescription('Enter the base amount')
                 .setRequired(true)
         ),
     /**

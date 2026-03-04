@@ -5,7 +5,7 @@ module.exports = {
     permission: 'HICOM',
     data: new SlashCommandBuilder()
         .setName('event-type-list')
-        .setDescription('List all available event types'),
+        .setDescription('List available event types'),
     /**
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */

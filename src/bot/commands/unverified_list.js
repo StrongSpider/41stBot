@@ -26,7 +26,7 @@ module.exports = {
   permission: 'HICOM',
   data: new SlashCommandBuilder()
     .setName('unverified-list')
-    .setDescription('List users who are not verified'),
+    .setDescription('List unverified users'),
   /**
    * @param {import('discord.js').ChatInputCommandInteraction} interaction
    */

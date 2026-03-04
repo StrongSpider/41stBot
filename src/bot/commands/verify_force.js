@@ -24,15 +24,15 @@ module.exports = {
     permission: 'OFFICER',
     data: new SlashCommandBuilder()
         .setName('verify-force')
-        .setDescription('Force link a Discord user to a Roblox account')
+        .setDescription('Force link a Discord user to Roblox')
         .addUserOption(opt =>
             opt.setName('member')
-                .setDescription('Member to verify')
+                .setDescription('Select the Discord user to link')
                 .setRequired(true)
         )
         .addStringOption(opt =>
             opt.setName('username')
-                .setDescription("Target's Roblox username")
+                .setDescription('Enter the Roblox username to link')
                 .setRequired(true)
         ),
     /**

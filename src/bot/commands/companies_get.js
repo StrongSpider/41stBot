@@ -49,7 +49,7 @@ module.exports = {
   permission: 'ALL',
   data: new SlashCommandBuilder()
     .setName('companies-get')
-    .setDescription('Gets current companies user count excluding CE and CC'),
+    .setDescription('Show current company counts, excluding CE and CC'),
   /**
    * @param {import('discord.js').CommandInteraction} interaction
    */

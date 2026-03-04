@@ -21,10 +21,10 @@ module.exports = {
     permission: 'OFFICER',
     data: new SlashCommandBuilder()
         .setName('inactivity-get')
-        .setDescription("Get a user's inactivity details")
+        .setDescription("Show a user's inactivity notice")
         .addUserOption(option =>
             option.setName('user')
-                .setDescription('User to look up')
+                .setDescription('Select the user to review')
                 .setRequired(true)
         ),
     /**

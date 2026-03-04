@@ -10,16 +10,16 @@ module.exports = {
     permission: 'ALL',
     data: new SlashCommandBuilder()
         .setName('ep-get')
-        .setDescription('Get a user\'s event points')
+        .setDescription("Show a user's event points")
         .addUserOption(option =>
             option
                 .setName('user')
-                .setDescription('User to check (defaults to you)')
+                .setDescription('Select the user to check, or leave blank for yourself')
         )
         .addBooleanOption(option =>
             option
                 .setName('all-time')
-                .setDescription('If true, use all-time EP')
+                .setDescription('Use all-time event points')
         ),
     /**
      * @param {import('discord.js').ChatInputCommandInteraction} interaction

@@ -19,7 +19,7 @@ module.exports = {
 	permission: 'ALL',
 	data: new SlashCommandBuilder()
 		.setName('ping')
-		.setDescription('Check bot responsiveness'),
+		.setDescription('Check the bot latency'),
 	/**
 	 * @param {import('discord.js').ChatInputCommandInteraction} interaction
 	 */

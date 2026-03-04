@@ -16,11 +16,11 @@ module.exports = {
     requiresEventEpWrite: true,
     data: new SlashCommandBuilder()
         .setName('event-delete')
-        .setDescription('Delete\'s a logged weekly event')
+        .setDescription('Delete a logged weekly event')
         .addStringOption(opt =>
             opt
                 .setName('event-id')
-                .setDescription('Event ID or log message link to delete')
+                .setDescription('Enter an event ID or log message link')
                 .setRequired(true)
         ),
     /**

@@ -9,10 +9,10 @@ module.exports = {
     permission: 'ALL',
     data: new SlashCommandBuilder()
         .setName('refresh-username')
-        .setDescription('Force refresh a user\'s Roblox username in the cache.')
+        .setDescription("Refresh a user's cached Roblox username")
         .addUserOption(option =>
             option.setName('user')
-                .setDescription('The user to refresh (defaults to you)')
+                .setDescription('Select the user to refresh, or leave blank for yourself')
                 .setRequired(false)
         ),
     async execute(interaction) {

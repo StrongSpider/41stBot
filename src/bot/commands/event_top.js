@@ -41,43 +41,43 @@ module.exports = {
   permission: 'ALL',
   data: new SlashCommandBuilder()
     .setName('event-top')
-    .setDescription('Show top users for an event type')
+    .setDescription('Show the top users for an event type')
     .addStringOption(option =>
       option
         .setName('event')
-        .setDescription('Event type (use * wildcard, e.g. Ranger*)')
+        .setDescription('Enter an event type or wildcard, like Ranger*')
         .setRequired(true)
         .setAutocomplete(true)
     )
     .addBooleanOption(option =>
       option
         .setName('as-host')
-        .setDescription('Sort top hosts instead of attendees')
+        .setDescription('Show top hosts instead of attendees')
     )
     .addStringOption(option =>
       option
         .setName('before-date')
-        .setDescription('Before date (MM/DD/YYYY)')
+        .setDescription('Enter the latest event date in MM/DD/YYYY format')
     )
     .addStringOption(option =>
       option
         .setName('after-date')
-        .setDescription('After date (MM/DD/YYYY)')
+        .setDescription('Enter the earliest event date in MM/DD/YYYY format')
     )
     .addStringOption(option =>
       option
         .setName('during')
-        .setDescription('Single date or range (MM/DD/YYYY or MM/DD/YYYY to MM/DD/YYYY)')
+        .setDescription('Enter one date or a date range in MM/DD/YYYY format')
     )
     .addBooleanOption(option =>
       option
         .setName('all-time')
-        .setDescription('Search the all-time database')
+        .setDescription('Use all-time event data')
     )
     .addIntegerOption(option =>
       option
         .setName('count')
-        .setDescription('Users to list (1-15)')
+        .setDescription('Enter how many users to show')
         .setMinValue(1)
         .setMaxValue(15)
     ),

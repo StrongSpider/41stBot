@@ -90,47 +90,47 @@ module.exports = {
     requiresEventEpWrite: true,
     data: new SlashCommandBuilder()
         .setName('event-log')
-        .setDescription('Record an event and award EP')
+        .setDescription('Log an event and award event points')
         .addStringOption(option =>
             option
                 .setName('event')
-                .setDescription('Event name')
+                .setDescription('Choose the event type to log')
                 .setAutocomplete(true)
                 .setRequired(true)
         )
         .addStringOption(option =>
             option
                 .setName('attendees')
-                .setDescription('Mentions of attendees')
+                .setDescription('Mention the attendees to log')
                 .setRequired(true)
         )
         .addStringOption(option =>
             option
                 .setName('extra-ep-attendees')
-                .setDescription('Optional mentions for +1 extra EP')
+                .setDescription('Mention attendees who should receive +1 extra EP')
                 .setRequired(false)
         )
         .addStringOption(option =>
             option
                 .setName('note')
-                .setDescription('Optional note to include')
+                .setDescription('Enter a note for the event log')
         )
         .addIntegerOption(option =>
             option
                 .setName('base-ep')
-                .setDescription('Base EP points (1-3)')
+                .setDescription('Enter the base event points')
                 .setMinValue(1)
         )
         .addUserOption(option =>
             option
                 .setName('host')
-                .setDescription('Host (defaults to you)')
+                .setDescription('Select the host user, or leave blank for yourself')
                 .setRequired(false)
         )
         .addUserOption(option =>
             option
                 .setName('supervisor')
-                .setDescription('Supervisor user')
+                .setDescription('Select the supervisor user')
                 .setRequired(false)
         ),
     /**

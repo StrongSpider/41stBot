@@ -6,16 +6,16 @@ module.exports = {
     permission: 'FFCNC',
     data: new SlashCommandBuilder()
         .setName('say')
-        .setDescription('Sends message as bot')
+        .setDescription('Send a message through the bot')
         .addChannelOption(option =>
             option.setName('channel')
-                .setDescription('Channel where the bot should send the message')
+                .setDescription('Select the channel to post in')
                 .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
                 .setRequired(true)
         )
         .addStringOption(option =>
             option.setName('input')
-                .setDescription('What you want the bot to say')
+                .setDescription('Enter the message to send')
                 .setRequired(true)
         ),
     /**

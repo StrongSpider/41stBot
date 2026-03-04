@@ -11,10 +11,10 @@ module.exports = {
   permission: 'ALL',
   data: new SlashCommandBuilder()
     .setName('verify')
-    .setDescription('Links your Discord account to your Roblox account for 41st servers')
+    .setDescription('Link your Discord account to your Roblox account')
     .addStringOption(opt =>
       opt.setName('username')
-        .setDescription('Your Roblox username')
+        .setDescription('Enter your Roblox username')
         .setRequired(true)
     ),
   /**

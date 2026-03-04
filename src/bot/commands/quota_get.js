@@ -21,10 +21,10 @@ module.exports = {
     permission: 'ALL',
     data: new SlashCommandBuilder()
         .setName('quota-get')
-        .setDescription("Check a user's weekly quota")
+        .setDescription("Show a user's weekly quota status")
         .addUserOption(option =>
             option.setName('user')
-                .setDescription('User to check (defaults to you)')
+                .setDescription('Select the user to check, or leave blank for yourself')
         ),
     /**
      * @param {import('discord.js').ChatInputCommandInteraction} interaction

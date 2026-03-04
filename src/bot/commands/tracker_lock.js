@@ -19,11 +19,11 @@ module.exports = {
     permission: 'FFCNC',
     data: new SlashCommandBuilder()
         .setName('tracker-lock')
-        .setDescription('Enable or disable read-only mode for Event/EP updates')
+        .setDescription('Set read-only mode for event and EP updates')
         .addStringOption(option =>
             option
                 .setName('action')
-                .setDescription('Lock action')
+                .setDescription('Choose whether to lock or unlock updates')
                 .setRequired(true)
                 .setChoices(
                     { name: 'status', value: 'status' },
@@ -34,7 +34,7 @@ module.exports = {
         .addStringOption(option =>
             option
                 .setName('reason')
-                .setDescription('Optional reason for this lock state')
+                .setDescription('Enter a reason for this lock state')
                 .setRequired(false)
         ),
     /**

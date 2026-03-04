@@ -58,11 +58,11 @@ module.exports = {
     permission: 'ALL',
     data: new SlashCommandBuilder()
         .setName('event-get')
-        .setDescription('View details for a 41st event')
+        .setDescription('Show details for a logged 41st event')
         .addStringOption(option =>
             option
                 .setName('event-id')
-                .setDescription('Event ID or log message link to check')
+                .setDescription('Enter an event ID or log message link')
                 .setRequired(true)
         ),
     /**

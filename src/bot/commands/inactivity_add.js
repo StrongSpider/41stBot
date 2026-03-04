@@ -53,20 +53,20 @@ module.exports = {
     permission: 'OFFICER',
     data: new SlashCommandBuilder()
         .setName('inactivity-add')
-        .setDescription("Log a user's inactivity notice")
+        .setDescription("Add an inactivity notice for a user")
         .addUserOption(option =>
             option.setName('user')
-                .setDescription('User to add')
+                .setDescription('Select the user to update')
                 .setRequired(true)
         )
         .addStringOption(option =>
             option.setName('date')
-                .setDescription('Return date (MM/DD/YYYY)')
+                .setDescription('Enter the return date in MM/DD/YYYY format')
                 .setRequired(true)
         )
         .addStringOption(option =>
             option.setName('reason')
-                .setDescription('Reason for inactivity')
+                .setDescription('Enter the reason for the inactivity notice')
                 .setRequired(true)
         ),
     /**

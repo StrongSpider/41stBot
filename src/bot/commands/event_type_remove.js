@@ -35,7 +35,7 @@ module.exports = {
         .addStringOption(option =>
             option
                 .setName('event')
-                .setDescription('Event type string to remove')
+                .setDescription('Enter the event type to remove')
                 .setRequired(true)
                 .setAutocomplete(true)
         ),

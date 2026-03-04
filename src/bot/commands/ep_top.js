@@ -49,11 +49,11 @@ module.exports = {
     permission: 'ALL',
     data: new SlashCommandBuilder()
         .setName('ep-top')
-        .setDescription('Show the top 5 users by EP')
+        .setDescription('Show the top 5 users by event points')
         .addBooleanOption(option =>
             option
                 .setName('all-time')
-                .setDescription('If true, use all-time EP')
+                .setDescription('Use all-time event points')
         ),
     /**
      * @param {import('discord.js').ChatInputCommandInteraction} interaction

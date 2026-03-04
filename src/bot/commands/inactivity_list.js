@@ -23,7 +23,7 @@ module.exports = {
     permission: 'OFFICER',
     data: new SlashCommandBuilder()
         .setName('inactivity-list')
-        .setDescription('List all active inactivity notices'),
+        .setDescription('List active inactivity notices'),
     /**
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */

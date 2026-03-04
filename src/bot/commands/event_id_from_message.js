@@ -11,11 +11,11 @@ module.exports = {
     permission: 'ALL',
     data: new SlashCommandBuilder()
         .setName('event-id-from-message')
-        .setDescription('Extract an event ID from a message URL')
+        .setDescription('Get an event ID from a message link')
         .addStringOption(option =>
             option
                 .setName('message-url')
-                .setDescription('Message URL with the event post')
+                .setDescription('Enter the message link to inspect')
                 .setRequired(true)
         ),
     /**

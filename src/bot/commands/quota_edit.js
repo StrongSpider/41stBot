@@ -272,7 +272,7 @@ module.exports = {
     permission: 'HICOM',
     data: new SlashCommandBuilder()
         .setName('quota-edit')
-        .setDescription('Edit role quotas'),
+        .setDescription('Open the role quota editor'),
     /**
      * @param {CommandInteraction} interaction
      */
