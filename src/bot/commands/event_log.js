@@ -1,6 +1,6 @@
 'use strict'
 
-const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, UserSelectMenuBuilder, MessageFlags } = require('discord.js')
+const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } = require('discord.js')
 const config = require('../../../config.json')
 const { OFFICER: DISCORD_OFFICER_ROLE_ID, MINOR_OFFICER: DISCORD_MINOR_OFFICER_ROLE_ID, HICOM: DISCORD_HICOM_ROLE_ID } = config.DISCORD.ROLES
 const { CHANNELS: DISCORD_CHANNEL_IDS } = config.DISCORD
@@ -103,6 +103,23 @@ module.exports = {
                 .setDescription('Mentions of attendees')
                 .setRequired(true)
         )
+        .addStringOption(option =>
+            option
+                .setName('extra-ep-attendees')
+                .setDescription('Optional mentions for +1 extra EP')
+                .setRequired(false)
+        )
+        .addStringOption(option =>
+            option
+                .setName('note')
+                .setDescription('Optional note to include')
+        )
+        .addIntegerOption(option =>
+            option
+                .setName('base-ep')
+                .setDescription('Base EP points (1-3)')
+                .setMinValue(1)
+        )
         .addUserOption(option =>
             option
                 .setName('host')
@@ -114,17 +131,6 @@ module.exports = {
                 .setName('supervisor')
                 .setDescription('Supervisor user')
                 .setRequired(false)
-        )
-        .addIntegerOption(option =>
-            option
-                .setName('base-ep')
-                .setDescription('Base EP points (1-3)')
-                .setMinValue(1)
-        )
-        .addStringOption(option =>
-            option
-                .setName('note')
-                .setDescription('Optional note to include')
         ),
     /**
      * @param {import('discord.js').AutocompleteInteraction} interaction
@@ -136,7 +142,7 @@ module.exports = {
         const term = String(input || '').toLowerCase()
         const matches = (await database.getEventTypes())
             .filter(e => !term || e.toLowerCase().startsWith(term))
-            .slice(0, 5)
+            .slice(0, 25)
         const suggestions = matches.map(e => ({ name: e, value: e }))
 
         await interaction.respond(suggestions)
@@ -173,6 +179,7 @@ module.exports = {
 
         const eventName = interaction.options.getString('event')
         const attendeesRaw = interaction.options.getString('attendees')
+        const extraAttendeesRaw = interaction.options.getString('extra-ep-attendees') || ''
 
         let baseEpPoints = interaction.options.getInteger('base-ep') || 1
 
@@ -187,10 +194,17 @@ module.exports = {
 
         // Extract mentioned user ids from the attendees string
         const attendeesIds = Array.from(attendeesRaw.matchAll(/<@!?(\d+)>/g), m => m[1])
+        const extraAttendeesIds = Array.from(new Set(Array.from(extraAttendeesRaw.matchAll(/<@!?(\d+)>/g), m => m[1])))
 
         // Resolve Roblox ids for attendees, keep discord ids for mentions
         let resolvedAttendees = await Promise.all(
             attendeesIds.map(async id => {
+                const rid = await database.getRobloxIdByDiscord(id)
+                return { discordId: id, robloxId: rid }
+            })
+        )
+        let resolvedExtra = await Promise.all(
+            extraAttendeesIds.map(async id => {
                 const rid = await database.getRobloxIdByDiscord(id)
                 return { discordId: id, robloxId: rid }
             })
@@ -201,60 +215,11 @@ module.exports = {
         resolvedAttendees.forEach(u => {
             if (!u.robloxId) initialErrors.push(`<@${u.discordId}>: \`user not verified\``)
         })
+        resolvedExtra.forEach(u => {
+            if (!u.robloxId) initialErrors.push(`<@${u.discordId}>: \`user not verified\``)
+        })
         resolvedAttendees = resolvedAttendees.filter(u => u.robloxId)
-
-        // Select extra EP recipients or skip
-        const extraMenu = new UserSelectMenuBuilder()
-            .setCustomId('select_extra')
-            .setPlaceholder('Select extra EP recipients (optional)')
-            .setMinValues(0)
-            .setMaxValues(25)
-        const skipButton = new ButtonBuilder()
-            .setCustomId('skip_extra')
-            .setLabel('Skip')
-            .setStyle(ButtonStyle.Secondary)
-
-        await interaction.editReply({
-            content: 'Select any extra EP recipients, or press Skip:',
-            components: [
-                new ActionRowBuilder().addComponents(extraMenu),
-                new ActionRowBuilder().addComponents(skipButton)
-            ]
-        })
-
-        // Collect exactly one interaction from the invoker, timeout after 3 minutes
-        const reply2 = await interaction.fetchReply()
-        const extraCollector = reply2.createMessageComponentCollector({
-            filter: i => i.user.id === interaction.user.id && (i.customId === 'select_extra' || i.customId === 'skip_extra'),
-            time: 180000,
-            max: 1
-        })
-
-        const extraInteraction = await new Promise((resolve, reject) => {
-            extraCollector.on('collect', i => resolve(i))
-            extraCollector.on('end', collected => {
-                if (collected.size === 0) reject(new Error('No extra EP interaction'))
-            })
-        }).catch(() => {
-            interaction.editReply({ content: '<:warning:1297618648810393630> `No extra EP recipients selected or timed out. Click ‘Skip’ if there are none.`', components: [] })
-            return null
-        })
-
-        if (!extraInteraction) return
-
-        await extraInteraction.deferUpdate()
-
-        // Resolve extra EP selections to ids. Use an empty array when Skip was clicked
-        let resolvedExtra = []
-        if (extraInteraction.customId === 'select_extra') {
-            const selectedUsers = extraInteraction.users ? Array.from(extraInteraction.users.values()) : []
-            resolvedExtra = await Promise.all(
-                selectedUsers.map(async user => {
-                    const rid = await database.getRobloxIdByDiscord(user.id)
-                    return { discordId: user.id, robloxId: rid }
-                })
-            )
-        }
+        resolvedExtra = resolvedExtra.filter(u => u.robloxId)
 
         // Resolve host and supervisor from options
         const hostUser = interaction.options.getUser('host') || interaction.user
