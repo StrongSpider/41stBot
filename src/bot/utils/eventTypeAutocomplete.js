@@ -2,7 +2,7 @@
 
 const database = require('../../api/database.js')
 
-const MAX_EVENT_TYPE_AUTOCOMPLETE_CHOICES = 25
+const MAX_EVENT_TYPE_AUTOCOMPLETE_CHOICES = 5
 
 /**
  * Normalize a focused autocomplete value for event-type matching.
