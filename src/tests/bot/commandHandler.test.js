@@ -32,6 +32,7 @@ jest.mock('../../bot/utils/eventEpLock.js', () => ({
 }))
 
 const commandHandler = require('../../bot/events/interactionCreate/command.js')
+const LoggerClass = require('../../api/logger.js')
 
 function createInteraction({ command, userId, isAdmin = false }) {
     return {
@@ -63,7 +64,7 @@ function createInteraction({ command, userId, isAdmin = false }) {
     }
 }
 
-function createSubcommandInteraction({ groupCommand, resolvedCommand, userId, isAdmin = false, subcommand = 'edit' }) {
+function createSubcommandInteraction({ groupCommand, resolvedCommand, userId, isAdmin = false, subcommandGroup = null, subcommand = 'edit' }) {
     return {
         commandName: groupCommand,
         user: {
@@ -82,7 +83,7 @@ function createSubcommandInteraction({ groupCommand, resolvedCommand, userId, is
             isAdmin ? PermissionsBitField.Flags.Administrator : undefined
         ),
         options: {
-            getSubcommandGroup: jest.fn().mockReturnValue(null),
+            getSubcommandGroup: jest.fn().mockReturnValue(subcommandGroup),
             getSubcommand: jest.fn().mockReturnValue(subcommand)
         },
         client: {
@@ -144,16 +145,28 @@ describe('interactionCreate/command', () => {
             execute: jest.fn().mockResolvedValue(undefined)
         }
         const interaction = createSubcommandInteraction({
-            groupCommand: 'quota',
+            groupCommand: 'event',
             resolvedCommand: command,
             userId: 'admin-user',
             isAdmin: true,
-            subcommand: 'edit'
+            subcommandGroup: 'type',
+            subcommand: 'add'
         })
 
         await commandHandler(interaction)
 
         expect(command.execute).toHaveBeenCalledWith(interaction)
         expect(interaction.reply).not.toHaveBeenCalled()
+
+        const logger = LoggerClass.mock.results[0].value
+        expect(logger.info.mock.calls.at(-1)).toEqual([
+            'Received command:',
+            'event type add',
+            'from',
+            'admin-user',
+            '(',
+            'admin-user',
+            ')'
+        ])
     })
 })

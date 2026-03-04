@@ -14,6 +14,29 @@ const { MessageFlags } = require('discord.js')
 const { hasDeveloperOrAdminOverride } = require('../../utils/interactionPermissions.js')
 const { resolveCommand } = require('../../commandRegistry.js')
 
+function getInteractionCommandLogName(interaction) {
+    const commandName = interaction?.commandName
+    if (!commandName) return 'unknown'
+
+    const options = interaction?.options
+    let groupName = null
+    let subcommandName = null
+
+    try {
+        if (typeof options?.getSubcommandGroup === 'function') {
+            groupName = options.getSubcommandGroup(false)
+        }
+    } catch { }
+
+    try {
+        if (typeof options?.getSubcommand === 'function') {
+            subcommandName = options.getSubcommand(false)
+        }
+    } catch { }
+
+    return [commandName, groupName, subcommandName].filter(Boolean).join(' ')
+}
+
 /**
  * @param {import('discord.js').ChatInputCommandInteraction | import('discord.js').ContextMenuCommandInteraction} interaction
  */
@@ -33,7 +56,7 @@ module.exports = async function commandHandler(interaction) {
         try {
             const uname = interaction.user?.username || 'unknown'
             const uid = interaction.user?.id || 'unknown'
-            logger.info('Received command:', interaction.commandName, 'from', uname, '(', uid, ')')
+            logger.info('Received command:', getInteractionCommandLogName(interaction), 'from', uname, '(', uid, ')')
             //await sendCommandReceived(interaction.commandName, uname, uid)
         } catch { }
 
