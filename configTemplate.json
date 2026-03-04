@@ -12,36 +12,131 @@
       "REDIRECT_URI": ""
     },
     "ROLES": {
-      "FFCNC": "",
-      "HICOM": "",
-      "OFFICER": "",
-      "MINOR_OFFICER": "",
-      "CMOTW": "",
-      "VIP_PING": "",
-      "DEFAULT_QUOTA": "",
-      "PURGE_DEFCON": "",
-      "INACTIVITY_MANAGEMENT": "",
-      "INACTIVITY_NOTICE": "",
-      "EXEMPT": "",
-      "AUTO_ROLES": [],
-      "ERT_OFFICER": [],
+      "FFCNC": "864357575704969236",
+      "HICOM": "704883479086760017",
+      "OFFICER": "704883262937497730",
+      "MINOR_OFFICER": "1238333468610662410",
+      "CMOTW": "1107111328956547185",
+      "VIP_PING": "1440086100998623454",
+      "DEFAULT_QUOTA": "692486252360106074",
+      "PURGE_DEFCON": "984321461621751848",
+      "INACTIVITY_MANAGEMENT": "717918764997410866",
+      "INACTIVITY_NOTICE": "725582569965355018",
+      "EXEMPT": "965797901630574602",
+      "AUTO_ROLES": [
+        "757415486924390422",
+        "704881591272472596",
+        "984316075640516639"
+      ],
+      "ERT_OFFICER": [
+        "692560911226896404",
+        "692945334124412968"
+      ],
       "MEDAL": {
-        "PLATINUM": "",
-        "GOLD": "",
-        "SILVER": "",
-        "BRONZE": ""
+        "PLATINUM": "864286090294591488",
+        "GOLD": "702372512285196328",
+        "SILVER": "702372515280060518",
+        "BRONZE": "702372246584426497"
       },
-      "UNIT": [],
-      "COMPANY": {},
-      "RANK": {}
+      "UNIT": [
+        {
+          "unit": "Trooper",
+          "roles": [
+            "848302937725730826",
+            "1154927405077635184",
+            "701926686299652146",
+            "1236806451209437297",
+            "798704341954330634"
+          ]
+        },
+        {
+          "unit": "Green Company",
+          "roles": [
+            "973428151273279518",
+            "778019588771545148",
+            "1333810234434781237",
+            "1236805329438904441",
+            "778019081457631247"
+          ]
+        },
+        {
+          "unit": "Sarlacc Battalion",
+          "roles": [
+            "873474383493103646",
+            "760171582508892200",
+            "1236805633714425886",
+            "701588681546530887"
+          ]
+        },
+        {
+          "unit": "Ranger Platoon",
+          "roles": [
+            "905319033895800853",
+            "984627195169370122",
+            "1236805791806394431",
+            "701588399965864027"
+          ]
+        },
+        {
+          "unit": "Zeus Company",
+          "roles": [
+            "862766541383794708",
+            "993953061611507773",
+            "1236440479600607323",
+            "804026165194784769"
+          ]
+        },
+        {
+          "unit": "Access Roles",
+          "roles": [
+            "1060392520284131418",
+            "1060392564500475924",
+            "1060392464273379388",
+            "1069291634950406154"
+          ]
+        }
+      ],
+      "COMPANY": {
+        "692486252360106074": "Trooper",
+        "1126260496564240454": "Trooper",
+        "692486250476732427": "Green Company",
+        "1106396097984872458": "Green Company",
+        "692486249998450740": "Sarlacc Battalion",
+        "1106406209340313700": "Sarlacc Battalion",
+        "692486251286364181": "Ranger Platoon",
+        "1107027338148978808": "Ranger Platoon",
+        "692486249386082334": "Zeus Company",
+        "1107027257555435690": "Zeus Company",
+        "864357575704969236": "FFCNC"
+      },
+      "RANK": {
+        "704881591272472596": "41st Personnel",
+        "1128374465454145756": "Squad Leader",
+        "1128374387347816478": "Squad Leader",
+        "1128374008707043419": "Squad Leader",
+        "1128374067100143656": "Squad Leader",
+        "1128397547736662098": "Squad Leader",
+        "717566815697633311": "Company Sergeant",
+        "696567439433138236": "Company Lieutenant",
+        "991900568517873735": "Company Executive",
+        "692486248673050805": "Company Commander",
+        "722936411128332308": "Captain Draa",
+        "692486247893172246": "Commander Buzz",
+        "692486247339393055": "Commander Gree",
+        "742831287462658139": "Overseer",
+        "691860674883616889": "Overseer",
+        "1080538293696995368": "Overseer",
+        "691861042187206687": "Overseer",
+        "691715054546059344": "Supreme Chancellor"
+      }
     },
     "CHANNELS": {
-      "COUNTER_RAID_LOGS": "",
-      "WELCOME": "",
-      "MINOR_OFFICER_EVENT_LOGS": "",
-      "OFFICER_EVENT_LOGS": "",
-      "GAR_BOT_LOGS": "",
-      "OFFICER_BOT_COMMANDS": ""
+      "COUNTER_RAID_LOGS": "714825306204274728",
+      "WELCOME": "691720146548686899",
+      "MINOR_OFFICER_EVENT_LOGS": "717580007081377832",
+      "OFFICER_EVENT_LOGS": "691713219311435786",
+      "GAR_BOT_LOGS": "1096150281076617287",
+      "OFFICER_BOT_COMMANDS": "1362770992564404345"
     },
     "WEBHOOKS": {
       "ADMIN_LOGS": "",
@@ -62,14 +157,73 @@
     "DATABASE": ""
   },
   "ROBLOX": {
-    "GROUP_ID": 0,
-    "GAR_GROUP_ID": 0,
-    "GROUP_GUARDING_RANKS": [],
+    "GROUP_ID": 5810035,
+    "GAR_GROUP_ID": 5214183,
+    "GROUP_GUARDING_RANKS": [
+      "Company Officer",
+      "Company Commander",
+      "Captain Draa",
+      "Commander Buzz",
+      "Commander Gree"
+    ],
     "COOKIE": "",
-    "PLACE_ID": 0,
+    "PLACE_ID": 4238077359,
     "ASSET_TYPES": {
-      "DEVELOPMENT": [],
-      "AVATAR": []
+      "DEVELOPMENT": [
+        "Audio",
+        "Place",
+        "Model",
+        "Decal",
+        "Animation",
+        "Plugin",
+        "MeshPart",
+        "Video"
+      ],
+      "AVATAR": [
+        "TShirt",
+        "Hat",
+        "Shirt",
+        "Pants",
+        "Head",
+        "Face",
+        "Gear",
+        "Torso",
+        "RightArm",
+        "LeftArm",
+        "LeftLeg",
+        "RightLeg",
+        "Package",
+        "HairAccessory",
+        "FaceAccessory",
+        "NeckAccessory",
+        "ShoulderAccessory",
+        "FrontAccessory",
+        "BackAccessory",
+        "WaistAccessory",
+        "ClimbAnimation",
+        "DeathAnimation",
+        "FallAnimation",
+        "IdleAnimation",
+        "JumpAnimation",
+        "RunAnimation",
+        "SwimAnimation",
+        "WalkAnimation",
+        "PoseAnimation",
+        "EmoteAnimation",
+        "TShirtAccessory",
+        "ShirtAccessory",
+        "PantsAccessory",
+        "JacketAccessory",
+        "SweaterAccessory",
+        "ShortsAccessory",
+        "LeftShoeAccessory",
+        "RightShoeAccessory",
+        "DressSkirtAccessory",
+        "EyebrowAccessory",
+        "EyelashAccessory",
+        "MoodAnimation",
+        "DynamicHead"
+      ]
     }
   },
   "WEBSHARE": {
@@ -86,8 +240,8 @@
     "CLANWARE_API_KEY": ""
   },
   "GENERAL": {
-    "EMBED_COLOR": "",
-    "ACCENT_COLOR": 0,
+    "EMBED_COLOR": "DarkGreen",
+    "ACCENT_COLOR": 1659966,
     "GROUP_NAME": "41st",
     "TROOPER_RANK_LABEL": "Trooper (10)"
   }
