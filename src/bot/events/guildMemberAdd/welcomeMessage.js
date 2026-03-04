@@ -40,7 +40,7 @@ module.exports = async function welcomeMessage(member) {
 
     const embed = new EmbedBuilder()
       .setTitle('Welcome to 41st Elite Corps!')
-      .setDescription('Follow instructions from your host.\nWhen you are ready, run the `/verify` command in this channel.')
+      .setDescription('Follow instructions from your host.\nWhen you are ready, run the `/verify start` command in this channel.')
       .setColor(EMBED_COLOR)
       .setFooter({ text: '41ST BOT', iconURL: chan.guild.iconURL() ?? undefined })
       .setTimestamp()
