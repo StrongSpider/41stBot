@@ -11,6 +11,7 @@ const database = require('../../api/database.js')
 const { formatEventEpLockMessage } = require('../utils/eventEpLock.js')
 const { hasDeveloperOrAdminOverride } = require('../utils/interactionPermissions.js')
 const { buildEventSummary } = require('../utils/eventSummary.js')
+const { respondWithEventTypeAutocomplete } = require('../utils/eventTypeAutocomplete')
 
 const LoggerClass = require('../../api/logger.js')
 const logger = new LoggerClass('EventLog', 'BOT')
@@ -136,16 +137,12 @@ module.exports = {
      * @param {import('discord.js').AutocompleteInteraction} interaction
      */
     async autocomplete(interaction) {
-        const focused = interaction.options.getFocused(true)
-        const input = focused.value
-
-        const term = String(input || '').toLowerCase()
-        const matches = (await database.getEventTypes())
-            .filter(e => !term || e.toLowerCase().startsWith(term))
-            .slice(0, 25)
-        const suggestions = matches.map(e => ({ name: e, value: e }))
-
-        await interaction.respond(suggestions)
+        const { name } = interaction.options.getFocused(true)
+        if (name !== 'event') {
+            await interaction.respond([])
+            return
+        }
+        await respondWithEventTypeAutocomplete(interaction)
     },
     /**
      * @param {import('discord.js').ChatInputCommandInteraction} interaction

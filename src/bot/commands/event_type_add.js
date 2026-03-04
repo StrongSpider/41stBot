@@ -32,7 +32,7 @@ module.exports = {
         .setDescription('Add an event type to autocomplete')
         .addStringOption(option =>
             option
-                .setName('type')
+                .setName('event')
                 .setDescription('Event type string to add')
                 .setRequired(true)
         ),
@@ -41,7 +41,7 @@ module.exports = {
      */
     async execute(interaction) {
         try {
-            const raw = interaction.options.getString('type', true)
+            const raw = interaction.options.getString('event', true)
             const name = normalizeName(raw)
 
             if (!isValidEventName(name)) {

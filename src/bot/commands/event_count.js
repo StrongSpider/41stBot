@@ -6,6 +6,7 @@ const { EMBED_COLOR } = config.GENERAL
 const database = require('../../api/database')
 const roblox = require('../../api/roblox')
 const { resolveEventDateFilters, eventMatchesDateRange } = require('../utils/eventDateFilters')
+const { respondWithEventTypeAutocomplete } = require('../utils/eventTypeAutocomplete')
 
 
 // WARNING: Regex hell!!! Sorry, I had no other choice...
@@ -77,9 +78,25 @@ module.exports = {
         )
         .addStringOption(option =>
             option
-                .setName('event-type')
+                .setName('event')
                 .setDescription('Filter by event type (exact or prefix with *)')
+                .setAutocomplete(true)
         ),
+    /**
+     * @param {import('discord.js').AutocompleteInteraction} interaction
+     */
+    async autocomplete(interaction) {
+        try {
+            const { name } = interaction.options.getFocused(true)
+            if (name !== 'event') {
+                await interaction.respond([])
+                return
+            }
+            await respondWithEventTypeAutocomplete(interaction)
+        } catch {
+            await interaction.respond([]).catch(() => { })
+        }
+    },
     /**
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
      */
@@ -92,14 +109,14 @@ module.exports = {
             const afterInput = interaction.options.getString('after-date') ?? null
             const beforeInput = interaction.options.getString('before-date') ?? null
             const duringInput = interaction.options.getString('during') ?? null
-            const eventTypeInput = interaction.options.getString('event-type') ?? null
+            const eventInput = interaction.options.getString('event') ?? null
             const userInput = interaction.options.getUser('user') ?? null
             const asHostInput = interaction.options.getBoolean('as-host') ?? false
 
             // Validate event type pattern
-            const typePattern = eventTypeInput ? eventTypeInput.trim() : null
+            const typePattern = eventInput ? eventInput.trim() : null
             if (typePattern && !isValidPrefixPattern(typePattern)) {
-                await interaction.editReply({ content: 'Invalid event-type. Use exact name or a single trailing * (e.g., Ranger*). Only letters, numbers, space, . _ - are allowed.' })
+                await interaction.editReply({ content: 'Invalid event. Use exact name or a single trailing * (e.g., Ranger*). Only letters, numbers, space, . _ - are allowed.' })
                 return
             }
             const typeRx = typePattern ? prefixPatternToRegex(typePattern) : null
@@ -167,7 +184,7 @@ module.exports = {
             const titleBits = []
             if (dateFilters.useAllTime) titleBits.push('All Time')
             if (dateFilters.dateLabel) titleBits.push(dateFilters.dateLabel)
-            if (eventTypeInput) titleBits.push(`Type: ${eventTypeInput}`)
+            if (eventInput) titleBits.push(`Type: ${eventInput}`)
 
             if (robloxId !== null) {
                 let tag = ''

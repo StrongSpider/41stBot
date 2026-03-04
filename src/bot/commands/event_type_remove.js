@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js')
 const database = require('../../api/database.js')
+const { respondWithEventTypeAutocomplete } = require('../utils/eventTypeAutocomplete')
 
 const LoggerClass = require('../../api/logger.js')
 const logger = new LoggerClass('Event Type Remove', 'BOT')
@@ -33,7 +34,7 @@ module.exports = {
         .setDescription('Remove an event type from autocomplete')
         .addStringOption(option =>
             option
-                .setName('type')
+                .setName('event')
                 .setDescription('Event type string to remove')
                 .setRequired(true)
                 .setAutocomplete(true)
@@ -43,7 +44,7 @@ module.exports = {
      */
     async execute(interaction) {
         try {
-            const raw = interaction.options.getString('type', true)
+            const raw = interaction.options.getString('event', true)
             const name = normalizeName(raw)
 
             // Validate before attempting removal so we can give a clear message
@@ -70,12 +71,7 @@ module.exports = {
      */
     async autocomplete(interaction) {
         try {
-            const focusedValue = interaction.options.getFocused()
-            const allTypes = await database.getEventTypes()
-            const filtered = allTypes.filter(choice => choice.toLowerCase().includes(focusedValue.toLowerCase()))
-            await interaction.respond(
-                filtered.slice(0, 25).map(choice => ({ name: choice, value: choice }))
-            )
+            await respondWithEventTypeAutocomplete(interaction, { matcher: 'includes' })
         } catch (error) {
             logger.error('Autocomplete error:', error)
             // Autocomplete interactions must be responded to, even with empty list, or they hang/error on client

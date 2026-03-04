@@ -6,6 +6,7 @@ const config = require('../../../config.json')
 const { EMBED_COLOR } = config.GENERAL
 const database = require('../../api/database.js')
 const { resolveEventDateFilters, eventMatchesDateRange } = require('../utils/eventDateFilters')
+const { respondWithEventTypeAutocomplete } = require('../utils/eventTypeAutocomplete')
 
 /**
  * Validate an event pattern allowing a single trailing `*` for prefix matches
@@ -85,19 +86,12 @@ module.exports = {
    * @param {import('discord.js').AutocompleteInteraction} interaction
    */
   async autocomplete(interaction) {
-    const focused = interaction.options.getFocused()
     const { name } = interaction.options.getFocused(true)
-
-    let suggestions = []
-    if (name === 'event') {
-      const term = String(focused || '').toLowerCase()
-      const matches = (await database.getEventTypes())
-        .filter(e => !term || e.toLowerCase().startsWith(term))
-        .slice(0, 25)
-      suggestions = matches.map(e => ({ name: e, value: e }))
+    if (name !== 'event') {
+      await interaction.respond([])
+      return
     }
-
-    await interaction.respond(suggestions)
+    await respondWithEventTypeAutocomplete(interaction)
   },
 
   /**

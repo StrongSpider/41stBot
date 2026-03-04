@@ -10,7 +10,8 @@ const {
     EVENT_POINTS_TABLE,
     ALL_TIME_EVENT_POINTS_TABLE,
     EVENT_TYPES_TABLE,
-    EVENT_TYPES_CACHE_TTL_MS
+    EVENT_TYPES_CACHE_TTL_MS,
+    EVENT_TYPE_USAGE_CACHE_TTL_MS
 } = require('../constants');
 const { assertEventEpWriteUnlocked } = require('./botState');
 
@@ -20,10 +21,34 @@ const { assertEventEpWriteUnlocked } = require('./botState');
 
 let _eventTypesCache = null;
 let _eventTypesInFlight = null;
+let _rankedEventTypesCache = null;
+let _rankedEventTypesInFlight = null;
 
 async function _loadEventTypesFromDb() {
     const res = await pool.query(`SELECT type FROM ${EVENT_TYPES_TABLE}`);
     return res.rows.map(r => String(r.type));
+}
+
+async function _loadRankedEventTypesFromDb(refresh) {
+    const [eventTypes, countRows] = await Promise.all([
+        getEventTypes(refresh ? { refresh: true } : undefined),
+        pool.query(
+            `SELECT type, COUNT(*)::int AS count
+             FROM ${ALL_TIME_EVENTS_TABLE}
+             WHERE type IS NOT NULL
+             GROUP BY type`
+        )
+    ]);
+
+    const counts = new Map(
+        countRows.rows.map(row => [String(row.type), Number(row.count) || 0])
+    );
+
+    return [...eventTypes].sort((a, b) => {
+        const countDiff = (counts.get(b) || 0) - (counts.get(a) || 0);
+        if (countDiff !== 0) return countDiff;
+        return a.localeCompare(b);
+    });
 }
 
 /**
@@ -47,6 +72,30 @@ async function getEventTypes(opts) {
 }
 
 /**
+ * Get event types sorted by all-time usage count descending.
+ * @param {Object} [opts]
+ * @param {boolean} [opts.refresh] Force refresh from DB
+ * @returns {Promise<string[]>}
+ */
+async function getRankedEventTypes(opts) {
+    const refresh = opts && opts.refresh === true;
+    const now = Date.now();
+    if (!refresh && _rankedEventTypesCache && _rankedEventTypesCache.expiresAt > now) {
+        return _rankedEventTypesCache.data;
+    }
+    if (!refresh && _rankedEventTypesInFlight) return _rankedEventTypesInFlight;
+
+    _rankedEventTypesInFlight = (async () => {
+        const data = await _loadRankedEventTypesFromDb(refresh);
+        _rankedEventTypesCache = { data, expiresAt: now + EVENT_TYPE_USAGE_CACHE_TTL_MS };
+        _rankedEventTypesInFlight = null;
+        return data;
+    })();
+
+    return _rankedEventTypesInFlight;
+}
+
+/**
  * Add a new event type
  * @param {string} type 
  * @returns {Promise<string>}
@@ -61,6 +110,7 @@ async function addEventType(type) {
         if (!_eventTypesCache.data.includes(t)) _eventTypesCache.data.push(t);
         _eventTypesCache.expiresAt = Date.now() + EVENT_TYPES_CACHE_TTL_MS;
     }
+    clearRankedEventTypesCache();
     return t;
 }
 
@@ -76,11 +126,17 @@ async function removeEventType(type) {
         _eventTypesCache.data = _eventTypesCache.data.filter(x => x !== t);
         _eventTypesCache.expiresAt = Date.now() + EVENT_TYPES_CACHE_TTL_MS;
     }
+    clearRankedEventTypesCache();
 }
 
 function clearEventTypesCache() {
     _eventTypesCache = null;
     _eventTypesInFlight = null;
+}
+
+function clearRankedEventTypesCache() {
+    _rankedEventTypesCache = null;
+    _rankedEventTypesInFlight = null;
 }
 
 // ===========================================
@@ -191,7 +247,7 @@ async function createWeeklyEvent(data) {
     for (const uid of data.attendees) await indexEventForUser(uid, eventId);
     await indexEventForUser(data.host, eventId);
 
-
+    clearRankedEventTypesCache();
 
     return eventId;
 }
@@ -309,6 +365,7 @@ async function updateWeeklyEvent(eventId, updates) {
     const newAtt = updates.attendees || oldData.attendees || [];
     for (const uid of oldAtt.filter(x => !newAtt.includes(x))) await unindexEventForUser(uid, eventId);
     for (const uid of newAtt.filter(x => !oldAtt.includes(x))) await indexEventForUser(uid, eventId);
+    clearRankedEventTypesCache();
 }
 
 async function updateWeeklyEventPartial(eventId, updates) {
@@ -343,6 +400,7 @@ async function updateAllTimeEvent(eventId, updates) {
             values
         );
     }
+    clearRankedEventTypesCache();
 }
 
 /**
@@ -360,6 +418,7 @@ async function deleteEventById(eventId) {
         if (!attendees.includes(weeklyData.host)) attendees.push(weeklyData.host);
         if (!attendees.includes(weeklyData.supervisor)) attendees.push(weeklyData.supervisor);
         for (const uid of attendees) await unindexEventForUser(uid, eventId);
+        clearRankedEventTypesCache();
         return;
     }
     const historyData = await getAllTimeEventById(eventId);
@@ -367,6 +426,7 @@ async function deleteEventById(eventId) {
         await pool.query(`DELETE FROM ${ALL_TIME_EVENTS_TABLE} WHERE eventid = $1`, [String(eventId)]);
         const attendees = Array.isArray(historyData.attendees) ? historyData.attendees : [];
         for (const uid of attendees) await unindexEventForUser(uid, eventId);
+        clearRankedEventTypesCache();
     }
 }
 
@@ -386,6 +446,7 @@ async function deleteAllTimeEventById(eventId) {
         if (!attendees.includes(oldWeekly.supervisor)) attendees.push(oldWeekly.supervisor);
     }
     for (const uid of attendees) await unindexEventForUser(uid, eventId);
+    clearRankedEventTypesCache();
 }
 
 /**
@@ -718,9 +779,11 @@ async function resetAllEventPoints() {
 
 module.exports = {
     getEventTypes,
+    getRankedEventTypes,
     addEventType,
     removeEventType,
     clearEventTypesCache,
+    clearRankedEventTypesCache,
     indexEventForUser,
     unindexEventForUser,
     createWeeklyEvent,
