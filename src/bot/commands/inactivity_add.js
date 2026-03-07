@@ -9,17 +9,17 @@ const database = require('../../api/database.js')
 const { hasDeveloperOrAdminOverride } = require('../utils/interactionPermissions.js')
 
 /**
- * Validate a date string in MM/DD/YYYY format
+ * Validate a date string in DD/MM/YYYY format
  * Accepts only zero-padded numeric input to avoid ambiguous parsing
  * @param {unknown} s
  * @returns {boolean}
  */
-function isValidMDY(s) {
+function isValidDMY(s) {
     if (typeof s !== 'string') return false
     const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s)
     if (!m) return false
-    const mm = Number(m[1])
-    const dd = Number(m[2])
+    const dd = Number(m[1])
+    const mm = Number(m[2])
     const yyyy = Number(m[3])
     if (mm < 1 || mm > 12) return false
     // day 0 of next month gives last day of current month
@@ -29,13 +29,13 @@ function isValidMDY(s) {
 }
 
 /**
- * Parse MM/DD/YYYY and return a Date at 23:59:59.999 UTC for that day
+ * Parse DD/MM/YYYY and return a Date at 23:59:59.999 UTC for that day
  * We use end-of-day so "return by" includes the whole day
  * @param {string} s
  * @returns {Date}
  */
-function parseMDYEndOfDayUTC(s) {
-    const [mm, dd, yyyy] = s.split('/')
+function parseDMYEndOfDayUTC(s) {
+    const [dd, mm, yyyy] = s.split('/')
     return new Date(Date.UTC(Number(yyyy), Number(mm) - 1, Number(dd), 23, 59, 59, 999))
 }
 
@@ -61,7 +61,7 @@ module.exports = {
         )
         .addStringOption(option =>
             option.setName('date')
-                .setDescription('Enter the return date in MM/DD/YYYY format')
+                .setDescription('Enter the return date in DD/MM/YYYY format')
                 .setRequired(true)
         )
         .addStringOption(option =>
@@ -92,11 +92,11 @@ module.exports = {
             }
 
             // Date validation and normalization
-            if (!isValidMDY(dateString)) {
-                await interaction.editReply({ content: '<:warning:1297618648810393630> `Invalid date format! Use MM/DD/YYYY.`' })
+            if (!isValidDMY(dateString)) {
+                await interaction.editReply({ content: '<:warning:1297618648810393630> `Invalid date format! Use DD/MM/YYYY.`' })
                 return
             }
-            const returnDate = parseMDYEndOfDayUTC(dateString)
+            const returnDate = parseDMYEndOfDayUTC(dateString)
             if (returnDate.getTime() <= Date.now()) {
                 await interaction.editReply({ content: '<:warning:1297618648810393630> `The date must be in the future!`' })
                 return

@@ -9,8 +9,8 @@ const DURING_RE = new RegExp(
 )
 
 /**
- * Parse a calendar date in MM/DD/YYYY form into UTC milliseconds.
- * Accepts 1-2 digit month/day for convenience and normalizes output labels.
+ * Parse a calendar date in DD/MM/YYYY form into UTC milliseconds.
+ * Accepts 1-2 digit day/month for convenience and normalizes output labels.
  * @param {string|null|undefined} input
  * @param {boolean} endOfDay
  * @returns {{ ms: number|null, normalized: string|null, error: string|null }}
@@ -23,19 +23,19 @@ function parseDateInput(input, endOfDay) {
     const raw = String(input).trim()
     const match = DATE_RE.exec(raw)
     if (!match) {
-        return { ms: null, normalized: null, error: 'Invalid date format. Use MM/DD/YYYY.' }
+        return { ms: null, normalized: null, error: 'Invalid date format. Use DD/MM/YYYY.' }
     }
 
-    const month = Number(match[1])
-    const day = Number(match[2])
+    const day = Number(match[1])
+    const month = Number(match[2])
     const year = Number(match[3])
     if (month < 1 || month > 12) {
-        return { ms: null, normalized: null, error: 'Invalid date format. Use MM/DD/YYYY.' }
+        return { ms: null, normalized: null, error: 'Invalid date format. Use DD/MM/YYYY.' }
     }
 
     const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate()
     if (day < 1 || day > daysInMonth) {
-        return { ms: null, normalized: null, error: 'Invalid date format. Use MM/DD/YYYY.' }
+        return { ms: null, normalized: null, error: 'Invalid date format. Use DD/MM/YYYY.' }
     }
 
     const hours = endOfDay ? 23 : 0
@@ -45,7 +45,7 @@ function parseDateInput(input, endOfDay) {
 
     return {
         ms: Date.UTC(year, month - 1, day, hours, minutes, seconds, millis),
-        normalized: `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}/${year}`,
+        normalized: `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`,
         error: null
     }
 }
@@ -78,7 +78,7 @@ function parseDuringInput(input) {
             startMs: null,
             endMs: null,
             normalized: null,
-            error: 'Invalid during range. Use MM/DD/YYYY or MM/DD/YYYY to MM/DD/YYYY.'
+            error: 'Invalid during range. Use DD/MM/YYYY or DD/MM/YYYY to DD/MM/YYYY.'
         }
     }
 
@@ -89,7 +89,7 @@ function parseDuringInput(input) {
             startMs: null,
             endMs: null,
             normalized: null,
-            error: 'Invalid during range. Use MM/DD/YYYY or MM/DD/YYYY to MM/DD/YYYY.'
+            error: 'Invalid during range. Use DD/MM/YYYY or DD/MM/YYYY to DD/MM/YYYY.'
         }
     }
     if (start.ms > end.ms) {
@@ -252,13 +252,13 @@ function resolveEventDateFilters(opts = {}) {
 }
 
 /**
- * Convert a UTC millisecond timestamp to MM/DD/YYYY.
+ * Convert a UTC millisecond timestamp to DD/MM/YYYY.
  * @param {number} ms
  * @returns {string}
  */
 function formatDateMs(ms) {
     const date = new Date(ms)
-    return `${String(date.getUTCMonth() + 1).padStart(2, '0')}/${String(date.getUTCDate()).padStart(2, '0')}/${date.getUTCFullYear()}`
+    return `${String(date.getUTCDate()).padStart(2, '0')}/${String(date.getUTCMonth() + 1).padStart(2, '0')}/${date.getUTCFullYear()}`
 }
 
 /**

@@ -60,17 +60,17 @@ module.exports = {
         .addStringOption(option =>
             option
                 .setName('after-date')
-                .setDescription('Enter the earliest event date in MM/DD/YYYY format')
+                .setDescription('Enter the earliest event date in DD/MM/YYYY format')
         )
         .addStringOption(option =>
             option
                 .setName('before-date')
-                .setDescription('Enter the latest event date in MM/DD/YYYY format')
+                .setDescription('Enter the latest event date in DD/MM/YYYY format')
         )
         .addStringOption(option =>
             option
                 .setName('during')
-                .setDescription('Enter one date or a date range in MM/DD/YYYY format')
+                .setDescription('Enter one date or a date range in DD/MM/YYYY format')
         ),
 
     /**

@@ -13,6 +13,7 @@ const LINES = [
 	'9/3/25 always remember',
 	'12/22/25 forever in my heart',
 	'FUCK YOU <@999736048596816014>',
+	'They may have taken our dates, but they will never take our freedom!! 🇺🇸🇺🇸🇺🇸'
 ]
 
 module.exports = {
