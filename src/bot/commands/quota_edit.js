@@ -6,6 +6,7 @@ const LoggerClass = require('../../api/logger.js')
 const logger = new LoggerClass('QuotaEdit', 'BOT')
 
 const ITEMS_PER_PAGE = 9;
+const DISCORD_TIMEOUT = 300000; // 5 minutes
 
 /**
  * Coerces listRoleQuotas() items into a normalized quota object.
