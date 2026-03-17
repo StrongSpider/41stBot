@@ -58,42 +58,21 @@ function firstCompanyFor(member, companyRoleMap) {
  * Construct the managegroup rank command to set a user to Trooper
  * @param {string} groupName
  * @param {string} username
+ * @param {string} newRank
+ * @param {string} reason
  */
-function managegroupRankCmd(groupName, username) {
-    return `;managegroup ${groupName} rank ${username} trooper`
+function managegroupRankCmd(groupName, username, newRank, reason) {
+    return `/managegroup rank group: ${groupName} roblox_user: ${username} new_rank: ${newRank} reason: ${reason}`
 }
 
 /**
- * Build a matcher that returns true when a GAR bot embed confirms a rank set to Trooper
+ * Construct the managegroup kick slash command
  * @param {string} groupName
- * @param {string} robloxName
+ * @param {string} username
+ * @param {string} reason
  */
-function garSetTrooperMatcher(groupName, robloxName) {
-    return m => {
-        const d = m?.embeds?.[0]?.data?.description
-        if (!d || typeof d !== 'string') return false
-        const hasSet = d.startsWith('Set ')
-        const hasTrooper = d.includes('`Trooper (10)`')
-        const hasGroup = d.includes(`**${groupName}** group`)
-        const hasName = d.toLowerCase().includes(`[${String(robloxName).toLowerCase()} `)
-        return hasSet && hasTrooper && hasGroup && hasName
-    }
-}
-
-/**
- * Build a matcher that returns true when a GAR bot embed confirms a kick
- * @param {string} groupName
- * @param {string} robloxName
- */
-function garKickedMatcher(groupName, robloxName) {
-    return m => {
-        const d = m?.embeds?.[0]?.data?.description
-        if (!d || typeof d !== 'string') return false
-        const hasKicked = d.startsWith('Kicked ')
-        const hasGroup = d.includes(`**${groupName}** group`)
-        const hasName = d.toLowerCase().includes(`[${String(robloxName).toLowerCase()} `)
-        return hasKicked && hasGroup && hasName
-    }
+function managegroupKickCmd(groupName, username, reason) {
+    return `/managegroup kick group: ${groupName} roblox_user: ${username} reason: ${reason}`
 }
 
 function errToObj(e) {
@@ -175,83 +154,45 @@ function msToHuman(ms) {
 }
 
 /**
- * Wait for either the invoker to issue a command/skip, or for a matching GAR embed
- * Returns { skipped: true } or { confirmed: true }
- * Hard guarantee: never hangs forever (both phases have timeouts).
+ * Wait for the invoker to either skip or send any message to continue.
+ * Returns { skipped: true } or { confirmed: true }.
+ * Hard guarantee: never hangs forever (timeout).
  * Also: timeouts are clearly messaged to the user.
  *
  * @param {import('discord.js').TextChannel} channel
  * @param {{
  *   invokerId:string,
- *   needCmd:boolean,
- *   cmdExact:string,
- *   garBotId?:string|null,
- *   embedMatch:(m:any)=>boolean,
  *   prompt?:string,
  *   runId:string,
- *   phase1TimeoutMs?:number,
- *   phase2TimeoutMs?:number,
+ *   timeoutMs?:number,
  *   contextLabel?:string
  * }} opts
  */
-async function waitForUserOrEmbed(channel, {
+async function waitForUserProceed(channel, {
     invokerId,
-    needCmd,
-    cmdExact,
-    garBotId,
-    embedMatch,
     prompt,
     runId,
-    phase1TimeoutMs = 300000,
-    phase2TimeoutMs = 300000,
+    timeoutMs = 300000,
     contextLabel = 'action'
 }) {
     if (prompt) await safeSend(channel, prompt, 'wait.prompt', runId)
 
-    if (needCmd) {
-        const filter1 = m => m.author.id === invokerId && (
-            m.content.trim().toLowerCase() === 'skip' ||
-            m.content.trim() === cmdExact ||
-            m.content.trim() === cmdExact + '/'
-        )
+    const filter = m => m.author.id === invokerId
+    const collected = await safeAwaitMessages(channel, { filter, max: 1, time: timeoutMs }, 'wait.user_proceed', runId)
+    const msg = collected?.first()
 
-        const c1 = await safeAwaitMessages(channel, { filter: filter1, max: 1, time: phase1TimeoutMs }, 'wait.phase1', runId)
-        const m1 = c1?.first()
-        if (!m1) {
-            logger.warn(`[WAIT_TIMEOUT] runId=${runId} phase=1 label=${contextLabel} cmd=${cmdExact} timeoutMs=${phase1TimeoutMs}`)
-            await safeSend(
-                channel,
-                `Timed out after ${msToHuman(phase1TimeoutMs)} waiting for you to post the command for this ${contextLabel}.\nType \`skip\` to move on, or re-run the command and continue.`,
-                'wait.phase1.timeout_notice',
-                runId
-            )
-            return { skipped: true, reason: 'phase1_timeout', timeoutMs: phase1TimeoutMs }
-        }
-        if (m1.content.trim().toLowerCase() === 'skip') return { skipped: true, reason: 'user_skip' }
-    }
-
-    const filter2 = m => {
-        if (m.author.id === invokerId && m.content.trim().toLowerCase() === 'skip') return true
-        if (garBotId && m.author.id !== garBotId) return false
-        if (!garBotId && !m.author.bot) return false
-        return embedMatch(m)
-    }
-
-    const c2 = await safeAwaitMessages(channel, { filter: filter2, max: 1, time: phase2TimeoutMs }, 'wait.phase2', runId)
-    const m2 = c2?.first()
-
-    if (!m2) {
-        logger.warn(`[WAIT_TIMEOUT] runId=${runId} phase=2 label=${contextLabel} cmd=${cmdExact} timeoutMs=${phase2TimeoutMs}`)
+    if (!msg) {
+        logger.warn(`[WAIT_TIMEOUT] runId=${runId} label=${contextLabel} timeoutMs=${timeoutMs}`)
         await safeSend(
             channel,
-            `Timed out after ${msToHuman(phase2TimeoutMs)} waiting for the confirmation embed for this ${contextLabel}.\nIf GAR Bot is slow or down, you can type \`skip\` to move on.`,
-            'wait.phase2.timeout_notice',
+            `Timed out after ${msToHuman(timeoutMs)} waiting for your confirmation message for this ${contextLabel}.\nSend any message to continue, or type \`skip\` to skip.`,
+            'wait.user_proceed.timeout_notice',
             runId
         )
-        return { skipped: true, reason: 'phase2_timeout', timeoutMs: phase2TimeoutMs }
+        return { skipped: true, reason: 'timeout', timeoutMs }
     }
 
-    if (m2.author.id === invokerId && m2.content.trim().toLowerCase() === 'skip') return { skipped: true, reason: 'user_skip' }
+    if ((msg.content || '').trim().toLowerCase() === 'skip') return { skipped: true, reason: 'user_skip' }
     return { confirmed: true }
 }
 
@@ -289,11 +230,12 @@ module.exports = {
             }
 
             const GROUP_NAME = config.GENERAL.GROUP_NAME || '41st'
-            const TROOPER_LABEL = config.GENERAL.TROOPER_RANK_LABEL || 'Trooper (10)'
+            const TROOPER_COMMAND_RANK = config.GENERAL.TROOPER_RANK_COMMAND || 'Trooper'
+            const DEMOTION_REASON = config.GENERAL.PURGE_DEMOTION_REASON || 'Failed quota'
+            const KICK_REASON = config.GENERAL.PURGE_KICK_REASON || 'Failed quota'
             const EXEMPT_ROLE_IDS = [config.DISCORD.ROLES.EXEMPT].filter(Boolean)
             const PURGE_DEFCON_ROLE_ID = config.DISCORD.ROLES.PURGE_DEFCON
             const SL_PLUS_ROLE_IDS = config.DISCORD.ROLES.RANK ? Object.keys(config.DISCORD.ROLES.RANK).filter(id => id !== '704881591272472596') : []
-            const GAR_BOT_USER_ID = config.DISCORD.BOT.GAR_USER_ID || null
 
             const UNIT_ROLES = []
             if (Array.isArray(config.DISCORD.ROLES.UNIT)) {
@@ -304,7 +246,7 @@ module.exports = {
 
             const companyRoleMap = buildCompanyRoleMap()
 
-            logger.info(`[STAGE] runId=${runId} config_loaded group=${GROUP_NAME} purgeDefcon=${Boolean(PURGE_DEFCON_ROLE_ID)} exemptCount=${EXEMPT_ROLE_IDS.length} unitRoleCount=${UNIT_ROLES.length} garBot=${GAR_BOT_USER_ID} testMode=${TEST_MODE}`)
+            logger.info(`[STAGE] runId=${runId} config_loaded group=${GROUP_NAME} purgeDefcon=${Boolean(PURGE_DEFCON_ROLE_ID)} exemptCount=${EXEMPT_ROLE_IDS.length} unitRoleCount=${UNIT_ROLES.length} testMode=${TEST_MODE}`)
 
             await safeEditReply(
                 interaction,
@@ -474,7 +416,7 @@ module.exports = {
             if (demotionList.length) {
                 await safeSend(
                     interaction.channel,
-                    `${TEST_MODE ? 'TEST MODE: No Discord roles will be changed and no confirmations will be awaited.\n\n' : ''}# Starting demotions for ${demotionList.length} users.\nTimeouts:\n- You have 5 minutes to paste the command.\n- Then 5 minutes for the GAR confirmation embed.\n\nType \`skip\` at any prompt to move on.`,
+                    `${TEST_MODE ? 'TEST MODE: No Discord roles will be changed and no confirmations will be awaited.\n\n' : ''}# Starting demotions for ${demotionList.length} users.\nFor each user:\n- Run the slash command shown below.\n- Send any message in this channel to move to the next user.\n- Type \`skip\` to skip that user.\n\nTimeout: 5 minutes per user.`,
                     'demotions_intro',
                     runId
                 )
@@ -485,8 +427,8 @@ module.exports = {
                 dIdx += 1
 
                 const isSL = SL_PLUS_ROLE_IDS.length ? d.member.roles.cache.some(r => SL_PLUS_ROLE_IDS.includes(r.id)) : false
-                const cmd = managegroupRankCmd(GROUP_NAME, d.robloxName)
-                const preface = `<@${d.memberId}> Demote **${d.robloxName}** [${d.company}] ${isSL ? '- <:warning:1297618648810393630> Heads up: SL+' : ''}.\nPaste this command within 5 minutes, or type \`skip\`:`
+                const cmd = managegroupRankCmd(GROUP_NAME, d.robloxName, TROOPER_COMMAND_RANK, DEMOTION_REASON)
+                const preface = `<@${d.memberId}> Demote **${d.robloxName}** [${d.company}] ${isSL ? '- <:warning:1297618648810393630> Heads up: SL+' : ''}.\nRun this slash command, then send anything in this channel to continue. Type \`skip\` to skip:`
                 const block = '```' + cmd + '```'
 
                 await safeSend(interaction.channel, `${preface}\n${block}`, `demotion_prompt_${dIdx}`, runId)
@@ -497,15 +439,10 @@ module.exports = {
                     continue
                 }
 
-                const res = await waitForUserOrEmbed(interaction.channel, {
+                const res = await waitForUserProceed(interaction.channel, {
                     invokerId: interaction.user.id,
-                    needCmd: true,
-                    cmdExact: cmd,
-                    garBotId: GAR_BOT_USER_ID,
-                    embedMatch: garSetTrooperMatcher(GROUP_NAME, d.robloxName),
                     runId,
-                    phase1TimeoutMs: 300000,
-                    phase2TimeoutMs: 300000,
+                    timeoutMs: 300000,
                     contextLabel: `demotion for ${d.robloxName}`
                 })
 
@@ -514,7 +451,7 @@ module.exports = {
                     continue
                 }
 
-                await safeSend(interaction.channel, `Confirmed demotion for **${d.robloxName}** to \`${TROOPER_LABEL}\`.`, `demotion_confirmed_${dIdx}`, runId)
+                await safeSend(interaction.channel, `Received confirmation for **${d.robloxName}**. Moving to the next user.`, `demotion_confirmed_${dIdx}`, runId)
 
                 if (UNIT_ROLES.length) {
                     const toRemove = d.member.roles.cache.filter(r => UNIT_ROLES.includes(r.id)).map(r => r.id)
@@ -535,7 +472,7 @@ module.exports = {
             if (kickList.length) {
                 await safeSend(
                     interaction.channel,
-                    `${TEST_MODE ? 'TEST MODE: No Discord roles will be changed and no confirmations will be awaited.\n\n' : ''}# Starting kicks for ${kickList.length} Troopers on purge defcon.\nTimeouts:\n- You have 5 minutes to paste the kick command.\n- Then 5 minutes for the GAR confirmation embed.\n\nType \`skip\` at any prompt to move on.`,
+                    `${TEST_MODE ? 'TEST MODE: No Discord roles will be changed and no confirmations will be awaited.\n\n' : ''}# Starting kicks for ${kickList.length} Troopers on purge defcon.\nFor each user:\n- Run the slash command shown below.\n- Send any message in this channel to move to the next user.\n- Type \`skip\` to skip that user.\n\nTimeout: 5 minutes per user.`,
                     'kicks_intro',
                     runId
                 )
@@ -546,8 +483,8 @@ module.exports = {
                 kIdx += 1
 
                 const isSL = SL_PLUS_ROLE_IDS.length ? k.member.roles.cache.some(r => SL_PLUS_ROLE_IDS.includes(r.id)) : false
-                const cmd = `;managegroup ${GROUP_NAME} kick ${k.robloxName}`
-                const preface = `<@${k.memberId}> Kick **${k.robloxName}** [Trooper]${isSL ? ' - <:warning:1297618648810393630> Heads up: SL+' : ''}.\nPaste this command within 5 minutes and also kick them from Discord. Type \`skip\` to skip:`
+                const cmd = managegroupKickCmd(GROUP_NAME, k.robloxName, KICK_REASON)
+                const preface = `<@${k.memberId}> Kick **${k.robloxName}** [Trooper]${isSL ? ' - <:warning:1297618648810393630> Heads up: SL+' : ''}.\nRun this slash command and also kick them from Discord, then send anything in this channel to continue. Type \`skip\` to skip:`
                 const block = '```' + cmd + '```'
 
                 await safeSend(interaction.channel, `${preface}\n${block}`, `kick_prompt_${kIdx}`, runId)
@@ -558,15 +495,10 @@ module.exports = {
                     continue
                 }
 
-                const res = await waitForUserOrEmbed(interaction.channel, {
+                const res = await waitForUserProceed(interaction.channel, {
                     invokerId: interaction.user.id,
-                    needCmd: true,
-                    cmdExact: cmd,
-                    garBotId: GAR_BOT_USER_ID,
-                    embedMatch: garKickedMatcher(GROUP_NAME, k.robloxName),
                     runId,
-                    phase1TimeoutMs: 300000,
-                    phase2TimeoutMs: 300000,
+                    timeoutMs: 300000,
                     contextLabel: `kick for ${k.robloxName}`
                 })
 
@@ -575,7 +507,7 @@ module.exports = {
                     continue
                 }
 
-                await safeSend(interaction.channel, `Confirmed **${k.robloxName}** kicked from **${GROUP_NAME}**.`, `kick_confirmed_${kIdx}`, runId)
+                await safeSend(interaction.channel, `Received confirmation for **${k.robloxName}**. Moving to the next user.`, `kick_confirmed_${kIdx}`, runId)
             }
 
             logger.info(`[STAGE] runId=${runId} kicks_done count=${kickList.length}`)
