@@ -20,15 +20,6 @@ const ApiService = {
         deleteWeekly: (id) => api.delete(`/weekly/${id}`).then(res => res.data),
         deleteAllTime: (id) => api.delete(`/all-time/${id}`).then(res => res.data)
     },
-
-    // Candidates / Labeling
-    candidates: {
-        get: (forceId) => api.get(`/candidates${forceId ? `?forceId=${forceId}` : ''}`).then(res => res.data),
-
-        getOne: (forceId) => api.get(`/candidates${forceId ? `?forceId=${forceId}` : ''}`).then(res => res.data),
-        submitLabel: (data) => api.post('/labels', data).then(res => res.data),
-        getStats: () => api.get('/labels/stats').then(res => res.data)
-    }
 };
 
 export default ApiService;

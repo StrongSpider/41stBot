@@ -5,7 +5,6 @@ Discord bot, web portal, background jobs, and Roblox tooling for the 41st.
 Additional docs:
 
 - [Portal README](src/server/website/README.md)
-- [ML README](ML_README.md)
 
 ## What Is In This Repo
 
@@ -14,8 +13,7 @@ Additional docs:
 | Discord bot     | Slash commands, event logging, verification, quotas, inactivity, and moderation helpers |
 | Express server  | API endpoints, Discord auth, and the event-management portal backend                    |
 | React portal    | Officer/admin dashboard served from `src/server/website`                                |
-| Background jobs | VIP tracker, Roblox username cache updater, and proxy updater                           |
-| ML tooling      | Suspicious-account training and inference for background checks                         |
+| Background jobs | VIP tracke and Roblox username cache updater                                            |
 
 ## Requirements
 
@@ -58,16 +56,15 @@ Fill in the values in `config.json` before running anything important.
 
 Use `configTemplate.json` as the source of truth for every key. These sections matter most during install:
 
-| Section                                                 | Required for                                                   | Notes                                                                     |
-| ------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `DISCORD.BOT`                                           | Bot startup, slash-command deployment, guild lookups           | Set `TOKEN`, `CLIENT_ID`, and `GUILD_ID` first                            |
-| `DISCORD.ROLES`, `DISCORD.CHANNELS`, `DISCORD.WEBHOOKS` | Most commands and logs                                         | Populate the IDs your server actually uses                                |
-| `POSTGRES`                                              | Anything that touches the database                             | The bot and server both read directly from this section                   |
-| `ROBLOX`                                                | Verification, background checks, trackers, Roblox integrations | `COOKIE`, group IDs, guarding ranks, and place ID are common requirements |
-| `PORTAL`                                                | Web server and session handling                                | `SECRET`, `PORT`, `HOST`, and `CORS_PORT` are required for the portal     |
-| `DISCORD.AUTH`                                          | Discord OAuth for the portal                                   | Needed if you want users to log in through Discord                        |
-| `WEBSHARE`                                              | Proxy updater only                                             | Leave blank if you do not run `proxy-updater`                             |
-| `EXTERNAL`                                              | Background-check integrations                                  | Needed for APIs like xTracker/Clanware if you use them                    |
+| Section                                                 | Required for                                         | Notes                                                                     |
+| ------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------- |
+| `DISCORD.BOT`                                           | Bot startup, slash-command deployment, guild lookups | Set `TOKEN`, `CLIENT_ID`, and `GUILD_ID` first                            |
+| `DISCORD.ROLES`, `DISCORD.CHANNELS`, `DISCORD.WEBHOOKS` | Most commands and logs                               | Populate the IDs your server actually uses                                |
+| `POSTGRES`                                              | Anything that touches the database                   | The bot and server both read directly from this section                   |
+| `ROBLOX`                                                | Verification, trackers, Roblox integrations          | `COOKIE`, group IDs, guarding ranks, and place ID are common requirements |
+| `PORTAL`                                                | Web server and session handling                      | `SECRET`, `PORT`, `HOST`, and `CORS_PORT` are required for the portal     |
+| `DISCORD.AUTH`                                          | Discord OAuth for the portal                         | Needed if you want users to log in through Discord                        |
+| `EXTERNAL`                                              | External Roblox integrations                         | Needed for APIs like xTracker/Clanware if you use them                    |
 
 ### 4. Create the PostgreSQL database and load the schema
 
@@ -111,7 +108,6 @@ Optional background jobs:
 ```bash
 npm run tracker
 npm run updater
-npm run proxy-updater
 ```
 
 ## Common Install Modes
@@ -140,18 +136,17 @@ Use this if you want the dashboard/API too:
 
 ## Scripts
 
-| Command                 | Purpose                                                           |
-| ----------------------- | ----------------------------------------------------------------- |
-| `npm run deploy`        | Register slash/context commands with Discord                      |
-| `npm run bot`           | Start the Discord bot                                             |
-| `npm run dev-bot`       | Start the bot with `NODE_ENV=development`                         |
-| `npm run server`        | Start the Express server in production mode                       |
-| `npm run dev`           | Start the Express server in development mode with Vite middleware |
-| `npm run build`         | Build the portal frontend in `src/server/website/dist`            |
-| `npm run tracker`       | Start the VIP guarding tracker                                    |
-| `npm run updater`       | Refresh cached Roblox username/ID files                           |
-| `npm run proxy-updater` | Refresh the Webshare proxy cache                                  |
-| `npm test`              | Run Jest tests                                                    |
+| Command           | Purpose                                                           |
+| ----------------- | ----------------------------------------------------------------- |
+| `npm run deploy`  | Register slash/context commands with Discord                      |
+| `npm run bot`     | Start the Discord bot                                             |
+| `npm run dev-bot` | Start the bot with `NODE_ENV=development`                         |
+| `npm run server`  | Start the Express server in production mode                       |
+| `npm run dev`     | Start the Express server in development mode with Vite middleware |
+| `npm run build`   | Build the portal frontend in `src/server/website/dist`            |
+| `npm run tracker` | Start the VIP guarding tracker                                    |
+| `npm run updater` | Refresh cached Roblox username/ID files                           |
+| `npm test`        | Run Jest tests                                                    |
 
 ## Production With PM2
 
@@ -168,7 +163,6 @@ pm2 start npm --name "41st Discord Bot" -- run bot
 pm2 start npm --name "41st Server" -- run server
 pm2 start npm --name "41st VIP Tracker" -- run tracker
 pm2 start npm --name "41st Roblox Updater" -- run updater
-pm2 start npm --name "41st Proxy Updater" -- run proxy-updater
 ```
 
 Run `npm run build` before starting the production server so `src/server/website/dist` exists.

@@ -50,67 +50,6 @@ function normalizeEventCaps(raw) {
 }
 
 /**
- * Normalize a JSON-ish value into a clean Badge[].
- * Coerces fields to numbers and drops invalid items.
- * @param {any} raw
- * @returns {Array}
- */
-function normalizeBadges(raw) {
-    if (!raw) return [];
-    const arr = Array.isArray(raw) ? raw : [];
-    const out = [];
-    for (const b of arr) {
-        if (!b || typeof b !== 'object') continue;
-        const badgeId = Number(b.badgeId);
-        const placeId = Number(b.placeId);
-        const awardedDate = Number(b.awardedDate);
-        if (!Number.isFinite(badgeId) || !Number.isFinite(placeId) || !Number.isFinite(awardedDate)) continue;
-        out.push({ badgeId, placeId, awardedDate });
-    }
-    return out;
-}
-
-/**
- * Normalize a JSON-ish value into a clean Asset[].
- * Coerces numeric fields to numbers and drops invalid items.
- * @param {any} raw
- * @returns {Array}
- */
-function normalizeAssets(raw) {
-    if (!raw) return [];
-    const arr = Array.isArray(raw) ? raw : [];
-    const out = [];
-    for (const a of arr) {
-        if (!a || typeof a !== 'object') continue;
-        const type = typeof a.type === 'string' ? a.type : '';
-        const assetId = Number(a.assetId);
-        if (!type || !Number.isFinite(assetId)) continue;
-        out.push({ type, assetId });
-    }
-    return out;
-}
-
-/**
- * Normalize a JSON-ish value into a clean GroupRole[].
- * Coerces fields and drops invalid items.
- * @param {any} raw
- * @returns {Array}
- */
-function normalizeGroupRoles(raw) {
-    if (!raw) return [];
-    const arr = Array.isArray(raw) ? raw : [];
-    const out = [];
-    for (const r of arr) {
-        if (!r || typeof r !== 'object') continue;
-        const id = String(r.id);
-        const rank = Number(r.rank);
-        if (!id || !Number.isFinite(rank)) continue;
-        out.push({ id, rank });
-    }
-    return out;
-}
-
-/**
  * Normalize and sanity-check a candidate event_type string.
  * @param {unknown} value
  * @returns {string}
@@ -140,8 +79,5 @@ module.exports = {
     toId,
     toNumOrNull,
     normalizeEventCaps,
-    normalizeBadges,
-    normalizeAssets,
-    normalizeGroupRoles,
     assertSafeEventType
 };

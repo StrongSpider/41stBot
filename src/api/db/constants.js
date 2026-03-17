@@ -10,11 +10,6 @@ const EVENT_TYPES_TABLE = 'event_types';
 const ROLE_QUOTAS_TABLE = 'role_quotas';
 const ROBLOX_IDS_TABLE = 'roblox_ids';
 const INACTIVITY_TABLE = 'inactivity';
-const BADGES_TABLE = 'badges';
-const ASSETS_TABLE = 'assets';
-const GROUPS_TABLE = 'groups';
-const SUSPICIOUS_PLACES_TABLE = 'suspicious_places';
-const OFFICER_LABELS_TABLE = 'officer_labels';
 const BOT_STATE_TABLE = 'bot_state';
 
 const EVENT_TYPES_CACHE_TTL_MS = 60_000;
@@ -31,11 +26,6 @@ module.exports = {
     ROLE_QUOTAS_TABLE,
     ROBLOX_IDS_TABLE,
     INACTIVITY_TABLE,
-    BADGES_TABLE,
-    ASSETS_TABLE,
-    GROUPS_TABLE,
-    SUSPICIOUS_PLACES_TABLE,
-    OFFICER_LABELS_TABLE,
     BOT_STATE_TABLE,
     EVENT_TYPES_CACHE_TTL_MS,
     EVENT_TYPE_USAGE_CACHE_TTL_MS

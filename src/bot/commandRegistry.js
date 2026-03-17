@@ -5,23 +5,6 @@ const path = require('node:path')
 const { Collection, ApplicationCommandType, ApplicationCommandOptionType } = require('discord.js')
 
 const GROUPED_COMMANDS = {
-  add: {
-    description: 'Add commands',
-    groups: {
-      suspicious: {
-        description: 'Suspicious place commands'
-      }
-    },
-    routes: {
-      'add-suspicious-place': { group: 'suspicious', subcommand: 'place' }
-    }
-  },
-  background: {
-    description: 'Background check commands',
-    routes: {
-      'background-check': { subcommand: 'check' }
-    }
-  },
   companies: {
     description: 'Company commands',
     routes: {
@@ -68,12 +51,6 @@ const GROUPED_COMMANDS = {
       'ep-get': { subcommand: 'get' },
       'ep-edit': { subcommand: 'edit' },
       'ep-top': { subcommand: 'top' }
-    }
-  },
-  graph: {
-    description: 'Graph commands',
-    routes: {
-      'graph-badges': { subcommand: 'badges' }
     }
   },
   inactivity: {

@@ -161,7 +161,7 @@ describe('interactionCreate/command', () => {
         const logger = LoggerClass.mock.results[0].value
         expect(logger.info.mock.calls.at(-1)).toEqual([
             'Received command:',
-            'event type add',
+            '`event type add`',
             'from',
             'admin-user',
             '(',

@@ -13,8 +13,7 @@
     "dev-bot": "NODE_ENV=development node src/bot/index.js",
     "build": "cd src/server/website && npm run build",
     "start": "NODE_ENV=production node src/server/index.js",
-    "test": "jest",
-    "proxy-updater": "node src/jobs/ProxyUpdater.js"
+    "test": "jest"
   },
   "author": "spiider.dev",
   "license": "ISC",

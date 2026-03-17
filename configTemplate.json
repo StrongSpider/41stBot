@@ -226,19 +226,6 @@
       ]
     }
   },
-  "WEBSHARE": {
-    "PROXIES": [],
-    "USERNAME": "",
-    "PASSWORD": "",
-    "HOST": "",
-    "PORT": "",
-    "PROXY_LIST_URL": "",
-    "API_KEY": ""
-  },
-  "EXTERNAL": {
-    "XTRACKER_API_KEY": "",
-    "CLANWARE_API_KEY": ""
-  },
   "GENERAL": {
     "EMBED_COLOR": "DarkGreen",
     "ACCENT_COLOR": 1659966,
