@@ -5,7 +5,6 @@ const ensureAuth = require('../middleware/ensureAuth.js');
 const MembersController = require('../controllers/MembersController.js');
 const EventsController = require('../controllers/EventsController.js');
 const QuotasController = require('../controllers/QuotasController.js');
-const LabelsController = require('../controllers/LabelsController.js');
 const AuthController = require('../controllers/AuthController.js');
 const DiscordController = require('../controllers/DiscordController.js');
 
@@ -39,13 +38,6 @@ router.get('/quotas', ensureAuth, QuotasController.getAll);
 router.post('/quotas', ensureAuth, QuotasController.setQuota);
 router.delete('/quotas/:roleId', ensureAuth, QuotasController.deleteQuota);
 router.post('/quota/check', ensureAuth, QuotasController.checkQuotaBatch);
-
-// === Labels Routes ===
-router.get('/candidates', LabelsController.getCandidates); // Auth check pending inside controller?
-// Legacy labels.js Line 14: "// AUTH CHECK TO BE ADDED HERE"
-// So no middleware was applied in routing either.
-router.post('/labels', LabelsController.submitLabel);
-router.get('/labels/stats', LabelsController.getStats);
 
 // === Discord Routes ===
 router.get('/discord/role/:id', DiscordController.getRole);
