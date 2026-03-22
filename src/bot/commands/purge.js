@@ -281,6 +281,9 @@ module.exports = {
             const failedByCompany = { Trooper: [], Green: [], Sarlacc: [], Ranger: [], Zeus: [] }
             const demotionList = []
             const kickList = []
+            const skippedMemberIds = new Set()
+            const completedDemotions = []
+            const completedKicks = []
             const passedCount = { total: 0, purgeCleared: 0 }
             const failedCount = { total: 0 }
             let quotaFailCount = 0
@@ -385,28 +388,9 @@ module.exports = {
 
             logger.info(`[STAGE] runId=${runId} scan_members_done passed=${passedCount.total} failed=${failedCount.total} purgeCleared=${passedCount.purgeCleared} demotions=${demotionList.length} kicks=${kickList.length} quotaFail=${quotaFailCount} robloxLookupFail=${robloxLookupFailCount} purgeAddFail=${purgeRoleAddFailCount} purgeRemoveFail=${purgeRoleRemoveFailCount}`)
 
-            logger.info(`[STAGE] runId=${runId} strip_exempt_start roles=${EXEMPT_ROLE_IDS.length} testMode=${TEST_MODE}`)
-
-            let exemptStripped = 0
-            if (TEST_MODE) {
-                logger.info(`[TEST_MODE] runId=${runId} would_strip_exempt_roles count=${EXEMPT_ROLE_IDS.length}`)
-            } else if (EXEMPT_ROLE_IDS.length) {
-                for (const member of guild.members.cache.values()) {
-                    if (member.user.bot) continue
-                    const toRemove = EXEMPT_ROLE_IDS.filter(rid => member.roles.cache.has(rid))
-                    for (const rid of toRemove) {
-                        const removed = await guard(`roles.remove exempt memberId=${member.id} roleId=${rid}`, () => member.roles.remove(rid, 'Purge: removing exempt role (post-quota-check)'), null, runId)
-                        if (removed) exemptStripped += 1
-                        await sleep(50)
-                    }
-                }
-            }
-
-            logger.info(`[STAGE] runId=${runId} strip_exempt_done stripped=${exemptStripped}`)
-
             await safeSend(
                 interaction.channel,
-                `Scan complete.\nFailed: ${failedCount.total}\nPassed: ${passedCount.total}\n\nPurge roles removed from passers: ${passedCount.purgeCleared}${TEST_MODE ? ' (TEST MODE: not applied)' : ''}\nExempt roles stripped: ${exemptStripped}${TEST_MODE ? ' (TEST MODE: not applied)' : ''}\n\n**Quota check failures: ${quotaFailCount}**${TEST_MODE ? '\nTEST MODE: No Discord roles were changed.' : ''}`,
+                `Scan complete.\nFailed: ${failedCount.total}\nPassed: ${passedCount.total}\n\nPurge roles removed from passers: ${passedCount.purgeCleared}${TEST_MODE ? ' (TEST MODE: not applied)' : ''}\nExempt roles will be stripped after confirmations; users marked \`skip\` keep their roles.${TEST_MODE ? ' (TEST MODE: not applied)' : ''}\n\n**Quota check failures: ${quotaFailCount}**${TEST_MODE ? '\nTEST MODE: No Discord roles were changed.' : ''}`,
                 'scan_summary',
                 runId
             )
@@ -447,11 +431,13 @@ module.exports = {
                 })
 
                 if (res.skipped) {
+                    skippedMemberIds.add(d.memberId)
                     await safeSend(interaction.channel, `Skipped ${d.robloxName}.`, `demotion_skipped_${dIdx}`, runId)
                     continue
                 }
 
                 await safeSend(interaction.channel, `Received confirmation for **${d.robloxName}**. Moving to the next user.`, `demotion_confirmed_${dIdx}`, runId)
+                completedDemotions.push(d)
 
                 if (UNIT_ROLES.length) {
                     const toRemove = d.member.roles.cache.filter(r => UNIT_ROLES.includes(r.id)).map(r => r.id)
@@ -503,26 +489,56 @@ module.exports = {
                 })
 
                 if (res.skipped) {
+                    skippedMemberIds.add(k.memberId)
                     await safeSend(interaction.channel, `Skipped ${k.robloxName}.`, `kick_skipped_${kIdx}`, runId)
                     continue
                 }
 
                 await safeSend(interaction.channel, `Received confirmation for **${k.robloxName}**. Moving to the next user.`, `kick_confirmed_${kIdx}`, runId)
+                completedKicks.push(k)
             }
 
             logger.info(`[STAGE] runId=${runId} kicks_done count=${kickList.length}`)
+
+            logger.info(`[STAGE] runId=${runId} strip_exempt_start roles=${EXEMPT_ROLE_IDS.length} testMode=${TEST_MODE} skipped=${skippedMemberIds.size}`)
+
+            let exemptStripped = 0
+            if (TEST_MODE) {
+                logger.info(`[TEST_MODE] runId=${runId} would_strip_exempt_roles count=${EXEMPT_ROLE_IDS.length} skipped=${skippedMemberIds.size}`)
+            } else if (EXEMPT_ROLE_IDS.length) {
+                for (const member of guild.members.cache.values()) {
+                    if (member.user.bot) continue
+                    if (skippedMemberIds.has(member.id)) continue
+                    const toRemove = EXEMPT_ROLE_IDS.filter(rid => member.roles.cache.has(rid))
+                    for (const rid of toRemove) {
+                        const removed = await guard(`roles.remove exempt memberId=${member.id} roleId=${rid}`, () => member.roles.remove(rid, 'Purge: removing exempt role (post-confirmation)'), null, runId)
+                        if (removed) exemptStripped += 1
+                        await sleep(50)
+                    }
+                }
+            }
+
+            logger.info(`[STAGE] runId=${runId} strip_exempt_done stripped=${exemptStripped}`)
+            await safeSend(
+                interaction.channel,
+                `Exempt roles stripped: ${exemptStripped}${TEST_MODE ? ' (TEST MODE: not applied)' : ''}${skippedMemberIds.size ? `\nSkipped users who kept roles: ${skippedMemberIds.size}` : ''}`,
+                'strip_exempt_summary',
+                runId
+            )
 
             logger.info(`[STAGE] runId=${runId} reports_build_start`)
 
             const attachments = []
             const now = new Date().toISOString().slice(0, 10)
+            const reportDemotions = TEST_MODE ? demotionList : completedDemotions
+            const reportKicks = TEST_MODE ? kickList : completedKicks
 
             for (const c of ['Trooper', 'Green', 'Sarlacc', 'Ranger', 'Zeus']) {
                 const failed = failedByCompany[c]
                 if (!failed || failed.length === 0) continue
 
-                const demotedNames = demotionList.filter(x => x.company === c).map(x => `- ${x.robloxName} <@${x.memberId}>`)
-                const kickedNames = c === 'Trooper' ? kickList.map(x => `- ${x.robloxName} <@${x.memberId}>`) : []
+                const demotedNames = reportDemotions.filter(x => x.company === c).map(x => `- ${x.robloxName} <@${x.memberId}>`)
+                const kickedNames = c === 'Trooper' ? reportKicks.map(x => `- ${x.robloxName} <@${x.memberId}>`) : []
 
                 let text = `# ${c} - Purge Report (${now})\n\n`
                 text += `## Failed Quota (${failed.length})\n`
