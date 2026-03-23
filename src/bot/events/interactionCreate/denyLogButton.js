@@ -42,12 +42,18 @@ module.exports = async function denyLogButton(interaction) {
         }
 
         try {
+            const raw = String(interaction.message?.content || '')
+
             await database.assertEventEpWriteUnlocked()
             // Remove the event from storage
             await database.deleteEventById(event.eventId)
 
+            try {
+                await database.incrementMinorOfficerReviewerCount(interaction.user.id)
+            } catch { }
+
             // Remove the buttons and then delete the message to avoid re-clicks
-            try { await interaction.message.edit({ content: interaction.message?.content || '', components: [] }) } catch { }
+            try { await interaction.message.edit({ content: raw, components: [] }) } catch { }
             try { await interaction.message.delete() } catch { }
 
             // Webhook audit

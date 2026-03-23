@@ -11,6 +11,8 @@ const ROLE_QUOTAS_TABLE = 'role_quotas';
 const ROBLOX_IDS_TABLE = 'roblox_ids';
 const INACTIVITY_TABLE = 'inactivity';
 const BOT_STATE_TABLE = 'bot_state';
+const MINOR_OFFICER_LOGS_WEEKLY_TABLE = 'minor_officer_logs_weekly';
+const MINOR_OFFICER_LOGS_ALL_TIME_TABLE = 'minor_officer_logs_all_time';
 
 const EVENT_TYPES_CACHE_TTL_MS = 60_000;
 const EVENT_TYPE_USAGE_CACHE_TTL_MS = 60_000;
@@ -27,6 +29,8 @@ module.exports = {
     ROBLOX_IDS_TABLE,
     INACTIVITY_TABLE,
     BOT_STATE_TABLE,
+    MINOR_OFFICER_LOGS_WEEKLY_TABLE,
+    MINOR_OFFICER_LOGS_ALL_TIME_TABLE,
     EVENT_TYPES_CACHE_TTL_MS,
     EVENT_TYPE_USAGE_CACHE_TTL_MS
 };

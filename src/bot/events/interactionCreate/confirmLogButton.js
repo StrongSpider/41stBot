@@ -49,6 +49,8 @@ module.exports = async function confirmLogButton(interaction) {
             baseEpPoints: effectiveEP
         } = parseEventSummaryContent(raw)
 
+        const fallbackHostDiscordId = event?.host ? await database.getDiscordIdByRoblox(event.host).catch(() => null) : null
+
         // Increment EP for attendees
         await database.assertEventEpWriteUnlocked()
         for (const uid of attendeeIds) {
@@ -66,6 +68,10 @@ module.exports = async function confirmLogButton(interaction) {
             } catch { }
         }
 
+        try {
+            await database.incrementMinorOfficerReviewerCount(interaction.user.id)
+        } catch { }
+
         // Remove buttons to prevent double approvals, keep content unchanged
         try { await interaction.message.edit({ content: raw, components: [] }) } catch { }
 
@@ -81,9 +87,9 @@ module.exports = async function confirmLogButton(interaction) {
         await interaction.editReply({ content: summary.join('\n'), flags: MessageFlags.Ephemeral })
 
         // Notify host via DM if present
-        if (hostId) {
+        if (hostId || fallbackHostDiscordId) {
             try {
-                const hostUser = await interaction.client.users.fetch(hostId)
+                const hostUser = await interaction.client.users.fetch(hostId || fallbackHostDiscordId)
                 if (hostUser) await hostUser.send('Your ' + event.type + ' has been `approved` by <@' + interaction.user.id + '>.')
             } catch { }
         }

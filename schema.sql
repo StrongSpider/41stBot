@@ -107,4 +107,16 @@ CREATE TABLE IF NOT EXISTS bot_state (
   value jsonb NOT NULL,
   updated_at timestamptz NOT NULL DEFAULT NOW()
 );
+-- 18) Minor officer log outcomes (weekly)
+CREATE TABLE IF NOT EXISTS minor_officer_logs_weekly (
+  discordid text PRIMARY KEY,
+  review_count integer NOT NULL DEFAULT 0,
+  updated_at timestamptz NOT NULL DEFAULT NOW()
+);
+-- 19) Minor officer log outcomes (all-time)
+CREATE TABLE IF NOT EXISTS minor_officer_logs_all_time (
+  discordid text PRIMARY KEY,
+  review_count integer NOT NULL DEFAULT 0,
+  updated_at timestamptz NOT NULL DEFAULT NOW()
+);
 COMMIT;

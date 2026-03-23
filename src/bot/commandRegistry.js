@@ -83,6 +83,13 @@ const GROUPED_COMMANDS = {
       'refresh-username': { subcommand: 'username' }
     }
   },
+  reviewer: {
+    description: 'Minor Officer reviewer commands',
+    routes: {
+      reviewer_top: { subcommand: 'top' },
+      reviewer_list: { subcommand: 'list' }
+    }
+  },
   tracker: {
     description: 'Tracker management commands',
     routes: {
