@@ -31,7 +31,7 @@ async function updateEventStatus(client) {
 
   try {
     await client.user.setPresence({
-      activities: [{ name: 'Logged ' + count + ' events', type: ActivityType.Playing }],
+      activities: [{ name: 'Logged ' + count.toLocaleString() + ' events', type: ActivityType.Playing }],
       status: 'online'
     })
   } catch (err) {
