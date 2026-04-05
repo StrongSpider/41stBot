@@ -7,6 +7,7 @@ const EventsController = require('../controllers/EventsController.js');
 const QuotasController = require('../controllers/QuotasController.js');
 const AuthController = require('../controllers/AuthController.js');
 const DiscordController = require('../controllers/DiscordController.js');
+const RobloxAuthController = require('../controllers/RobloxAuthController.js');
 
 // === Auth Routes ===
 router.get('/auth/callback', AuthController.discordCallback);
@@ -14,6 +15,8 @@ router.get('/auth/me', AuthController.getMe);
 router.post('/auth/logout', AuthController.logout);
 router.post('/auth/activity', AuthController.updateActivity);
 router.get('/auth/client-id', AuthController.getClientId);
+router.get('/auth/roblox/start', RobloxAuthController.robloxStart);
+router.get('/auth/roblox/callback', RobloxAuthController.robloxCallback);
 
 // === Members Routes ===
 router.get('/members', MembersController.getAll); // /api/members (legacy mapped)

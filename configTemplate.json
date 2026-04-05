@@ -167,6 +167,15 @@
       "Commander Gree"
     ],
     "COOKIE": "",
+    "OAUTH": {
+      "APP_ID": "",
+      "APP_SECRET": "",
+      "REDIRECT_URI": "",
+      "SCOPES": [
+        "openid",
+        "profile"
+      ]
+    },
     "PLACE_ID": 4238077359,
     "ASSET_TYPES": {
       "DEVELOPMENT": [

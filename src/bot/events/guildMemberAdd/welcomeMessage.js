@@ -5,6 +5,8 @@ const config = require('../../../../config.json')
 const { CHANNELS: DISCORD_CHANNEL_IDS } = config.DISCORD
 const { EMBED_COLOR } = config.GENERAL
 const database = require('../../../api/database.js')
+const { StartAuthentication } = require('../../../api/authenticator.js')
+const { buildOnboardingDmPayload } = require('../../utils/onboardingDm.js')
 
 const LoggerClass = require('../../../api/logger.js')
 const logger = new LoggerClass('WelcomeMessage', 'BOT')
@@ -26,6 +28,18 @@ module.exports = async function welcomeMessage(member) {
       logger.error('db lookup failed:', msg)
     }
 
+    let dmSent = false
+    try {
+      const auth = await StartAuthentication(member.user.id)
+      await member.send(buildOnboardingDmPayload(auth, {
+        thumbnailUrl: member.guild?.iconURL?.() ?? null
+      }))
+      dmSent = true
+    } catch (err) {
+      const msg = err && err.message ? err.message : String(err)
+      logger.warn(`Failed to DM verification link to ${member.user.id}: ${msg}`)
+    }
+
     const channelId = DISCORD_CHANNEL_IDS && DISCORD_CHANNEL_IDS.WELCOME
     if (!channelId) {
       logger.error('WELCOME_CHANNEL id is not configured')
@@ -40,7 +54,11 @@ module.exports = async function welcomeMessage(member) {
 
     const embed = new EmbedBuilder()
       .setTitle('Welcome to 41st Elite Corps!')
-      .setDescription('Follow instructions from your host.\nWhen you are ready, run the `/verify start` command in this channel.')
+      .setDescription(
+        dmSent
+          ? 'Follow instructions from your host.\nCheck your DMs for your one-click verification link.'
+          : 'Follow instructions from your host.\nI could not DM you. Run `/verify start` in this channel for a one-click verification link.'
+      )
       .setColor(EMBED_COLOR)
       .setFooter({ text: '41ST BOT', iconURL: chan.guild.iconURL() ?? undefined })
       .setTimestamp()

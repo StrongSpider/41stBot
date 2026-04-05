@@ -62,6 +62,7 @@ Use `configTemplate.json` as the source of truth for every key. These sections m
 | `DISCORD.ROLES`, `DISCORD.CHANNELS`, `DISCORD.WEBHOOKS` | Most commands and logs                               | Populate the IDs your server actually uses                                |
 | `POSTGRES`                                              | Anything that touches the database                   | The bot and server both read directly from this section                   |
 | `ROBLOX`                                                | Verification, trackers, Roblox integrations          | `COOKIE`, group IDs, guarding ranks, and place ID are common requirements |
+| `ROBLOX.OAUTH`                                          | Roblox OAuth2 redirect + token exchange flow         | Set `APP_ID`, `APP_SECRET`, and `REDIRECT_URI` (for this repo: `/api/auth/roblox/callback`) |
 | `PORTAL`                                                | Web server and session handling                      | `SECRET`, `PORT`, `HOST`, and `CORS_PORT` are required for the portal     |
 | `DISCORD.AUTH`                                          | Discord OAuth for the portal                         | Needed if you want users to log in through Discord                        |
 | `EXTERNAL`                                              | External Roblox integrations                         | Needed for APIs like xTracker/Clanware if you use them                    |
@@ -172,6 +173,9 @@ Run `npm run build` before starting the production server so `src/server/website
 - The frontend lives in `src/server/website` and has its own `package.json`.
 - The production server serves `src/server/website/dist`.
 - Discord OAuth for the portal needs both `DISCORD.AUTH.CLIENT_SECRET` and `DISCORD.AUTH.REDIRECT_URI`.
+- Roblox OAuth2 redirect flow endpoints:
+  - Start: `/auth/roblox` (or `/api/auth/roblox/start`)
+  - Callback URL to register in Roblox app settings: `https://41st.spiider.dev/api/auth/roblox/callback`
 - `PORTAL.PORT` is the Express server port; `PORTAL.CORS_PORT` is used for allowed frontend origin handling.
 
 ## Important

@@ -36,7 +36,7 @@ module.exports = {
             if (robloxId == null) {
                 const youRequestedSelf = !interaction.options.getUser('user')
                 const msg = youRequestedSelf
-                    ? '<:warning:1297618648810393630> `Your roblox account is not verified with the 41st Bot! Run the command /verify...`'
+                    ? '<:warning:1297618648810393630> `Your roblox account is not verified with the 41st Bot! Run /verify start.`'
                     : '<:warning:1297618648810393630> `The requested user does not have a verified roblox account!`'
                 await interaction.editReply({ content: msg })
                 return

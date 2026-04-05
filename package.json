@@ -7,6 +7,7 @@
     "deploy": "node src/bot/deploy.js",
     "bot": "node src/bot/index.js",
     "server": "node src/server/index.js",
+    "test:onboarding-dm": "node src/scripts/testOnboardingDm.js",
     "tracker": "node src/jobs/GuardingTracker.js",
     "updater": "node src/jobs/RobloxUpdater.js",
     "dev": "NODE_ENV=development node src/server/index.js",

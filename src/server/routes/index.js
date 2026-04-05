@@ -1,10 +1,12 @@
 const router = require('express').Router();
 const apiRoutes = require('./api.js');
 const AuthController = require('../controllers/AuthController.js');
+const RobloxAuthController = require('../controllers/RobloxAuthController.js');
 const PagesController = require('../controllers/PagesController.js');
 
 // Top level auth route (redirect)
 router.get('/auth/discord', AuthController.discordLogin);
+router.get('/auth/roblox', RobloxAuthController.robloxStart);
 
 router.get('/privacy', PagesController.getPrivacy);
 router.get('/tos', PagesController.getToS);

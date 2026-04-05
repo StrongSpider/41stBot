@@ -1,89 +1,111 @@
 'use strict'
 
-const { EventEmitter } = require('events')
-const { randomInt } = require('crypto')
+const crypto = require('crypto')
+const config = require('../../config.json')
 
-const database = require('./database.js')
+const AUTH_WINDOW_MS = 10 * 60 * 1000
+const TOKEN_TYPE = 'roblox_oauth_verify'
 
-const AUTH_WINDOW_MS = 120000 // 2 minutes
-const TOKEN_WORDS = 7
+function getSigningSecret() {
+    const secret = String(config.PORTAL?.SECRET || '').trim()
+    if (!secret) throw new Error('Verification signing secret is not configured.')
+    return secret
+}
 
-// List of words used in authentication string
-const WORD_LIST = [
-    'luke', 'leia', 'han', 'chewie', 'yoda', 'obiwan', 'vader', 'darth',
-    'jedi', 'sith', 'force', 'lightsaber', 'droid', 'clone', 'galaxy', 'tatooine'
-]
+function getOAuthStartUrlBase() {
+    const redirectUri = String(config.ROBLOX?.OAUTH?.REDIRECT_URI || '').trim()
+    if (!redirectUri) throw new Error('ROBLOX.OAUTH.REDIRECT_URI is not configured.')
 
-// Shared event bus and in-memory state for active challenges
-const AuthenticationEvent = new EventEmitter()
-const ActiveAuthentications = new Map() // key: String(robloxId) -> { discordId, robloxId, token }
-
-/**
- * Build a 7 word token using crypto randomness
- */
-function makeToken() {
-    const words = []
-    for (let i = 0; i < TOKEN_WORDS; i++) {
-        words.push(WORD_LIST[randomInt(WORD_LIST.length)])
+    let parsed
+    try {
+        parsed = new URL(redirectUri)
+    } catch (_) {
+        throw new Error('ROBLOX.OAUTH.REDIRECT_URI is invalid.')
     }
-    return words.join(' ')
+
+    return `${parsed.origin}/auth/roblox`
 }
 
-function keyOf(robloxId) {
-    return String(robloxId)
+function encodeSegment(value) {
+    return Buffer.from(value, 'utf8').toString('base64url')
 }
 
-/**
- * Start an authentication flow for a given user pair
- * @param {string} discord_id Discord user id
- * @param {string|number} roblox_id Roblox user id
- * @returns {{ AuthenticationString: string, AuthenticationEvent: import('events').EventEmitter }}
- */
-async function StartAuthentication(discord_id, roblox_id) {
-    const key = keyOf(roblox_id)
-
-    if (ActiveAuthentications.get(key)) throw new Error('Authentication already started')
-
-    const activationString = makeToken()
-    const timeoutEvent = 'EventEnded-' + key
-
-    // Store challenge state
-    ActiveAuthentications.set(key, { discordId: String(discord_id), robloxId: key, token: activationString })
-
-    // Auto cancel when the window expires
-    setTimeout(() => {
-        if (!ActiveAuthentications.get(key)) return
-        ActiveAuthentications.delete(key)
-        AuthenticationEvent.emit(timeoutEvent)
-    }, AUTH_WINDOW_MS)
-
-    return { AuthenticationString: activationString, AuthenticationEvent }
+function decodeSegment(value) {
+    return Buffer.from(value, 'base64url').toString('utf8')
 }
 
-/**
- * Confirm an authentication by checking whether the token is present
- * in the provided text (the Roblox bio)
- * @param {string|number} roblox_id Roblox user id
- * @param {string} activationString Text to search
- */
-async function ConfirmAuthentication(roblox_id, activationString) {
-    const key = keyOf(roblox_id)
-    const auth = ActiveAuthentications.get(key)
-    if (!auth) throw new Error('Authentication not found')
+function signPayload(encodedPayload) {
+    return crypto
+        .createHmac('sha256', getSigningSecret())
+        .update(encodedPayload)
+        .digest('base64url')
+}
 
-    const haystack = String(activationString || '')
-    if (haystack.includes(auth.token)) {
-        ActiveAuthentications.delete(key)
-        await database.upsertRobloxId(auth.discordId, auth.robloxId)
-        AuthenticationEvent.emit('UserAuthenticated-' + key)
-    } else {
-        ActiveAuthentications.delete(key)
-        AuthenticationEvent.removeAllListeners('UserAuthenticated-' + key)
-        throw new Error('Authentication string did not match')
+function safeDiscordId(discordId) {
+    const value = String(discordId || '').trim()
+    if (!/^\d{5,30}$/.test(value)) throw new Error('Invalid Discord user id.')
+    return value
+}
+
+function verifyAuthenticationToken(token) {
+    const raw = String(token || '').trim()
+    if (!raw) throw new Error('Missing verification token.')
+
+    const parts = raw.split('.')
+    if (parts.length !== 2) throw new Error('Invalid verification token.')
+
+    const [encodedPayload, signature] = parts
+    const expectedSignature = signPayload(encodedPayload)
+    const expectedBuffer = Buffer.from(expectedSignature)
+    const actualBuffer = Buffer.from(signature)
+
+    if (expectedBuffer.length !== actualBuffer.length || !crypto.timingSafeEqual(expectedBuffer, actualBuffer)) {
+        throw new Error('Invalid verification token signature.')
+    }
+
+    let payload
+    try {
+        payload = JSON.parse(decodeSegment(encodedPayload))
+    } catch (_) {
+        throw new Error('Invalid verification token payload.')
+    }
+
+    if (payload?.type !== TOKEN_TYPE) throw new Error('Invalid verification token type.')
+    if (!payload?.discordId) throw new Error('Verification token is missing Discord user id.')
+    if (!payload?.exp || Number(payload.exp) < Date.now()) throw new Error('Verification link expired. Please run /verify start again.')
+
+    return {
+        type: payload.type,
+        discordId: safeDiscordId(payload.discordId),
+        iat: Number(payload.iat || 0),
+        exp: Number(payload.exp),
+        nonce: String(payload.nonce || '')
+    }
+}
+
+async function StartAuthentication(discordId) {
+    const now = Date.now()
+    const payload = {
+        type: TOKEN_TYPE,
+        discordId: safeDiscordId(discordId),
+        iat: now,
+        exp: now + AUTH_WINDOW_MS,
+        nonce: crypto.randomBytes(16).toString('hex')
+    }
+
+    const encodedPayload = encodeSegment(JSON.stringify(payload))
+    const signature = signPayload(encodedPayload)
+    const token = `${encodedPayload}.${signature}`
+    const baseUrl = getOAuthStartUrlBase()
+
+    return {
+        AuthenticationUrl: `${baseUrl}?verify=${encodeURIComponent(token)}`,
+        ExpiresAt: payload.exp
     }
 }
 
 module.exports = {
+    AUTH_WINDOW_MS,
     StartAuthentication,
-    ConfirmAuthentication
+    verifyAuthenticationToken
 }
