@@ -86,8 +86,10 @@ const GROUPED_COMMANDS = {
   reviewer: {
     description: 'Minor Officer reviewer commands',
     routes: {
+      reviewer_get: { subcommand: 'get' },
       reviewer_top: { subcommand: 'top' },
-      reviewer_list: { subcommand: 'list' }
+      reviewer_list: { subcommand: 'list' },
+      reviewer_reset: { subcommand: 'reset' }
     }
   },
   tracker: {

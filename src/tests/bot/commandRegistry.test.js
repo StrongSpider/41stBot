@@ -27,6 +27,6 @@ describe('commandRegistry', () => {
 
         const reviewer = registry.deploymentCommands.find(command => command.name === 'reviewer')
         expect(reviewer).toBeTruthy()
-        expect(reviewer.options.map(option => option.name)).toEqual(expect.arrayContaining(['top', 'list']))
+        expect(reviewer.options.map(option => option.name)).toEqual(expect.arrayContaining(['top', 'list', 'reset']))
     })
 })
