@@ -139,7 +139,6 @@ module.exports = {
             // Clear weekly data in storage
             await database.clearAllWeeklyEvents()
             await database.resetAllEventPoints()
-            await database.resetWeeklyMinorOfficerReviewCounts()
 
             // Write backup file
             const date = new Date().toISOString().split('T')[0]
