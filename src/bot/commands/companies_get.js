@@ -4,6 +4,10 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const config = require('../../../config.json')
 const { EMBED_COLOR } = config.GENERAL
 const { GROUP_ID: ROBLOX_GROUP_ID } = config.ROBLOX
+const {
+  COMPANY: DISCORD_COMPANY_ROLES = {},
+  RANK: DISCORD_RANK_ROLES = {}
+} = config.DISCORD.ROLES
 const axios = require('axios')
 
 // Hardcoded company role names to check for
@@ -15,6 +19,16 @@ const COMPANIES = Object.freeze([
   'Zeus Company',
   'Advanced Recon Commandos'
 ])
+
+// Hardcoded rank role names to check for
+const RANKS = Object.freeze([
+  'Company Officer',
+  'Company Commander',
+  'Captain Draa',
+  'Commander Buzz',
+  'Commander Gree'
+])
+
 
 /**
  * Fetch roles for a Roblox group
@@ -45,6 +59,34 @@ function formatCompaniesField(roles) {
   return lines.length ? lines.join('\n\n') : null
 }
 
+/**
+ * Count unique guild members that hold any configured 41st company or rank role
+ * @param {import('discord.js').Guild} guild
+ * @returns {Promise<number|null>}
+ */
+async function count41stMembers(guild) {
+  if (!guild) return null
+
+  const roleIds = new Set([
+    ...Object.keys(DISCORD_COMPANY_ROLES),
+    ...Object.keys(DISCORD_RANK_ROLES)
+  ])
+
+  if (!roleIds.size) return 0
+
+  await guild.members.fetch()
+
+  let total = 0
+  for (const member of guild.members.cache.values()) {
+    if (member.user.bot) continue
+    if (member.roles.cache.some(role => roleIds.has(role.id))) {
+      total += 1
+    }
+  }
+
+  return total
+}
+
 module.exports = {
   permission: 'ALL',
   data: new SlashCommandBuilder()
@@ -64,6 +106,7 @@ module.exports = {
 
       const roles = await fetchGroupRoles(ROBLOX_GROUP_ID)
       const value = formatCompaniesField(roles)
+      const total41stMembers = await count41stMembers(interaction.guild)
 
       if (!value) {
         await interaction.editReply('No matching company roles found for this group')
@@ -76,6 +119,10 @@ module.exports = {
         .addFields({ name: 'Companies Member Count', value })
         .setFooter({ text: '41ST BOT', iconURL: interaction.guild?.iconURL() ?? undefined })
         .setTimestamp()
+
+      if (total41stMembers != null) {
+        embed.setDescription(`Total 41st Members: \`${total41stMembers}\``)
+      }
 
       await interaction.editReply({ embeds: [embed] })
     } catch (err) {
