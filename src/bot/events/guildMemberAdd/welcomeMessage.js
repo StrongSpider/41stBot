@@ -56,8 +56,8 @@ module.exports = async function welcomeMessage(member) {
       .setTitle('Welcome to 41st Elite Corps!')
       .setDescription(
         dmSent
-          ? 'Follow instructions from your host.\nCheck your DMs for your one-click verification link.'
-          : 'Follow instructions from your host.\nI could not DM you. Run `/verify start` in this channel for a one-click verification link.'
+          ? 'Follow instructions from your host.\nCheck your DMs for your verification link.'
+          : 'Follow instructions from your host.\nI could not DM you. Run `/verify start` in this channel for a verification link.'
       )
       .setColor(EMBED_COLOR)
       .setFooter({ text: '41ST BOT', iconURL: chan.guild.iconURL() ?? undefined })
