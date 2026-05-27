@@ -17,7 +17,7 @@
     "test": "jest"
   },
   "author": "spiider.dev",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "axios": "^1.9.0",
     "canvas": "^3.2.0",
