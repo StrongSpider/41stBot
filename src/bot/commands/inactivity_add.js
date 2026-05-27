@@ -5,7 +5,7 @@ const { EMBED_COLOR } = config.GENERAL
 const { INACTIVITY_MANAGEMENT: INACTIVITY_MANAGEMENT_ROLE_ID, INACTIVITY_NOTICE: INACTIVITY_NOTICE_ROLE_ID, OFFICER: DISCORD_OFFICER_ROLE_ID } = config.DISCORD.ROLES
 const { DEVELOPER_USER_ID: DEVELOPER_DISCORD_USER_ID } = config.DISCORD.BOT;
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js')
-const database = require('../../api/database.js')
+const database = require('../../api/database')
 const { hasDeveloperOrAdminOverride } = require('../utils/interactionPermissions.js')
 
 /**

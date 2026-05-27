@@ -6,7 +6,7 @@ const LoggerClass = require('./logger.js')
 const logger = new LoggerClass('Roblox', 'API')
 
 // DB cache
-const db = require('./db')
+const database = require('./database')
 
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
 
@@ -23,7 +23,7 @@ const getUsernameFromId = async function (id) {
 
   // Check DB
   try {
-    const cached = await db.getUserById(idNum)
+    const cached = await database.getUserById(idNum)
     if (cached) {
       if (Date.now() - new Date(cached.updatedAt).getTime() < CACHE_TTL_MS) {
         return cached.username
@@ -45,7 +45,7 @@ const getUsernameFromId = async function (id) {
 
     // Update DB (only if values are valid)
     try {
-      await db.upsertUser(idNum, uname)
+      await database.upsertUser(idNum, uname)
     } catch (err) {
       logger.error('DB write error (upsertUser): ' + err.message)
     }
@@ -69,7 +69,7 @@ const getIdFromUsername = async function (username) {
 
   // Check DB
   try {
-    const cached = await db.getUserByUsername(uname)
+    const cached = await database.getUserByUsername(uname)
     if (cached) {
       if (Date.now() - new Date(cached.updatedAt).getTime() < CACHE_TTL_MS) {
         return cached.robloxId
@@ -93,7 +93,7 @@ const getIdFromUsername = async function (username) {
 
     // Update DB
     try {
-      await db.upsertUser(idNum, uname)
+      await database.upsertUser(idNum, uname)
     } catch (err) {
       logger.error('DB write error (upsertUser): ' + err.message)
     }

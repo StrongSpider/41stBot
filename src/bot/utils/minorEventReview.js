@@ -1,7 +1,7 @@
 'use strict'
 
 const config = require('../../../config.json')
-const database = require('../../api/database.js')
+const database = require('../../api/database')
 
 const {
     OFFICER: DISCORD_OFFICER_ROLE_ID,
@@ -32,7 +32,7 @@ function memberHasAnyRole(member, roleIds) {
 
 /**
  * @param {import('discord.js').ButtonInteraction} interaction
- * @returns {Promise<import('../../api/db/types').Event|null>}
+ * @returns {Promise<import('../../api/database/types').Event|null>}
  */
 async function findMinorReviewEvent(interaction) {
     return database.findEventByMessage(interaction.message?.url)

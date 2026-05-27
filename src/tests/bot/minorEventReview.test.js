@@ -11,11 +11,11 @@ jest.mock('../../../config.json', () => ({
     }
 }))
 
-jest.mock('../../api/database.js', () => ({
+jest.mock('../../api/database', () => ({
     findEventByMessage: jest.fn()
 }))
 
-const database = require('../../api/database.js')
+const database = require('../../api/database')
 const {
     MINOR_REVIEW_EVENT_NOT_FOUND_MESSAGE,
     findMinorReviewEvent,

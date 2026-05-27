@@ -2,7 +2,7 @@
 
 const { ButtonBuilder, ActionRowBuilder, ButtonStyle } = require('discord.js')
 const { sendEventCreateWebhook } = require('../../../api/webhook.js')
-const database = require('../../../api/database.js')
+const database = require('../../../api/database')
 const config = require('../../../../config.json')
 const { CHANNELS: DISCORD_CHANNEL_IDS } = config.DISCORD
 const { ERT_OFFICER: DISCORD_ERT_OFFICER_ROLE_IDS, HICOM: DISCORD_HICOM_ROLE_ID } = config.DISCORD.ROLES

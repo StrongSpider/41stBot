@@ -1,7 +1,7 @@
 'use strict'
 
 const { SlashCommandBuilder, MessageFlags } = require('discord.js')
-const database = require('../../api/database.js')
+const database = require('../../api/database')
 const {
     createReviewerResetEmbed,
     summarizeReviewerReset

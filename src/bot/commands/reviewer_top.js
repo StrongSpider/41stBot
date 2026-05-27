@@ -3,7 +3,7 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js')
 const config = require('../../../config.json')
 const { EMBED_COLOR } = config.GENERAL
-const database = require('../../api/database.js')
+const database = require('../../api/database')
 
 /**
  * @param {Array<{discordId: string, count: number}>} rows

@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js')
-const database = require('../../api/database.js')
+const database = require('../../api/database')
 const { respondWithEventTypeAutocomplete } = require('../utils/eventTypeAutocomplete')
 
 const LoggerClass = require('../../api/logger.js')

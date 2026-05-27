@@ -4,7 +4,7 @@ const { SlashCommandBuilder, AttachmentBuilder, PermissionsBitField, MessageFlag
 
 const quota = require('../../api/quota.js')
 const config = require('../../../config.json')
-const database = require('../../api/database.js')
+const database = require('../../api/database')
 const roblox = require('../../api/roblox.js')
 
 const LoggerClass = require('../../api/logger.js')

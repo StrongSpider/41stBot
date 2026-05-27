@@ -4,7 +4,7 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const { getUsernameFromId } = require('../../api/roblox.js')
 const config = require('../../../config.json')
 const { EMBED_COLOR } = config.GENERAL;
-const database = require('../../api/database.js')
+const database = require('../../api/database')
 
 module.exports = {
     permission: 'ALL',

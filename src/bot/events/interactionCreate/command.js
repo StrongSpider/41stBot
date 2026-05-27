@@ -3,7 +3,7 @@
 const config = require('../../../../config.json')
 const { FFCNC: DISCORD_FFCNC_ROLE_ID, HICOM: DISCORD_HICOM_ROLE_ID, OFFICER: DISCORD_OFFICER_ROLE_ID, MINOR_OFFICER: DISCORD_MINOR_OFFICER_ROLE_ID, CMOTW: DISCORD_CMOTW_ROLE_ID } = config.DISCORD.ROLES
 const { DEVELOPER_USER_ID: DEVELOPER_DISCORD_USER_ID } = config.DISCORD.BOT
-const database = require('../../../api/database.js')
+const database = require('../../../api/database')
 const { formatEventEpLockMessage } = require('../../utils/eventEpLock.js')
 
 

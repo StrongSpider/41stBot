@@ -3,7 +3,7 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js')
 const config = require('../../../config.json')
 const { MEDAL: DISCORD_MEDAL_ROLES } = config.DISCORD.ROLES;
-const database = require('../../api/database.js')
+const database = require('../../api/database')
 
 /**
  * Lists users eligible for medal upgrades based on current weekly EP.

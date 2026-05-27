@@ -1,6 +1,6 @@
 'use strict'
 
-const database = require('../../../api/database.js')
+const database = require('../../../api/database')
 const config = require('../../../../config.json')
 
 const LoggerClass = require('../../../api/logger.js')

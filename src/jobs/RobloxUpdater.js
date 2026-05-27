@@ -1,5 +1,5 @@
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
-const { getRobloxIdByDiscord } = require('../api/database.js');
+const { getRobloxIdByDiscord } = require('../api/database');
 const { getUsernameFromId } = require('noblox.js');
 const Logger = require('../api/logger.js');
 const config = require('../../config.json');

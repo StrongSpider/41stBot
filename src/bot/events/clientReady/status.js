@@ -1,7 +1,7 @@
 'use strict'
 
 const { Client, ActivityType } = require('discord.js')
-const { listAllTimeEvents } = require('../../../api/database.js')
+const { listAllTimeEvents } = require('../../../api/database')
 
 const LoggerClass = require('../../../api/logger.js')
 const logger = new LoggerClass('BotStatus', 'BOT')

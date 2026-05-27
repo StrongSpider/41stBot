@@ -1,4 +1,4 @@
-const database = require('../../api/database.js');
+const database = require('../../api/database');
 const { checkQuota } = require('../../api/quota.js');
 const getMembers = require('../services/getMembers.js');
 const Logger = require('../../api/logger.js');

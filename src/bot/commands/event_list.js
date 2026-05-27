@@ -4,7 +4,7 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Butt
 const config = require('../../../config.json')
 const { EMBED_COLOR } = config.GENERAL
 const { getUsernameFromId } = require('../../api/roblox.js')
-const database = require('../../api/database.js')
+const database = require('../../api/database')
 const { resolveEventDateFilters, eventMatchesDateRange } = require('../utils/eventDateFilters.js')
 const { respondWithEventTypeAutocomplete } = require('../utils/eventTypeAutocomplete.js')
 

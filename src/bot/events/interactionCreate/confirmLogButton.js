@@ -2,7 +2,7 @@
 
 const { MessageFlags } = require('discord.js')
 
-const database = require('../../../api/database.js')
+const database = require('../../../api/database')
 const webhook = require('../../../api/webhook.js')
 const { formatEventEpLockMessage } = require('../../utils/eventEpLock.js')
 const {

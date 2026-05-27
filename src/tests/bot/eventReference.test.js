@@ -1,8 +1,8 @@
-jest.mock('../../api/database.js', () => ({
+jest.mock('../../api/database', () => ({
     findEventByMessage: jest.fn()
 }))
 
-const database = require('../../api/database.js')
+const database = require('../../api/database')
 const {
     normalizeMessageUrl,
     resolveEventReference,

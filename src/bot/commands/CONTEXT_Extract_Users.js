@@ -1,7 +1,7 @@
 'use strict'
 
 const { ContextMenuCommandBuilder, ApplicationCommandType, MessageFlags } = require('discord.js')
-const database = require('../../api/database.js')
+const database = require('../../api/database')
 const roblox = require('../../api/roblox.js')
 
 /**

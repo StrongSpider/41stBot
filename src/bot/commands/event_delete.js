@@ -2,7 +2,7 @@
 
 const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } = require('discord.js')
 const { sendEventDeleteWebhook } = require('../../api/webhook.js')
-const database = require('../../api/database.js')
+const database = require('../../api/database')
 const { fetchGuildMessageByUrl } = require('../utils/discordMessage.js')
 const { formatEventEpLockMessage } = require('../utils/eventEpLock.js')
 const {

@@ -1,6 +1,6 @@
 
 // 1. Mock DB explicitly
-jest.mock('../api/db', () => {
+jest.mock('../api/database', () => {
     return {
         getUserById: jest.fn(),
         getUserByUsername: jest.fn(),
@@ -14,7 +14,7 @@ jest.mock('../api/logger')
 
 // 3. Import dependencies
 const roblox = require('../api/roblox')
-const db = require('../api/db')
+const db = require('../api/database')
 const noblox = require('noblox.js')
 
 describe('Roblox Cache', () => {

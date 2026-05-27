@@ -2,7 +2,7 @@ const { Client, GatewayIntentBits, Partials, PermissionsBitField } = require('di
 const config = require('../../../config.json')
 const { TOKEN: BOT_TOKEN, GUILD_ID: BOT_GUILD_ID } = config.DISCORD.BOT
 
-const database = require('../../api/database.js')
+const database = require('../../api/database')
 const roblox = require('../../api/roblox.js')
 
 module.exports = async function getMembers() {

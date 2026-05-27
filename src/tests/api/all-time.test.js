@@ -3,7 +3,7 @@ const express = require('express');
 
 // Mock dependencies
 const mockListAllTimeEvents = jest.fn();
-jest.mock('../../api/database.js', () => ({
+jest.mock('../../api/database', () => ({
     listAllTimeEvents: mockListAllTimeEvents,
 }));
 

@@ -1,4 +1,4 @@
-const database = require('../../api/database.js');
+const database = require('../../api/database');
 const roblox = require('../../api/roblox.js');
 const webhook = require('../../api/webhook.js');
 const Logger = require('../../api/logger.js');

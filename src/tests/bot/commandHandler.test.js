@@ -15,7 +15,7 @@ jest.mock('../../../config.json', () => ({
     }
 }))
 
-jest.mock('../../api/database.js', () => ({
+jest.mock('../../api/database', () => ({
     getEventEpLock: jest.fn().mockResolvedValue(null),
     isEventEpLockError: jest.fn().mockReturnValue(false)
 }))

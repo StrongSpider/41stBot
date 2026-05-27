@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, CommandInteraction, ContainerBuilder, ComponentType, TextInputStyle, TextInputBuilder, ModalBuilder, ButtonStyle, MessageFlags, ActionRowBuilder, ButtonBuilder } = require('discord.js');
-const database = require('../../api/database.js');
+const database = require('../../api/database');
 const customization = require('../../../config.json');
 
 const LoggerClass = require('../../api/logger.js')

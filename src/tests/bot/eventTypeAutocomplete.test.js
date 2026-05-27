@@ -1,10 +1,10 @@
 'use strict'
 
-jest.mock('../../api/database.js', () => ({
+jest.mock('../../api/database', () => ({
     getRankedEventTypes: jest.fn()
 }))
 
-const database = require('../../api/database.js')
+const database = require('../../api/database')
 const {
     MAX_EVENT_TYPE_AUTOCOMPLETE_CHOICES,
     getEventTypeAutocompleteChoices

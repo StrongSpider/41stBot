@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const db = require('../../api/db');
+const database = require('../../api/database');
 const noblox = require('noblox.js');
 
 const LoggerClass = require('../../api/logger.js')
@@ -22,7 +22,7 @@ module.exports = {
 
         try {
             // 1. Get linked Roblox ID
-            const robloxId = await db.getRobloxIdByDiscord(targetUser.id);
+            const robloxId = await database.getRobloxIdByDiscord(targetUser.id);
             if (!robloxId) {
                 return interaction.editReply({
                     content: `❌ ${targetUser} is not linked to a Roblox account.`
@@ -33,11 +33,11 @@ module.exports = {
             const newUsername = await noblox.getUsernameFromId(robloxId);
 
             // 3. Get old cache data for comparison
-            const cached = await db.getUserById(robloxId);
+            const cached = await database.getUserById(robloxId);
             const oldUsername = cached ? cached.username : 'Unknown/Uncached';
 
             // 4. Update cache
-            await db.upsertUser(robloxId, newUsername);
+            await database.upsertUser(robloxId, newUsername);
             logger.info(`Manual username refresh for ${robloxId}: ${oldUsername} -> ${newUsername} (by ${interaction.user.tag})`);
 
             // 5. Reply

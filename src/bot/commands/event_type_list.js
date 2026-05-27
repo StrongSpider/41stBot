@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, AttachmentBuilder } = require('discord.js')
-const database = require('../../api/database.js')
+const database = require('../../api/database')
 
 module.exports = {
     permission: 'HICOM',

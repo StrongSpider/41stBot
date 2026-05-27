@@ -9,7 +9,7 @@ const {
   MessageFlags
 } = require('discord.js')
 const { StartAuthentication, AUTH_WINDOW_MS } = require('../../api/authenticator.js')
-const { getRobloxIdByDiscord } = require('../../api/database.js')
+const { getRobloxIdByDiscord } = require('../../api/database')
 const { getUsernameFromId } = require('../../api/roblox.js')
 const config = require('../../../config.json')
 

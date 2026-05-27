@@ -5,7 +5,7 @@ const { sendEPUpdateWebhook } = require("../../api/webhook.js");
 const { getIdFromUsername } = require("../../api/roblox.js");
 const config = require('../../../config.json')
 const { EMBED_COLOR } = config.GENERAL;
-const database = require("../../api/database.js");
+const database = require("../../api/database");
 const path = require("path");
 const fs = require("fs");
 

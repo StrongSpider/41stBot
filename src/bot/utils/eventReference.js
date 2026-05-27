@@ -1,6 +1,6 @@
 'use strict'
 
-const database = require('../../api/database.js')
+const database = require('../../api/database')
 const {
     normalizeDiscordMessageUrl,
     parseDiscordMessageUrl
@@ -42,7 +42,7 @@ function looksLikeDiscordMessageUrl(input) {
 /**
  * Resolve either an event id or a Discord message jump link.
  * @param {string} input
- * @returns {Promise<{eventId: string, event: import('../../api/db/types').Event|null, source: 'event-id'|'message-url', reference: string}>}
+ * @returns {Promise<{eventId: string, event: import('../../api/database/types.js').Event|null, source: 'event-id'|'message-url', reference: string}>}
  */
 async function resolveEventReference(input) {
     const raw = String(input || '').trim()
@@ -108,16 +108,16 @@ function formatEventReferenceError(err) {
     }
 
     switch (err.code) {
-    case 'missing_reference':
-        return '<:warning:1297618648810393630> `Please provide an event ID or a Discord message link.`'
-    case 'invalid_message_url':
-        return '<:warning:1297618648810393630> `That message link is invalid. Paste a full Discord message link.`'
-    case 'message_not_indexed':
-        return '<:warning:1297618648810393630> `Could not find a logged event for that message link.`'
-    case 'unsupported_url':
-        return '<:warning:1297618648810393630> `This command accepts an event ID or a Discord message link.`'
-    default:
-        return '<:warning:1297618648810393630> `Failed to resolve the event reference.`'
+        case 'missing_reference':
+            return '<:warning:1297618648810393630> `Please provide an event ID or a Discord message link.`'
+        case 'invalid_message_url':
+            return '<:warning:1297618648810393630> `That message link is invalid. Paste a full Discord message link.`'
+        case 'message_not_indexed':
+            return '<:warning:1297618648810393630> `Could not find a logged event for that message link.`'
+        case 'unsupported_url':
+            return '<:warning:1297618648810393630> `This command accepts an event ID or a Discord message link.`'
+        default:
+            return '<:warning:1297618648810393630> `Failed to resolve the event reference.`'
     }
 }
 

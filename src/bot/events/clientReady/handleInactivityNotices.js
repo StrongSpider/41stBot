@@ -4,7 +4,7 @@ const config = require('../../../../config.json')
 const { GUILD_ID: BOT_GUILD_ID } = config.DISCORD.BOT
 const { INACTIVITY_NOTICE: INACTIVITY_NOTICE_ROLE_ID, EXEMPT: EXEMPT_DISCORD_ROLE_ID } = config.DISCORD.ROLES
 const { Client } = require('discord.js')
-const { getAllInactivities, deleteInactivity } = require('../../../api/database.js')
+const { getAllInactivities, deleteInactivity } = require('../../../api/database')
 
 const LoggerClass = require('../../../api/logger.js')
 const logger = new LoggerClass('InactivityNotices', 'BOT')

@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const qs = require('querystring');
 const config = require('../../../config.json');
 const Logger = require('../../api/logger.js');
-const database = require('../../api/database.js');
+const database = require('../../api/database');
 const { verifyAuthenticationToken } = require('../../api/authenticator.js');
 
 const logger = new Logger('RobloxAuthController', 'SERVER');

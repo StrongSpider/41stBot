@@ -1,7 +1,7 @@
 'use strict'
 
 const { SlashCommandBuilder, MessageFlags } = require('discord.js')
-const database = require('../../api/database.js')
+const database = require('../../api/database')
 
 /**
  * Check if the provided name is a valid event type

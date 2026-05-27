@@ -4,7 +4,7 @@ const { EmbedBuilder, TextChannel } = require('discord.js')
 const config = require('../../../../config.json')
 const { CHANNELS: DISCORD_CHANNEL_IDS } = config.DISCORD
 const { EMBED_COLOR } = config.GENERAL
-const database = require('../../../api/database.js')
+const database = require('../../../api/database')
 const { StartAuthentication } = require('../../../api/authenticator.js')
 const { buildOnboardingDmPayload } = require('../../utils/onboardingDm.js')
 

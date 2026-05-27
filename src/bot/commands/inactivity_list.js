@@ -5,7 +5,7 @@ const config = require('../../../config.json')
 const { EMBED_COLOR } = config.GENERAL
 const { INACTIVITY_MANAGEMENT: INACTIVITY_MANAGEMENT_ROLE_ID } = config.DISCORD.ROLES
 const { DEVELOPER_USER_ID: DEVELOPER_DISCORD_USER_ID } = config.DISCORD.BOT;
-const database = require('../../api/database.js')
+const database = require('../../api/database')
 const { hasDeveloperOrAdminOverride } = require('../utils/interactionPermissions.js')
 
 /**

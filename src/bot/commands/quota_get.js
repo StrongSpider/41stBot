@@ -4,7 +4,7 @@ const { SlashCommandBuilder, EmbedBuilder, PermissionsBitField, MessageFlags } =
 const config = require('../../../config.json')
 const { EMBED_COLOR } = config.GENERAL
 const quota = require('../../api/quota.js')
-const database = require('../../api/database.js')
+const database = require('../../api/database')
 const roblox = require('../../api/roblox.js')
 
 /**

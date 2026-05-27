@@ -1,7 +1,7 @@
 'use strict'
 
 const { SlashCommandBuilder, PermissionsBitField, MessageFlags } = require('discord.js')
-const database = require('../../api/database.js')
+const database = require('../../api/database')
 
 /**
  * Split a long message into Discord safe chunks
