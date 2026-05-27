@@ -10,9 +10,7 @@ const {
     OFFICER_LABELS_TABLE
 } = require('../constants');
 
-// ===========================================
 // Roblox ID Management
-// ===========================================
 
 /**
  * Get Roblox ID from Discord ID
@@ -130,9 +128,7 @@ async function getRandomUser(officerDiscordId) {
     return res.rows[0] ? Number(res.rows[0].robloxid) : null;
 }
 
-// ===========================================
 // Inactivity
-// ===========================================
 
 /**
  * Get inactivity notice for a user
@@ -194,9 +190,7 @@ async function deleteInactivity(discordId) {
     );
 }
 
-// ===========================================
 // Badges
-// ===========================================
 
 /**
  * Get cached badges for user
@@ -261,9 +255,7 @@ async function getAllUserBadgesData() {
 }
 
 
-// ===========================================
 // Assets
-// ===========================================
 
 /**
  * Get cached assets for user

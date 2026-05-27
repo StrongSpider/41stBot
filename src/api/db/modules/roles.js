@@ -4,9 +4,7 @@ const { pool } = require('../connection');
 const { normalizeEventCaps } = require('../utils');
 const { ROLE_QUOTAS_TABLE } = require('../constants');
 
-// ===========================================
 // Role Quotas
-// ===========================================
 
 /**
  * Set or update a role quota

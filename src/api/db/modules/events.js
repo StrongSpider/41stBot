@@ -15,9 +15,7 @@ const {
 } = require('../constants');
 const { assertEventEpWriteUnlocked } = require('./botState');
 
-// ===========================================
 // Event Types
-// ===========================================
 
 let _eventTypesCache = null;
 let _eventTypesInFlight = null;
@@ -139,9 +137,7 @@ function clearRankedEventTypesCache() {
     _rankedEventTypesInFlight = null;
 }
 
-// ===========================================
 // Event Helper: Usernames
-// ===========================================
 
 async function _idToUsernameSafe(id) {
     const n = Number(id);
@@ -169,9 +165,7 @@ async function _eventDataWithUsernames(ev) {
     };
 }
 
-// ===========================================
 // Event Access
-// ===========================================
 
 /**
  * Index an event for a specific user
