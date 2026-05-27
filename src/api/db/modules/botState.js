@@ -7,6 +7,14 @@ const EVENT_EP_LOCK_KEY = 'event_ep_lock';
 
 let _ensureBotStateTablePromise = null;
 
+function normalizeBotStateKey(key) {
+    const normalizedKey = typeof key === 'string' ? key.trim() : '';
+    if (!normalizedKey) {
+        throw new TypeError('Bot state key must be a non-empty string.');
+    }
+    return normalizedKey;
+}
+
 function ensureBotStateTable() {
     if (_ensureBotStateTablePromise) return _ensureBotStateTablePromise;
     _ensureBotStateTablePromise = pool.query(
@@ -32,18 +40,37 @@ function normalizeLockState(raw) {
     };
 }
 
-async function getEventEpLock() {
+async function getBotStateValue(key) {
     await ensureBotStateTable();
+    const normalizedKey = normalizeBotStateKey(key);
     const res = await pool.query(
         `SELECT value FROM ${BOT_STATE_TABLE} WHERE key = $1`,
-        [EVENT_EP_LOCK_KEY]
+        [normalizedKey]
     );
-    if (!res.rows[0]) return normalizeLockState({ enabled: false });
-    return normalizeLockState(res.rows[0].value);
+    return res.rows[0] ? res.rows[0].value : null;
+}
+
+async function setBotStateValue(key, value) {
+    await ensureBotStateTable();
+    const normalizedKey = normalizeBotStateKey(key);
+
+    await pool.query(
+        `INSERT INTO ${BOT_STATE_TABLE} (key, value, updated_at)
+         VALUES ($1, $2::jsonb, NOW())
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+        [normalizedKey, JSON.stringify(value)]
+    );
+
+    return value;
+}
+
+async function getEventEpLock() {
+    const value = await getBotStateValue(EVENT_EP_LOCK_KEY);
+    if (!value) return normalizeLockState({ enabled: false });
+    return normalizeLockState(value);
 }
 
 async function setEventEpLock(enabled, opts) {
-    await ensureBotStateTable();
     const options = opts && typeof opts === 'object' ? opts : {};
     const nextState = normalizeLockState({
         enabled: Boolean(enabled),
@@ -52,13 +79,7 @@ async function setEventEpLock(enabled, opts) {
         changedAt: new Date().toISOString()
     });
 
-    await pool.query(
-        `INSERT INTO ${BOT_STATE_TABLE} (key, value, updated_at)
-         VALUES ($1, $2::jsonb, NOW())
-         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-        [EVENT_EP_LOCK_KEY, JSON.stringify(nextState)]
-    );
-
+    await setBotStateValue(EVENT_EP_LOCK_KEY, nextState);
     return nextState;
 }
 
@@ -79,6 +100,8 @@ async function assertEventEpWriteUnlocked() {
 }
 
 module.exports = {
+    getBotStateValue,
+    setBotStateValue,
     getEventEpLock,
     setEventEpLock,
     assertEventEpWriteUnlocked,

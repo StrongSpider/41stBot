@@ -73,6 +73,7 @@ const GROUPED_COMMANDS = {
     description: 'Quota commands',
     routes: {
       'quota-get': { subcommand: 'get' },
+      'quota-info': { subcommand: 'info' },
       'quota-edit': { subcommand: 'edit' },
       'quota-role': { subcommand: 'role' }
     }

@@ -16,7 +16,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms))
 /**
  * Map a freeform company label to a short canonical name
  * @param {string} label
- * @returns {('Trooper'|'Green'|'Sarlacc'|'Ranger'|'Zeus'|null)}
+ * @returns {('Trooper'|'Green'|'Sarlacc'|'Ranger'|'Zeus'|'ARC'|null)}
  */
 function shortCompany(label) {
     if (!label) return null
@@ -26,6 +26,7 @@ function shortCompany(label) {
     if (s.includes('sarlacc')) return 'Sarlacc'
     if (s.includes('ranger')) return 'Ranger'
     if (s.includes('zeus')) return 'Zeus'
+    if (s.includes('advanced recon commandos')) return 'ARC'
     return null
 }
 
@@ -278,7 +279,7 @@ module.exports = {
             const fetchOk = await guard('guild.members.fetch', () => guild.members.fetch(), null, runId)
             logger.info(`[STAGE] runId=${runId} guild_members_fetch_done cached=${guild.members.cache.size} ok=${Boolean(fetchOk)}`)
 
-            const failedByCompany = { Trooper: [], Green: [], Sarlacc: [], Ranger: [], Zeus: [] }
+            const failedByCompany = { Trooper: [], Green: [], Sarlacc: [], Ranger: [], Zeus: [], ARC: [] }
             const demotionList = []
             const kickList = []
             const skippedMemberIds = new Set()
@@ -533,7 +534,7 @@ module.exports = {
             const reportDemotions = TEST_MODE ? demotionList : completedDemotions
             const reportKicks = TEST_MODE ? kickList : completedKicks
 
-            for (const c of ['Trooper', 'Green', 'Sarlacc', 'Ranger', 'Zeus']) {
+            for (const c of ['Trooper', 'Green', 'Sarlacc', 'Ranger', 'Zeus', 'ARC']) {
                 const failed = failedByCompany[c]
                 if (!failed || failed.length === 0) continue
 

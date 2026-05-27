@@ -45,7 +45,7 @@ const RequestLoop = async function () {
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 username = await getUsernameFromId(rid);
             } catch (err) {
-                logger.warn(`Could not resolve username for RobloxID ${rid}:`, err.message);
+                //logger.warn(`Could not resolve username for RobloxID ${rid}:`, err.message);
                 continue;
             }
 

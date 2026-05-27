@@ -1,9 +1,11 @@
 'use strict'
 
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js')
-const config = require('../../../config.json')
-const { EMBED_COLOR } = config.GENERAL
+const { SlashCommandBuilder, MessageFlags } = require('discord.js')
 const database = require('../../api/database.js')
+const {
+    createReviewerResetEmbed,
+    summarizeReviewerReset
+} = require('../utils/reviewerAutomation.js')
 
 const LoggerClass = require('../../api/logger.js')
 const logger = new LoggerClass('ReviewerReset', 'BOT')
@@ -21,27 +23,16 @@ module.exports = {
             await interaction.deferReply()
 
             const rows = await database.getWeeklyMinorOfficerReviewCounts().catch(() => [])
-            const normalized = Array.isArray(rows)
-                ? rows.map((row) => ({
-                    count: Number(row.count) || 0
-                }))
-                : []
-
-            const reviewersCleared = normalized.length
-            const reviewsCleared = normalized.reduce((sum, row) => sum + row.count, 0)
+            const { reviewersCleared, reviewsCleared } = summarizeReviewerReset(rows)
 
             await database.resetWeeklyMinorOfficerReviewCounts()
 
-            const embed = new EmbedBuilder()
-                .setFooter({ text: `WEEKLY REVIEWER RESET ${interaction.user.id}`, iconURL: interaction.guild?.iconURL() ?? undefined })
-                .setTitle('Reset Weekly Reviewer Data')
-                .setColor(EMBED_COLOR)
-                .setTimestamp()
-                .setDescription(`Executed by: ${interaction.user} (${interaction.user.id})`)
-                .addFields([
-                    { name: 'Reviewers cleared', value: String(reviewersCleared), inline: true },
-                    { name: 'Review count removed', value: String(reviewsCleared), inline: true }
-                ])
+            const embed = createReviewerResetEmbed({
+                rows,
+                guildIconUrl: interaction.guild?.iconURL() ?? undefined,
+                footerText: `WEEKLY REVIEWER RESET ${interaction.user.id}`,
+                executedBy: `Executed by: ${interaction.user} (${interaction.user.id})`
+            })
 
             logger.info(
                 `Weekly reviewer reset completed by ${interaction.user.username} (${interaction.user.id}); ` +

@@ -13,6 +13,8 @@ const {
 } = require('../../utils/minorEventReview.js')
 const { parseEventSummaryContent } = require('../../utils/eventSummary.js')
 
+const config = require('../../../../config.json')
+
 /**
  * @param {import('discord.js').ButtonInteraction} interaction
  */
@@ -69,7 +71,9 @@ module.exports = async function confirmLogButton(interaction) {
         }
 
         try {
-            await database.incrementMinorOfficerReviewerCount(interaction.user.id)
+            if (interaction.channel.id === config.DISCORD.CHANNELS.MINOR_OFFICER_EVENT_LOGS) {
+                await database.incrementMinorOfficerReviewerCount(interaction.user.id)
+            }
         } catch { }
 
         // Remove buttons to prevent double approvals, keep content unchanged
