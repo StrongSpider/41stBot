@@ -240,6 +240,7 @@
     "EMBED_COLOR": "DarkGreen",
     "ACCENT_COLOR": 1659966,
     "GROUP_NAME": "41st",
-    "TROOPER_RANK_LABEL": "Trooper (10)"
+    "TROOPER_RANK_LABEL": "Trooper (10)",
+    "BYPASS_USER_IDS": []
   }
 }

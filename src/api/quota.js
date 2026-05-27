@@ -247,8 +247,7 @@ async function checkQuota(member) {
   const purgeEligible = effectiveQuotas.filter(q => q.purges);
   const metPurgeQuotas = purgeEligible.length === 0 ? true : purgeEligible.every(r => r.passed);
 
-  // Hard-coded bypass for myname
-  const BYPASS_USERS = ['530196357823201280', '713450728043315210'];
+  const BYPASS_USERS = config.GENERAL.BYPASS_USER_IDS;
   if (userId && BYPASS_USERS.includes(userId)) {
     return { userId, username, met: true, metPurgeQuotas: true, quotas: [], purge: false };
   }
