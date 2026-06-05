@@ -4,6 +4,7 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const config = require('../../../config.json')
 const { EMBED_COLOR } = config.GENERAL
 const database = require('../../api/database')
+const { filterRowsByRole, formatRoleFilterLabel } = require('../utils/topRoleFilter')
 
 /**
  * @param {Array<{discordId: string, count: number}>} rows
@@ -31,6 +32,11 @@ module.exports = {
                 .setDescription('Enter how many users to show')
                 .setMinValue(1)
                 .setMaxValue(15)
+        )
+        .addRoleOption(option =>
+            option
+                .setName('role')
+                .setDescription('Only include users with this Discord role')
         ),
     /**
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
@@ -41,8 +47,9 @@ module.exports = {
 
             const allTime = interaction.options.getBoolean('all-time') ?? false
             const limit = interaction.options.getInteger('count') || 5
+            const roleFilter = interaction.options.getRole('role')
 
-            const rows = allTime
+            let rows = allTime
                 ? await database.getAllTimeMinorOfficerReviewCounts().catch(() => [])
                 : await database.getWeeklyMinorOfficerReviewCounts().catch(() => [])
 
@@ -56,10 +63,16 @@ module.exports = {
                 count: Number(row.count) || 0
             }))
 
-            sortReviewerRows(normalized)
-            const topRows = normalized.slice(0, limit)
+            rows = await filterRowsByRole(interaction, normalized, roleFilter, row => row.discordId)
+            if (rows.length === 0) {
+                await interaction.editReply({ content: roleFilter ? `No reviewer data found for users with the ${roleFilter.name} role.` : '<:warning:1297618648810393630> `No reviewer data available right now`' })
+                return
+            }
 
-            const selfIndex = normalized.findIndex(row => row.discordId === interaction.user.id)
+            sortReviewerRows(rows)
+            const topRows = rows.slice(0, limit)
+
+            const selfIndex = rows.findIndex(row => row.discordId === interaction.user.id)
 
             const lines = topRows.map((row, index) => {
                 const highlight = row.discordId === interaction.user.id
@@ -68,13 +81,13 @@ module.exports = {
             })
 
             if (selfIndex >= limit) {
-                const selfRow = normalized[selfIndex]
+                const selfRow = rows[selfIndex]
                 lines.push(`**${selfIndex + 1}. <@${selfRow.discordId}> ${selfRow.count}**`)
             }
 
             const embed = new EmbedBuilder()
                 .setFooter({ text: '41ST BOT', iconURL: interaction.guild?.iconURL() ?? undefined })
-                .setTitle(`Top Minor Reviewers ${allTime ? 'All-Time' : 'This Week'}`)
+                .setTitle(`Top Minor Reviewers ${allTime ? 'All-Time' : 'This Week'}${formatRoleFilterLabel(roleFilter)}`)
                 .setColor(EMBED_COLOR)
                 .setTimestamp()
                 .addFields({

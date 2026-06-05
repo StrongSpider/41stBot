@@ -5,6 +5,7 @@ const { getUsernameFromId } = require('../../api/roblox.js');
 const config = require('../../../config.json')
 const { EMBED_COLOR } = config.GENERAL;
 const database = require('../../api/database');
+const { filterRowsByRole, formatRoleFilterLabel } = require('../utils/topRoleFilter');
 
 /**
  * @typedef {Object} PointsRow
@@ -54,6 +55,11 @@ module.exports = {
             option
                 .setName('all-time')
                 .setDescription('Use all-time event points')
+        )
+        .addRoleOption(option =>
+            option
+                .setName('role')
+                .setDescription('Only include users with this Discord role')
         ),
     /**
      * @param {import('discord.js').ChatInputCommandInteraction} interaction
@@ -63,21 +69,27 @@ module.exports = {
             await interaction.deferReply()
 
             const allTime = interaction.options.getBoolean('all-time') ?? false
+            const roleFilter = interaction.options.getRole('role')
             const discordUser = interaction.user
 
-            const pointsData = await fetchPointsData(allTime)
+            let pointsData = await fetchPointsData(allTime)
             if (!Array.isArray(pointsData) || pointsData.length === 0) {
                 await interaction.editReply({ content: '<:warning:1297618648810393630> `No EP data available right now`' })
+                return
+            }
+
+            const discordData = await database.getDiscordIdsBatch(pointsData.map(u => u.robloxId)).catch(() => [])
+            const idMap = new Map(discordData.map(d => [d.robloxId, d.discordId]))
+
+            pointsData = await filterRowsByRole(interaction, pointsData, roleFilter, row => idMap.get(row.robloxId))
+            if (pointsData.length === 0) {
+                await interaction.editReply({ content: roleFilter ? `No EP data found for users with the ${roleFilter.name} role.` : '<:warning:1297618648810393630> `No EP data available right now`' })
                 return
             }
 
             // Sort and take top 5
             pointsData.sort((a, b) => (b.eventPoints || 0) - (a.eventPoints || 0))
             const top5 = pointsData.slice(0, 5)
-
-            // Batch fetch Discord IDs for top 5
-            const discordData = await database.getDiscordIdsBatch(top5.map(u => u.robloxId)).catch(() => [])
-            const idMap = new Map(discordData.map(d => [d.robloxId, d.discordId]))
 
             // Determine invoking user's rank
             const selfRobloxId = await database.getRobloxIdByDiscord(discordUser.id).catch(() => null)
@@ -104,7 +116,7 @@ module.exports = {
 
             const embed = new EmbedBuilder()
                 .setFooter({ text: '41ST BOT', iconURL: interaction.guild?.iconURL() ?? undefined })
-                .setTitle(`Top Event Points ${allTime ? 'All-Time' : 'This Week'}`)
+                .setTitle(`Top Event Points ${allTime ? 'All-Time' : 'This Week'}${formatRoleFilterLabel(roleFilter)}`)
                 .setColor(EMBED_COLOR)
                 .setTimestamp()
                 .addFields({ name: 'Top 5 Users', value: lines.join('\n') })

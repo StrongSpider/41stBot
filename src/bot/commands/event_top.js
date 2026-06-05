@@ -7,6 +7,7 @@ const { EMBED_COLOR } = config.GENERAL
 const database = require('../../api/database')
 const { resolveEventDateFilters, eventMatchesDateRange } = require('../utils/eventDateFilters')
 const { respondWithEventTypeAutocomplete } = require('../utils/eventTypeAutocomplete')
+const { filterRowsByRole, formatRoleFilterLabel } = require('../utils/topRoleFilter')
 
 /**
  * Validate an event pattern allowing a single trailing `*` for prefix matches
@@ -80,6 +81,11 @@ module.exports = {
         .setDescription('Enter how many users to show')
         .setMinValue(1)
         .setMaxValue(15)
+    )
+    .addRoleOption(option =>
+      option
+        .setName('role')
+        .setDescription('Only include users with this Discord role')
     ),
 
   /**
@@ -105,6 +111,7 @@ module.exports = {
       const limit = interaction.options.getInteger('count') || 5
       const hostMode = interaction.options.getBoolean('as-host') || false
       const allTimeMode = interaction.options.getBoolean('all-time') || false
+      const roleFilter = interaction.options.getRole('role')
 
       const beforeDateStr = interaction.options.getString('before-date')
       const afterDateStr = interaction.options.getString('after-date')
@@ -191,11 +198,17 @@ module.exports = {
         return
       }
 
-      counts.sort((a, b) => b.count - a.count)
-      const topUsers = counts.slice(0, limit)
-
-      const discordData = await database.getDiscordIdsBatch(topUsers.map(u => u.robloxId)).catch(() => [])
+      const discordData = await database.getDiscordIdsBatch(counts.map(u => u.robloxId)).catch(() => [])
       const idMap = new Map(discordData.map(d => [d.robloxId, d.discordId]))
+
+      const filteredCounts = await filterRowsByRole(interaction, counts, roleFilter, row => idMap.get(row.robloxId))
+      if (filteredCounts.length === 0) {
+        await interaction.editReply(`No logs found for event type \`${input}\`${roleFilter ? ` among users with the ${roleFilter.name} role` : ''}.`)
+        return
+      }
+
+      filteredCounts.sort((a, b) => b.count - a.count)
+      const topUsers = filteredCounts.slice(0, limit)
 
       const lines = []
       for (let i = 0; i < topUsers.length; i++) {
@@ -213,7 +226,7 @@ module.exports = {
       }
 
       const dateLabel = dateFilters.dateLabel ? ` - ${dateFilters.dateLabel}` : ''
-      const title = `Top ${dateFilters.useAllTime ? 'All Time' : 'Weekly'} ${topUsers.length} ${hostMode ? 'Hosts' : 'Attendees'} for \`${input}\`${dateLabel}`
+      const title = `Top ${dateFilters.useAllTime ? 'All Time' : 'Weekly'} ${topUsers.length} ${hostMode ? 'Hosts' : 'Attendees'} for \`${input}\`${formatRoleFilterLabel(roleFilter)}${dateLabel}`
 
       const embed = new EmbedBuilder()
         .setTitle(title)
