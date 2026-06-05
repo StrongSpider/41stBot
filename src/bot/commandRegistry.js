@@ -84,6 +84,12 @@ const GROUPED_COMMANDS = {
       'refresh-username': { subcommand: 'username' }
     }
   },
+  scan: {
+    description: 'Scan commands',
+    routes: {
+      'scan-group': { subcommand: 'group' }
+    }
+  },
   reviewer: {
     description: 'Minor Officer reviewer commands',
     routes: {
