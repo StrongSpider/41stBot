@@ -4,7 +4,7 @@ const { CommandInteraction } = require('discord.js')
 const quota = require('../../api/quota.js');
 
 module.exports = {
-    permission: 'OFFICER',
+    permission: 'UNITCMD',
     data: new SlashCommandBuilder()
         .setName('quota-role')
         .setDescription('Show quota status for every user in a role')

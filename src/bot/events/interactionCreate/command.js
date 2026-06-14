@@ -1,7 +1,7 @@
 'use strict'
 
 const config = require('../../../../config.json')
-const { FFCNC: DISCORD_FFCNC_ROLE_ID, HICOM: DISCORD_HICOM_ROLE_ID, OFFICER: DISCORD_OFFICER_ROLE_ID, MINOR_OFFICER: DISCORD_MINOR_OFFICER_ROLE_ID, CMOTW: DISCORD_CMOTW_ROLE_ID } = config.DISCORD.ROLES
+const { FFCNC: DISCORD_FFCNC_ROLE_ID, HICOM: DISCORD_HICOM_ROLE_ID, OFFICER: DISCORD_OFFICER_ROLE_ID, MINOR_OFFICER: DISCORD_MINOR_OFFICER_ROLE_ID, CMOTW: DISCORD_CMOTW_ROLE_ID, UNIT_COMMANDER: DISCORD_UNIT_COMMANDER_ROLE_ID } = config.DISCORD.ROLES
 const { DEVELOPER_USER_ID: DEVELOPER_DISCORD_USER_ID } = config.DISCORD.BOT
 const database = require('../../../api/database')
 const { formatEventEpLockMessage } = require('../../utils/eventEpLock.js')
@@ -81,6 +81,7 @@ module.exports = async function commandHandler(interaction) {
             else if (command.permission === 'HICOM') allowed = hasRole(DISCORD_HICOM_ROLE_ID)
             else if (command.permission === 'OFFICER') allowed = hasRole(DISCORD_OFFICER_ROLE_ID)
             else if (command.permission === 'MINOR_OFFICER') allowed = hasRole(DISCORD_MINOR_OFFICER_ROLE_ID) || hasRole(DISCORD_CMOTW_ROLE_ID)
+            else if (command.permission === 'UNITCMD') allowed = hasRole(DISCORD_UNIT_COMMANDER_ROLE_ID) || hasRole(DISCORD_OFFICER_ROLE_ID)
 
             if (!allowed) {
                 await interaction.reply({ content: '<:warning:1297618648810393630> You do not have permission to use this command.', flags: MessageFlags.Ephemeral })
