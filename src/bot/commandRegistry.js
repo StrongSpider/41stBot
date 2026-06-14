@@ -122,7 +122,8 @@ const GROUPED_COMMANDS = {
     description: 'Verification commands',
     routes: {
       verify: { subcommand: 'start' },
-      'verify-force': { subcommand: 'force' }
+      'verify-force': { subcommand: 'force' },
+      'verify-check': { subcommand: 'check' }
     }
   }
 }
