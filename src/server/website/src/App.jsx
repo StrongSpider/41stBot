@@ -7,7 +7,7 @@ import Home from '@/pages/Home';
 import Statistics from '@/pages/Statistics';
 import AdminDashboard from '@/pages/Admin/Dashboard';
 import OfficerDashboard from '@/pages/Officer/Dashboard';
-import DinoGame from '@/components/DinoGame';
+import WhiteboardActivity from '@/components/WhiteboardActivity';
 
 import { DiscordActivityProvider } from '@/context/DiscordActivityContext';
 
@@ -18,7 +18,7 @@ function App() {
         <AuthProvider>
           <Routes>
             {/* Public Routes */}
-            <Route path="/activity" element={<DinoGame />} />
+            <Route path="/activity" element={<WhiteboardActivity />} />
             <Route element={<PublicLayout />}>
               <Route path="/" element={<Home />} />
               <Route path="/statistics" element={<Statistics />} />

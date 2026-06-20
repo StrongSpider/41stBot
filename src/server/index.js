@@ -8,9 +8,13 @@ const express = require('express');
 const cors = require('cors');
 const path = require("path");
 const fs = require("fs");
+const http = require('http');
+const { createActivityWhiteboardServer } = require('./services/activityWhiteboard.js');
 
 // Express setup
 const app = express();
+const server = http.createServer(app);
+const whiteboard = createActivityWhiteboardServer(server);
 
 app.use(session({
     secret: PORTAL_SECRET,
@@ -27,6 +31,7 @@ app.use(cors({
 }));
 
 app.use(express.json({ limit: '50mb' }));
+app.use('/api/activity/whiteboard', whiteboard.router);
 
 // React app setup will be registered after API routes to ensure precedence
 
@@ -44,6 +49,7 @@ if (process.env.NODE_ENV === 'development') {
                 middlewareMode: true,
                 host: true,
                 allowedHosts: true,
+                hmr: { server },
                 fs: {
                     allow: [path.resolve(__dirname)]
                 }
@@ -73,6 +79,6 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 
-app.listen(PORTAL_PORT, PORTAL_HOST, () => {
+server.listen(PORTAL_PORT, PORTAL_HOST, () => {
     Logger.info(`App listening on port ${PORTAL_PORT}.`);
 });
