@@ -3,6 +3,7 @@ src/cache
 data
 
 config.json
+.env
 
 src/server/website/dist
 src/server/website/node_modules
