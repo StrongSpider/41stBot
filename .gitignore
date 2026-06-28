@@ -13,3 +13,5 @@ src/scripts
 .git_old
 
 *.d.ts
+
+graphify-out
