@@ -26,6 +26,15 @@ function toId(id) {
 }
 
 /**
+ * Convert an ID to a BigInt for Prisma bigint columns.
+ * @param {string|number|bigint} id
+ * @returns {bigint}
+ */
+function toBigInt(id) {
+    return BigInt(String(id));
+}
+
+/**
  * Convert possibly-nullish number-like to number or null.
  * @param {any} v
  * @returns {number|null}
@@ -47,6 +56,28 @@ function normalizeEventCaps(raw) {
         catch { return []; }
     }
     return [];
+}
+
+function normalizeJsonArray(raw) {
+    if (raw == null) return [];
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === 'string') {
+        try {
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch {
+            return [];
+        }
+    }
+    return [];
+}
+
+function normalizeBadges(raw) {
+    return normalizeJsonArray(raw);
+}
+
+function normalizeAssets(raw) {
+    return normalizeJsonArray(raw);
 }
 
 /**
@@ -77,7 +108,10 @@ function assertSafeEventType(value) {
 module.exports = {
     ensureTimestamp,
     toId,
+    toBigInt,
     toNumOrNull,
     normalizeEventCaps,
+    normalizeBadges,
+    normalizeAssets,
     assertSafeEventType
 };

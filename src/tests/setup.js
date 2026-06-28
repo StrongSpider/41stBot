@@ -151,3 +151,13 @@ afterEach(() => {
         throw new Error(`Unexpected error logs were emitted:\n${failures.join('\n')}`)
     }
 })
+
+afterAll(async () => {
+    const databasePath = path.resolve(__dirname, '../api/database/index.js')
+    const cachedDatabase = require.cache[databasePath]
+    const disconnectDatabase = cachedDatabase && cachedDatabase.exports && cachedDatabase.exports.disconnectDatabase
+
+    if (typeof disconnectDatabase === 'function') {
+        await disconnectDatabase().catch(() => {})
+    }
+})

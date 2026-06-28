@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model EventType {
+  type String @id @db.Text
+
+  @@map("event_types")
+}
+
+model RobloxLink {
+  discordId String @id @map("discordid") @db.Text
+  robloxId  BigInt @unique @map("robloxid")
+
+  weeklyHostedEvents        WeeklyEvent[]       @relation("WeeklyEventHost")
+  weeklySupervisedEvents    WeeklyEvent[]       @relation("WeeklyEventSupervisor")
+  allTimeHostedEvents       AllTimeEvent[]      @relation("AllTimeEventHost")
+  allTimeSupervisedEvents   AllTimeEvent[]      @relation("AllTimeEventSupervisor")
+  weeklyEventIndex          WeeklyEventIndex?
+  allTimeEventIndex         AllTimeEventIndex?
+  currentEventPoints        EventPoints?
+  allTimeEventPoints        AllTimeEventPoints?
+
+  @@map("roblox_ids")
+}
+
+model Inactivity {
+  discordId String @id @map("discordid") @db.Text
+  date      BigInt
+  reason    String @db.Text
+
+  @@map("inactivity")
+}
+
+model WeeklyEvent {
+  eventId    String   @id @default(dbgenerated("gen_random_uuid()")) @map("eventid") @db.Uuid
+  attendees  BigInt[] @default([])
+  host       BigInt
+  supervisor BigInt
+  timestamp  DateTime @db.Timestamptz(6)
+  type       String?  @db.Text
+  message    String?  @db.Text
+
+  hostLink       RobloxLink @relation("WeeklyEventHost", fields: [host], references: [robloxId], onDelete: Restrict, onUpdate: Cascade)
+  supervisorLink RobloxLink @relation("WeeklyEventSupervisor", fields: [supervisor], references: [robloxId], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([host], map: "weekly_events_host_idx")
+  @@index([supervisor], map: "weekly_events_supervisor_idx")
+  @@index([timestamp], map: "weekly_events_timestamp_idx")
+  @@index([type], map: "weekly_events_type_idx")
+  @@map("weekly_events")
+}
+
+model AllTimeEvent {
+  eventId    String   @id @map("eventid") @db.Uuid
+  attendees  BigInt[] @default([])
+  host       BigInt
+  supervisor BigInt
+  timestamp  DateTime @db.Timestamptz(6)
+  type       String?  @db.Text
+  message    String?  @db.Text
+
+  hostLink       RobloxLink @relation("AllTimeEventHost", fields: [host], references: [robloxId], onDelete: Restrict, onUpdate: Cascade)
+  supervisorLink RobloxLink @relation("AllTimeEventSupervisor", fields: [supervisor], references: [robloxId], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([host], map: "all_time_events_host_idx")
+  @@index([supervisor], map: "all_time_events_supervisor_idx")
+  @@index([timestamp], map: "all_time_events_timestamp_idx")
+  @@index([type], map: "all_time_events_type_idx")
+  @@map("all_time_events")
+}
+
+model WeeklyEventIndex {
+  robloxId BigInt   @id @map("robloxid")
+  events   String[] @default([]) @db.Uuid
+
+  robloxLink RobloxLink @relation(fields: [robloxId], references: [robloxId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("weekly_events_index")
+}
+
+model AllTimeEventIndex {
+  robloxId BigInt   @id @map("robloxid")
+  events   String[] @default([]) @db.Uuid
+
+  robloxLink RobloxLink @relation(fields: [robloxId], references: [robloxId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("all_time_events_index")
+}
+
+model EventPoints {
+  robloxId    BigInt @id @map("robloxid")
+  eventPoints Int    @default(0) @map("eventpoints")
+
+  robloxLink RobloxLink @relation(fields: [robloxId], references: [robloxId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("event_points")
+}
+
+model AllTimeEventPoints {
+  robloxId    BigInt @id @map("robloxid")
+  eventPoints Int    @default(0) @map("eventpoints")
+
+  robloxLink RobloxLink @relation(fields: [robloxId], references: [robloxId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("all_time_event_points")
+}
+
+model RoleQuota {
+  roleId     String  @id @map("roleid") @db.Text
+  quotaEP    Int     @default(0) @map("quotaep")
+  eventCaps  Json    @default("[]") @map("eventcaps")
+  overwrites String? @default("") @db.Text
+  exclusive  String? @default("") @db.Text
+  purges     Boolean @default(false)
+
+  @@map("role_quotas")
+}
+
+model RobloxUserCache {
+  robloxId  BigInt   @id @map("robloxid")
+  username  String   @db.Text
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([updatedAt], map: "roblox_user_cache_updated_at_idx")
+  @@map("roblox_user_cache")
+}
+
+model BotState {
+  key       String   @id @db.Text
+  value     Json
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("bot_state")
+}
+
+model MinorOfficerLogsWeekly {
+  discordId   String   @id @map("discordid") @db.Text
+  reviewCount Int      @default(0) @map("review_count")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("minor_officer_logs_weekly")
+}
+
+model MinorOfficerLogsAllTime {
+  discordId   String   @id @map("discordid") @db.Text
+  reviewCount Int      @default(0) @map("review_count")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("minor_officer_logs_all_time")
+}
+
+model UserBadgeCache {
+  robloxId BigInt @id @map("robloxid")
+  data     Json   @default("[]")
+
+  @@map("user_badges")
+}
+
+model UserAssetCache {
+  robloxId BigInt @id @map("robloxid")
+  data     Json   @default("[]")
+
+  @@map("user_assets")
+}
+
+model OfficerLabel {
+  id               Int    @id @default(autoincrement())
+  officerDiscordId String @map("officer_discord_id") @db.Text
+  targetRobloxId   BigInt @map("target_roblox_id")
+
+  @@unique([officerDiscordId, targetRobloxId], map: "officer_labels_officer_discord_id_target_roblox_id_key")
+  @@index([targetRobloxId], map: "officer_labels_target_roblox_id_idx")
+  @@map("officer_labels")
+}

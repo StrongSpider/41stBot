@@ -18,7 +18,7 @@ Additional docs:
 ## Requirements
 
 - Node.js 24+ and npm 11+ recommended
-- PostgreSQL 13+ (`schema.sql` uses `pgcrypto`)
+- PostgreSQL 13+ (Prisma migrations enable `pgcrypto`)
 - A Discord application and bot token
 - A Roblox `.ROBLOSECURITY` cookie for Roblox-backed features
 - `pm2` only if you want long-running production processes
@@ -44,7 +44,7 @@ Then return to the repo root for the remaining setup steps.
 
 ### 2. Create `config.json`
 
-This project does not use `.env`. It reads configuration from `config.json` in the repo root.
+This project primarily reads configuration from `config.json` in the repo root. Prisma commands can also use `DATABASE_URL` when it is set.
 
 ```bash
 cp configTemplate.json config.json
@@ -67,18 +67,24 @@ Use `configTemplate.json` as the source of truth for every key. These sections m
 | `DISCORD.AUTH`                                          | Discord OAuth for the portal                         | Needed if you want users to log in through Discord                        |
 | `EXTERNAL`                                              | External Roblox integrations                         | Needed for APIs like xTracker/Clanware if you use them                    |
 
-### 4. Create the PostgreSQL database and load the schema
+### 4. Create or baseline the PostgreSQL database
 
-Create the target database first, then load `schema.sql`:
+For a new empty database, create the target database first, then apply the Prisma migrations:
 
 ```bash
-PGPASSWORD='<POSTGRES_PASSWORD>' psql \
-  -h '<POSTGRES_HOST>' \
-  -p <POSTGRES_PORT> \
-  -U '<POSTGRES_USER>' \
-  -d '<POSTGRES_DATABASE>' \
-  -f schema.sql
+npm run prisma:migrate
 ```
+
+For an existing production database that already has these tables, baseline the initial Prisma migration once:
+
+```bash
+npm run prisma:baseline
+npm run prisma:migrate
+```
+
+`prisma:baseline` records the initial migration as already applied without replaying it against the existing schema.
+
+The Prisma CLI reads `DATABASE_URL` if present; otherwise `prisma.config.ts` builds the connection string from `config.json` -> `POSTGRES`.
 
 ### 5. Deploy Discord slash commands
 
@@ -119,7 +125,7 @@ Use this if you just want Discord automation:
 
 1. Install root dependencies
 2. Create `config.json`
-3. Load `schema.sql`
+3. Run `npm run prisma:migrate`
 4. Run `npm run deploy`
 5. Run `npm run bot`
 
@@ -130,7 +136,7 @@ Use this if you want the dashboard/API too:
 1. Install root dependencies
 2. Install frontend dependencies in `src/server/website`
 3. Create `config.json`
-4. Load `schema.sql`
+4. Run `npm run prisma:migrate`
 5. Build the frontend for production with `npm run build`, or use `npm run dev` for development
 6. Run `npm run server` or `npm run dev`
 7. Run `npm run bot` in a separate terminal/process
@@ -148,6 +154,11 @@ Use this if you want the dashboard/API too:
 | `npm run tracker` | Start the VIP guarding tracker                                    |
 | `npm run updater` | Refresh cached Roblox username/ID files                           |
 | `npm test`        | Run Jest tests                                                    |
+| `npm run prisma:generate` | Generate the Prisma client                               |
+| `npm run prisma:migrate`  | Apply Prisma migrations to the configured database         |
+| `npm run prisma:baseline` | Mark the initial migration applied for an existing database |
+| `npm run prisma:dev`      | Create/apply a development migration                       |
+| `npm run prisma:studio`   | Open Prisma Studio                                         |
 
 ## Production With PM2
 
@@ -189,5 +200,6 @@ Run `npm run build` before starting the production server so `src/server/website
 | ---------------------------------------- | ------------------------------------------------------ |
 | `Cannot find module '../../config.json'` | Create `config.json` from `configTemplate.json`        |
 | Slash commands do not appear             | Verify `DISCORD.BOT` values and rerun `npm run deploy` |
-| Database errors on startup               | Confirm `POSTGRES` values and rerun `schema.sql`       |
+| Database errors on startup               | Confirm `POSTGRES` values and run `npm run prisma:migrate` |
+| `The database schema is not empty`       | Existing DB: run `npm run prisma:baseline`, then `npm run prisma:migrate` |
 | Portal build/start fails                 | Install `src/server/website` dependencies and rebuild  |

@@ -1,18 +1,46 @@
 'use strict';
 
-const { Pool } = require('pg');
 const config = require('../../../config.json');
-const { DATABASE: POSTGRES_DATABASE, HOST: POSTGRES_HOST, PASSWORD: POSTGRES_PASSWORD, PORT: POSTGRES_PORT, USER: POSTGRES_USER } = config.POSTGRES;
+const { PrismaClient } = require('@prisma/client');
+const { PrismaPg } = require('@prisma/adapter-pg');
 
-/** @type {Pool} */
-const pool = new Pool({
-    user: POSTGRES_USER,
-    host: POSTGRES_HOST,
-    database: POSTGRES_DATABASE,
-    password: POSTGRES_PASSWORD,
-    port: POSTGRES_PORT
+function encode(value) {
+    return encodeURIComponent(String(value || ''));
+}
+
+function buildDatabaseUrl() {
+    if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+
+    const postgres = config.POSTGRES || {};
+    const user = encode(postgres.USER);
+    const password = encode(postgres.PASSWORD);
+    const host = postgres.HOST || 'localhost';
+    const port = postgres.PORT || 5432;
+    const database = encode(postgres.DATABASE);
+
+    if (!user || !database) return undefined;
+    return `postgresql://${user}:${password}@${host}:${port}/${database}?schema=public`;
+}
+
+const databaseUrl = buildDatabaseUrl();
+if (databaseUrl && !process.env.DATABASE_URL) {
+    process.env.DATABASE_URL = databaseUrl;
+}
+
+if (!databaseUrl) {
+    throw new Error('DATABASE_URL or config.POSTGRES must be configured before using the database API.');
+}
+
+const adapter = new PrismaPg(databaseUrl);
+const prisma = new PrismaClient({
+    adapter
 });
 
+async function disconnectDatabase() {
+    await prisma.$disconnect();
+}
+
 module.exports = {
-    pool
+    prisma,
+    disconnectDatabase
 };

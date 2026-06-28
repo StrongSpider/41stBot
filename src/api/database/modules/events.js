@@ -1,45 +1,64 @@
 'use strict';
 
-const { pool } = require('../connection');
-const { ensureTimestamp, toId, toNumOrNull, assertSafeEventType } = require('../utils');
+const { randomUUID } = require('node:crypto');
+const { prisma } = require('../connection');
+const { ensureTimestamp, toId, toBigInt, toNumOrNull, assertSafeEventType } = require('../utils');
 const {
-    WEEKLY_EVENTS_TABLE,
-    ALL_TIME_EVENTS_TABLE,
-    WEEKLY_EVENTS_INDEX_TABLE,
-    ALL_TIME_EVENTS_INDEX_TABLE,
-    EVENT_POINTS_TABLE,
-    ALL_TIME_EVENT_POINTS_TABLE,
-    EVENT_TYPES_TABLE,
     EVENT_TYPES_CACHE_TTL_MS,
     EVENT_TYPE_USAGE_CACHE_TTL_MS
 } = require('../constants');
 const { assertEventEpWriteUnlocked } = require('./botState');
-
-// Event Types
 
 let _eventTypesCache = null;
 let _eventTypesInFlight = null;
 let _rankedEventTypesCache = null;
 let _rankedEventTypesInFlight = null;
 
+function mapEvent(row) {
+    if (!row) return null;
+    return {
+        eventId: String(row.eventId),
+        attendees: (row.attendees || []).map((id) => Number(id)),
+        host: Number(row.host),
+        supervisor: Number(row.supervisor),
+        timestamp: ensureTimestamp(row.timestamp),
+        type: row.type,
+        message: row.message
+    };
+}
+
+function mapEventUpdate(updates) {
+    const data = {};
+    if (updates.attendees !== undefined) data.attendees = updates.attendees.map((id) => toBigInt(id));
+    if (updates.host !== undefined) data.host = toBigInt(updates.host);
+    if (updates.supervisor !== undefined) data.supervisor = toBigInt(updates.supervisor);
+    if (updates.timestamp !== undefined) data.timestamp = new Date(ensureTimestamp(updates.timestamp));
+    if (updates.type !== undefined) data.type = updates.type;
+    if (updates.message !== undefined) data.message = updates.message;
+    return data;
+}
+
+function uniqueIds(ids) {
+    return [...new Set((ids || []).map((id) => toId(id)))];
+}
+
 async function _loadEventTypesFromDb() {
-    const res = await pool.query(`SELECT type FROM ${EVENT_TYPES_TABLE}`);
-    return res.rows.map(r => String(r.type));
+    const rows = await prisma.eventType.findMany({ select: { type: true } });
+    return rows.map((row) => String(row.type));
 }
 
 async function _loadRankedEventTypesFromDb(refresh) {
     const [eventTypes, countRows] = await Promise.all([
         getEventTypes(refresh ? { refresh: true } : undefined),
-        pool.query(
-            `SELECT type, COUNT(*)::int AS count
-             FROM ${ALL_TIME_EVENTS_TABLE}
-             WHERE type IS NOT NULL
-             GROUP BY type`
-        )
+        prisma.allTimeEvent.groupBy({
+            by: ['type'],
+            where: { type: { not: null } },
+            _count: { type: true }
+        })
     ]);
 
     const counts = new Map(
-        countRows.rows.map(row => [String(row.type), Number(row.count) || 0])
+        countRows.map((row) => [String(row.type), Number(row._count.type) || 0])
     );
 
     return [...eventTypes].sort((a, b) => {
@@ -49,12 +68,6 @@ async function _loadRankedEventTypesFromDb(refresh) {
     });
 }
 
-/**
- * Get all available event types
- * @param {Object} [opts]
- * @param {boolean} [opts.refresh] Force refresh from DB
- * @returns {Promise<string[]>}
- */
 async function getEventTypes(opts) {
     const refresh = opts && opts.refresh === true;
     const now = Date.now();
@@ -69,12 +82,6 @@ async function getEventTypes(opts) {
     return _eventTypesInFlight;
 }
 
-/**
- * Get event types sorted by all-time usage count descending.
- * @param {Object} [opts]
- * @param {boolean} [opts.refresh] Force refresh from DB
- * @returns {Promise<string[]>}
- */
 async function getRankedEventTypes(opts) {
     const refresh = opts && opts.refresh === true;
     const now = Date.now();
@@ -93,17 +100,13 @@ async function getRankedEventTypes(opts) {
     return _rankedEventTypesInFlight;
 }
 
-/**
- * Add a new event type
- * @param {string} type 
- * @returns {Promise<string>}
- */
 async function addEventType(type) {
     const t = String(assertSafeEventType(type));
-    await pool.query(
-        `INSERT INTO ${EVENT_TYPES_TABLE} (type) VALUES ($1) ON CONFLICT (type) DO NOTHING`,
-        [t]
-    );
+    await prisma.eventType.upsert({
+        where: { type: t },
+        create: { type: t },
+        update: {}
+    });
     if (_eventTypesCache) {
         if (!_eventTypesCache.data.includes(t)) _eventTypesCache.data.push(t);
         _eventTypesCache.expiresAt = Date.now() + EVENT_TYPES_CACHE_TTL_MS;
@@ -112,16 +115,11 @@ async function addEventType(type) {
     return t;
 }
 
-/**
- * Remove an event type
- * @param {string} type 
- * @returns {Promise<void>}
- */
 async function removeEventType(type) {
     const t = String(assertSafeEventType(type));
-    await pool.query(`DELETE FROM ${EVENT_TYPES_TABLE} WHERE type = $1`, [t]);
+    await prisma.eventType.deleteMany({ where: { type: t } });
     if (_eventTypesCache) {
-        _eventTypesCache.data = _eventTypesCache.data.filter(x => x !== t);
+        _eventTypesCache.data = _eventTypesCache.data.filter((x) => x !== t);
         _eventTypesCache.expiresAt = Date.now() + EVENT_TYPES_CACHE_TTL_MS;
     }
     clearRankedEventTypesCache();
@@ -136,8 +134,6 @@ function clearRankedEventTypesCache() {
     _rankedEventTypesCache = null;
     _rankedEventTypesInFlight = null;
 }
-
-// Event Helper: Usernames
 
 async function _idToUsernameSafe(id) {
     const n = Number(id);
@@ -165,200 +161,130 @@ async function _eventDataWithUsernames(ev) {
     };
 }
 
-// Event Access
+async function upsertEventIndex(tx, modelName, robloxId, eventId) {
+    const rid = toBigInt(robloxId);
+    const existing = await tx[modelName].findUnique({
+        where: { robloxId: rid },
+        select: { events: true }
+    });
 
-/**
- * Index an event for a specific user
- * @param {number|string} robloxId 
- * @param {string} eventId 
- * @returns {Promise<void>}
- */
+    const events = existing && Array.isArray(existing.events) ? existing.events.map(String) : [];
+    if (!events.includes(String(eventId))) events.push(String(eventId));
+
+    await tx[modelName].upsert({
+        where: { robloxId: rid },
+        create: { robloxId: rid, events },
+        update: { events }
+    });
+}
+
+async function removeEventIndex(tx, modelName, robloxId, eventId) {
+    const rid = toBigInt(robloxId);
+    const existing = await tx[modelName].findUnique({
+        where: { robloxId: rid },
+        select: { events: true }
+    });
+    if (!existing) return;
+
+    await tx[modelName].update({
+        where: { robloxId: rid },
+        data: { events: existing.events.map(String).filter((id) => id !== String(eventId)) }
+    });
+}
+
 async function indexEventForUser(robloxId, eventId) {
-    const rid = toId(robloxId);
-    await pool.query(
-        `INSERT INTO ${WEEKLY_EVENTS_INDEX_TABLE} (robloxid, events)
-     VALUES ($1, ARRAY[$2::uuid])
-     ON CONFLICT (robloxid) DO UPDATE
-       SET events = array_append(${WEEKLY_EVENTS_INDEX_TABLE}.events, $2::uuid)
-     WHERE NOT (${WEEKLY_EVENTS_INDEX_TABLE}.events @> ARRAY[$2::uuid])`,
-        [rid, String(eventId)]
-    );
-    await pool.query(
-        `INSERT INTO ${ALL_TIME_EVENTS_INDEX_TABLE} (robloxid, events)
-     VALUES ($1, ARRAY[$2::uuid])
-     ON CONFLICT (robloxid) DO UPDATE
-       SET events = array_append(${ALL_TIME_EVENTS_INDEX_TABLE}.events, $2::uuid)
-     WHERE NOT (${ALL_TIME_EVENTS_INDEX_TABLE}.events @> ARRAY[$2::uuid])`,
-        [rid, String(eventId)]
-    );
+    await prisma.$transaction(async (tx) => {
+        await upsertEventIndex(tx, 'weeklyEventIndex', robloxId, eventId);
+        await upsertEventIndex(tx, 'allTimeEventIndex', robloxId, eventId);
+    });
 }
 
-/**
- * Remove event index for a user
- * @param {number|string} robloxId 
- * @param {string} eventId 
- * @returns {Promise<void>}
- */
 async function unindexEventForUser(robloxId, eventId) {
-    const rid = toId(robloxId);
-    await pool.query(
-        `UPDATE ${WEEKLY_EVENTS_INDEX_TABLE} SET events = array_remove(events, $2::uuid) WHERE robloxid = $1`,
-        [rid, String(eventId)]
-    );
-    await pool.query(
-        `UPDATE ${ALL_TIME_EVENTS_INDEX_TABLE} SET events = array_remove(events, $2::uuid) WHERE robloxid = $1`,
-        [rid, String(eventId)]
-    );
+    await prisma.$transaction(async (tx) => {
+        await removeEventIndex(tx, 'weeklyEventIndex', robloxId, eventId);
+        await removeEventIndex(tx, 'allTimeEventIndex', robloxId, eventId);
+    });
 }
 
-/**
- * Create a new weekly event (and all-time record)
- * @param {import('../types').Event} data 
- * @returns {Promise<string>} Created Event ID
- */
+function indexedUsersForEvent(event) {
+    if (!event) return [];
+    return uniqueIds([...(event.attendees || []), event.host]);
+}
+
 async function createWeeklyEvent(data) {
     await assertEventEpWriteUnlocked();
-    data.attendees = (data.attendees || []).map(e => Number(e));
-    data.host = Number(data.host);
-    data.supervisor = Number(data.supervisor);
-    data.timestamp = ensureTimestamp(data.timestamp);
+    const attendees = (data.attendees || []).map(toBigInt);
+    const host = toBigInt(data.host);
+    const supervisor = toBigInt(data.supervisor);
+    const timestamp = new Date(ensureTimestamp(data.timestamp));
+    const eventId = randomUUID();
 
-    const { rows } = await pool.query('SELECT gen_random_uuid() as id');
-    const eventId = String(rows[0].id);
+    await prisma.$transaction(async (tx) => {
+        const eventData = {
+            eventId,
+            attendees,
+            host,
+            supervisor,
+            timestamp,
+            type: data.type,
+            message: data.message
+        };
 
-    await pool.query(
-        `INSERT INTO ${WEEKLY_EVENTS_TABLE} (eventid, attendees, host, supervisor, timestamp, type, message)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [eventId, data.attendees, data.host, data.supervisor, data.timestamp, data.type, data.message]
-    );
+        await tx.weeklyEvent.create({ data: eventData });
+        await tx.allTimeEvent.create({ data: eventData });
 
-    await pool.query(
-        `INSERT INTO ${ALL_TIME_EVENTS_TABLE} (eventid, attendees, host, supervisor, timestamp, type, message)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [eventId, data.attendees, data.host, data.supervisor, data.timestamp, data.type, data.message]
-    );
-
-    for (const uid of data.attendees) await indexEventForUser(uid, eventId);
-    await indexEventForUser(data.host, eventId);
+        for (const uid of uniqueIds([...attendees, host])) {
+            await upsertEventIndex(tx, 'weeklyEventIndex', uid, eventId);
+            await upsertEventIndex(tx, 'allTimeEventIndex', uid, eventId);
+        }
+    });
 
     clearRankedEventTypesCache();
-
     return eventId;
 }
 
-// ... Additional query functions below ...
-// Due to size, I will include key ones. For full refactor I need all of them.
-
-/**
- * Get a weekly event by ID
- * @param {string} eventId 
- * @returns {Promise<import('../types').Event|null>}
- */
 async function getWeeklyEvent(eventId) {
-    const res = await pool.query(
-        `SELECT * FROM ${WEEKLY_EVENTS_TABLE} WHERE eventid = $1`,
-        [String(eventId)]
-    );
-    if (!res.rows[0]) return null;
-    const d = res.rows[0];
-    return {
-        eventId: String(d.eventid),
-        attendees: (d.attendees || []).map(e => Number(e)),
-        host: Number(d.host),
-        supervisor: Number(d.supervisor),
-        timestamp: ensureTimestamp(d.timestamp),
-        type: d.type,
-        message: d.message
-    };
+    const row = await prisma.weeklyEvent.findUnique({ where: { eventId: String(eventId) } });
+    return mapEvent(row);
 }
 
-/**
- * Get an all-time event by ID
- * @param {string} eventId 
- * @returns {Promise<import('../types').Event|null>}
- */
 async function getAllTimeEventById(eventId) {
-    const res = await pool.query(
-        `SELECT * FROM ${ALL_TIME_EVENTS_TABLE} WHERE eventid = $1`,
-        [String(eventId)]
-    );
-    if (!res.rows[0]) return null;
-    const d = res.rows[0];
-    return {
-        eventId: String(d.eventid),
-        attendees: (d.attendees || []).map(e => Number(e)),
-        host: Number(d.host),
-        supervisor: Number(d.supervisor),
-        timestamp: ensureTimestamp(d.timestamp),
-        type: d.type,
-        message: d.message
-    };
+    const row = await prisma.allTimeEvent.findUnique({ where: { eventId: String(eventId) } });
+    return mapEvent(row);
 }
 
-/**
- * Find event by message URL/Link
- * @param {string} messageUrl 
- * @returns {Promise<import('../types').Event|null>}
- */
 async function findEventByMessage(messageUrl) {
-    const res = await pool.query(
-        `SELECT * FROM ${ALL_TIME_EVENTS_TABLE} WHERE message = $1 LIMIT 1`,
-        [messageUrl]
-    );
-    if (!res.rows[0]) return null;
-    const d = res.rows[0];
-    return {
-        eventId: String(d.eventid),
-        attendees: (d.attendees || []).map(e => Number(e)),
-        host: Number(d.host),
-        supervisor: Number(d.supervisor),
-        timestamp: ensureTimestamp(d.timestamp),
-        type: d.type,
-        message: d.message
-    };
+    const row = await prisma.allTimeEvent.findFirst({
+        where: { message: messageUrl }
+    });
+    return mapEvent(row);
 }
 
-/**
- * Update a weekly event
- * @param {string} eventId 
- * @param {Partial<import('../types').Event>} updates 
- * @returns {Promise<void>}
- */
 async function updateWeeklyEvent(eventId, updates) {
     await assertEventEpWriteUnlocked();
-    if (updates.attendees !== undefined) updates.attendees = updates.attendees.map(e => Number(e));
-    if (updates.host !== undefined) updates.host = Number(updates.host);
-    if (updates.supervisor !== undefined) updates.supervisor = Number(updates.supervisor);
-    if (updates.timestamp !== undefined) updates.timestamp = ensureTimestamp(updates.timestamp);
-
     const oldData = await getWeeklyEvent(eventId);
     if (!oldData) throw new Error(`Weekly event ${eventId} not found`);
 
-    const fields = [];
-    const values = [];
-    let idx = 1;
-    for (const key in updates) {
-        fields.push(`${key} = $${idx++}`);
-        values.push(updates[key]);
-    }
-    values.push(String(eventId));
+    const data = mapEventUpdate(updates);
+    await prisma.$transaction(async (tx) => {
+        if (Object.keys(data).length) {
+            await tx.weeklyEvent.update({ where: { eventId: String(eventId) }, data });
+            await tx.allTimeEvent.update({ where: { eventId: String(eventId) }, data });
+        }
 
-    if (fields.length) {
-        const setClause = fields.join(', ');
-        await pool.query(
-            `UPDATE ${WEEKLY_EVENTS_TABLE} SET ${setClause} WHERE eventid = $${idx}`,
-            values
-        );
-        await pool.query(
-            `UPDATE ${ALL_TIME_EVENTS_TABLE} SET ${setClause} WHERE eventid = $${idx}`,
-            values
-        );
-    }
+        const newData = { ...oldData, ...updates };
+        const oldIndexed = indexedUsersForEvent(oldData);
+        const newIndexed = indexedUsersForEvent(newData);
 
-    const oldAtt = oldData.attendees || [];
-    const newAtt = updates.attendees || oldData.attendees || [];
-    for (const uid of oldAtt.filter(x => !newAtt.includes(x))) await unindexEventForUser(uid, eventId);
-    for (const uid of newAtt.filter(x => !oldAtt.includes(x))) await indexEventForUser(uid, eventId);
+        for (const uid of oldIndexed.filter((id) => !newIndexed.includes(id))) {
+            await removeEventIndex(tx, 'weeklyEventIndex', uid, eventId);
+            await removeEventIndex(tx, 'allTimeEventIndex', uid, eventId);
+        }
+        for (const uid of newIndexed.filter((id) => !oldIndexed.includes(id))) {
+            await upsertEventIndex(tx, 'weeklyEventIndex', uid, eventId);
+            await upsertEventIndex(tx, 'allTimeEventIndex', uid, eventId);
+        }
+    });
     clearRankedEventTypesCache();
 }
 
@@ -366,206 +292,133 @@ async function updateWeeklyEventPartial(eventId, updates) {
     return updateWeeklyEvent(eventId, updates);
 }
 
-/**
- * Update an all-time event
- * @param {string} eventId 
- * @param {Partial<import('../types').Event>} updates 
- * @returns {Promise<void>}
- */
 async function updateAllTimeEvent(eventId, updates) {
     await assertEventEpWriteUnlocked();
-    if (updates.timestamp !== undefined) updates.timestamp = ensureTimestamp(updates.timestamp);
-    const fields = [];
-    const values = [];
-    let idx = 1;
-    for (const key in updates) {
-        fields.push(`${key} = $${idx++}`);
-        values.push(updates[key]);
-    }
-    values.push(String(eventId));
-    if (fields.length) {
-        const setClause = fields.join(', ');
-        await pool.query(
-            `UPDATE ${ALL_TIME_EVENTS_TABLE} SET ${setClause} WHERE eventid = $${idx}`,
-            values
-        );
-        await pool.query(
-            `UPDATE ${WEEKLY_EVENTS_TABLE} SET ${setClause} WHERE eventid = $${idx}`,
-            values
-        );
+    const data = mapEventUpdate(updates);
+    if (Object.keys(data).length) {
+        await prisma.$transaction([
+            prisma.allTimeEvent.updateMany({ where: { eventId: String(eventId) }, data }),
+            prisma.weeklyEvent.updateMany({ where: { eventId: String(eventId) }, data })
+        ]);
     }
     clearRankedEventTypesCache();
 }
 
-/**
- * Delete a weekly event by ID
- * @param {string} eventId 
- * @returns {Promise<void>}
- */
 async function deleteEventById(eventId) {
     await assertEventEpWriteUnlocked();
     const weeklyData = await getWeeklyEvent(eventId);
     if (weeklyData) {
-        await pool.query(`DELETE FROM ${WEEKLY_EVENTS_TABLE} WHERE eventid = $1`, [String(eventId)]);
-        await pool.query(`DELETE FROM ${ALL_TIME_EVENTS_TABLE} WHERE eventid = $1`, [String(eventId)]);
-        const attendees = Array.isArray(weeklyData.attendees) ? [...weeklyData.attendees] : [];
-        if (!attendees.includes(weeklyData.host)) attendees.push(weeklyData.host);
-        if (!attendees.includes(weeklyData.supervisor)) attendees.push(weeklyData.supervisor);
-        for (const uid of attendees) await unindexEventForUser(uid, eventId);
+        await prisma.$transaction(async (tx) => {
+            await tx.weeklyEvent.deleteMany({ where: { eventId: String(eventId) } });
+            await tx.allTimeEvent.deleteMany({ where: { eventId: String(eventId) } });
+            const attendees = Array.isArray(weeklyData.attendees) ? [...weeklyData.attendees] : [];
+            if (!attendees.includes(weeklyData.host)) attendees.push(weeklyData.host);
+            if (!attendees.includes(weeklyData.supervisor)) attendees.push(weeklyData.supervisor);
+            for (const uid of attendees) {
+                await removeEventIndex(tx, 'weeklyEventIndex', uid, eventId);
+                await removeEventIndex(tx, 'allTimeEventIndex', uid, eventId);
+            }
+        });
         clearRankedEventTypesCache();
         return;
     }
+
     const historyData = await getAllTimeEventById(eventId);
     if (historyData) {
-        await pool.query(`DELETE FROM ${ALL_TIME_EVENTS_TABLE} WHERE eventid = $1`, [String(eventId)]);
-        const attendees = Array.isArray(historyData.attendees) ? historyData.attendees : [];
-        for (const uid of attendees) await unindexEventForUser(uid, eventId);
+        await prisma.$transaction(async (tx) => {
+            await tx.allTimeEvent.deleteMany({ where: { eventId: String(eventId) } });
+            const attendees = Array.isArray(historyData.attendees) ? historyData.attendees : [];
+            for (const uid of attendees) {
+                await removeEventIndex(tx, 'weeklyEventIndex', uid, eventId);
+                await removeEventIndex(tx, 'allTimeEventIndex', uid, eventId);
+            }
+        });
         clearRankedEventTypesCache();
     }
 }
 
-/**
- * Delete an all-time event by ID
- * @param {string} eventId 
- * @returns {Promise<void>}
- */
 async function deleteAllTimeEventById(eventId) {
     await assertEventEpWriteUnlocked();
     const oldWeekly = await getWeeklyEvent(eventId);
-    await pool.query(`DELETE FROM ${ALL_TIME_EVENTS_TABLE} WHERE eventid = $1`, [String(eventId)]);
-    await pool.query(`DELETE FROM ${WEEKLY_EVENTS_TABLE} WHERE eventid = $1`, [String(eventId)]);
-    const attendees = oldWeekly && Array.isArray(oldWeekly.attendees) ? [...oldWeekly.attendees] : [];
-    if (oldWeekly) {
-        if (!attendees.includes(oldWeekly.host)) attendees.push(oldWeekly.host);
-        if (!attendees.includes(oldWeekly.supervisor)) attendees.push(oldWeekly.supervisor);
-    }
-    for (const uid of attendees) await unindexEventForUser(uid, eventId);
+    await prisma.$transaction(async (tx) => {
+        await tx.allTimeEvent.deleteMany({ where: { eventId: String(eventId) } });
+        await tx.weeklyEvent.deleteMany({ where: { eventId: String(eventId) } });
+        const attendees = oldWeekly && Array.isArray(oldWeekly.attendees) ? [...oldWeekly.attendees] : [];
+        if (oldWeekly) {
+            if (!attendees.includes(oldWeekly.host)) attendees.push(oldWeekly.host);
+            if (!attendees.includes(oldWeekly.supervisor)) attendees.push(oldWeekly.supervisor);
+        }
+        for (const uid of attendees) {
+            await removeEventIndex(tx, 'weeklyEventIndex', uid, eventId);
+            await removeEventIndex(tx, 'allTimeEventIndex', uid, eventId);
+        }
+    });
     clearRankedEventTypesCache();
 }
 
-/**
- * List all weekly events
- * @returns {Promise<import('../types').Event[]>}
- */
 async function listWeeklyEvents() {
-    const res = await pool.query(`SELECT * FROM ${WEEKLY_EVENTS_TABLE}`);
-    return res.rows.map(row => ({
-        eventId: String(row.eventid),
-        attendees: (row.attendees || []).map(e => Number(e)),
-        host: Number(row.host),
-        supervisor: Number(row.supervisor),
-        timestamp: ensureTimestamp(row.timestamp),
-        type: row.type,
-        message: row.message
-    }));
+    const rows = await prisma.weeklyEvent.findMany();
+    return rows.map(mapEvent);
 }
 
-/**
- * Get all weekly event IDs
- * @returns {Promise<string[]>}
- */
 async function getWeeklyEventIds() {
-    const res = await pool.query(`SELECT eventid FROM ${WEEKLY_EVENTS_TABLE}`);
-    return res.rows.map(r => String(r.eventid));
+    const rows = await prisma.weeklyEvent.findMany({ select: { eventId: true } });
+    return rows.map((row) => String(row.eventId));
 }
 
-/**
- * List all all-time events
- * @returns {Promise<import('../types').Event[]>}
- */
 async function listAllTimeEvents() {
-    const res = await pool.query(`SELECT * FROM ${ALL_TIME_EVENTS_TABLE}`);
-    return res.rows.map(row => ({
-        eventId: String(row.eventid),
-        attendees: (row.attendees || []).map(e => Number(e)),
-        host: Number(row.host),
-        supervisor: Number(row.supervisor),
-        timestamp: ensureTimestamp(row.timestamp),
-        type: row.type,
-        message: row.message
-    }));
+    const rows = await prisma.allTimeEvent.findMany();
+    return rows.map(mapEvent);
 }
 
-/**
- * Get weekly event IDs for a user
- * @param {number|string} robloxId 
- * @returns {Promise<string[]>}
- */
 async function getWeeklyEventIdsForUser(robloxId) {
-    const res = await pool.query(
-        `SELECT events FROM ${WEEKLY_EVENTS_INDEX_TABLE} WHERE robloxid = $1`,
-        [toId(robloxId)]
-    );
-    return res.rows[0] && Array.isArray(res.rows[0].events) ? res.rows[0].events : [];
+    const row = await prisma.weeklyEventIndex.findUnique({
+        where: { robloxId: toBigInt(robloxId) },
+        select: { events: true }
+    });
+    return row && Array.isArray(row.events) ? row.events.map(String) : [];
 }
 
-/**
- * Get all-time event IDs for a user
- * @param {number|string} robloxId 
- * @returns {Promise<string[]>}
- */
 async function getAllTimeEventIdsForUser(robloxId) {
-    const res = await pool.query(
-        `SELECT events FROM ${ALL_TIME_EVENTS_INDEX_TABLE} WHERE robloxid = $1`,
-        [toId(robloxId)]
-    );
-    return res.rows[0] && Array.isArray(res.rows[0].events) ? res.rows[0].events : [];
+    const row = await prisma.allTimeEventIndex.findUnique({
+        where: { robloxId: toBigInt(robloxId) },
+        select: { events: true }
+    });
+    return row && Array.isArray(row.events) ? row.events.map(String) : [];
 }
 
-
-// Points Logic
-/**
- * Increment all-time event points
- * @param {number|string} robloxId 
- * @param {number} delta 
- * @returns {Promise<void>}
- */
 async function incrementAllTimeEventPoints(robloxId, delta) {
     await assertEventEpWriteUnlocked();
     return incrementAllTimeEventPointsUnsafe(robloxId, delta);
 }
 
 async function incrementAllTimeEventPointsUnsafe(robloxId, delta) {
-    const rid = toId(robloxId);
-    await pool.query(
-        `INSERT INTO ${ALL_TIME_EVENT_POINTS_TABLE} (robloxid, eventpoints)
-     VALUES ($1, $2)
-     ON CONFLICT (robloxid) DO UPDATE SET eventpoints = ${ALL_TIME_EVENT_POINTS_TABLE}.eventpoints + $2`,
-        [rid, Number(delta)]
-    );
+    const rid = toBigInt(robloxId);
+    await prisma.allTimeEventPoints.upsert({
+        where: { robloxId: rid },
+        create: { robloxId: rid, eventPoints: Number(delta) },
+        update: { eventPoints: { increment: Number(delta) } }
+    });
 }
 
-/**
- * Get current event points for user
- * @param {number|string} robloxId 
- * @returns {Promise<number>}
- */
 async function getCurrentEventPoints(robloxId) {
-    const rid = toId(robloxId);
-    const res = await pool.query(
-        `SELECT eventpoints FROM ${EVENT_POINTS_TABLE} WHERE robloxid = $1`,
-        [rid]
-    );
-    return res.rows[0] ? Number(res.rows[0].eventpoints) : 0;
+    const row = await prisma.eventPoints.findUnique({
+        where: { robloxId: toBigInt(robloxId) },
+        select: { eventPoints: true }
+    });
+    return row ? Number(row.eventPoints) : 0;
 }
 
-/**
- * Set current event points (also updates all-time delta)
- * @param {number|string} robloxId 
- * @param {number} points 
- * @returns {Promise<void>}
- */
 async function setCurrentEventPoints(robloxId, points) {
     await assertEventEpWriteUnlocked();
-    const rid = toId(robloxId);
+    const rid = toBigInt(robloxId);
     const oldPoints = await getCurrentEventPoints(rid);
 
-    await pool.query(
-        `INSERT INTO ${EVENT_POINTS_TABLE} (robloxid, eventpoints)
-       VALUES ($1, $2)
-       ON CONFLICT (robloxid) DO UPDATE SET eventpoints = EXCLUDED.eventpoints`,
-        [rid, Number(points)]
-    );
+    await prisma.eventPoints.upsert({
+        where: { robloxId: rid },
+        create: { robloxId: rid, eventPoints: Number(points) },
+        update: { eventPoints: Number(points) }
+    });
 
     const delta = Number(points) - Number(oldPoints);
     if (delta !== 0) {
@@ -573,166 +426,113 @@ async function setCurrentEventPoints(robloxId, points) {
     }
 }
 
-/**
- * Increment current event points (also updates all-time delta)
- * @param {number|string} robloxId 
- * @param {number} delta 
- * @returns {Promise<void>}
- */
 async function incrementCurrentEventPoints(robloxId, delta) {
     await assertEventEpWriteUnlocked();
-    const rid = toId(robloxId);
-    await pool.query(
-        `INSERT INTO ${EVENT_POINTS_TABLE} (robloxid, eventpoints)
-       VALUES ($1, $2)
-       ON CONFLICT (robloxid) DO UPDATE SET eventpoints = ${EVENT_POINTS_TABLE}.eventpoints + $2`,
-        [rid, Number(delta)]
-    );
+    const rid = toBigInt(robloxId);
+    await prisma.eventPoints.upsert({
+        where: { robloxId: rid },
+        create: { robloxId: rid, eventPoints: Number(delta) },
+        update: { eventPoints: { increment: Number(delta) } }
+    });
     await incrementAllTimeEventPointsUnsafe(rid, Number(delta));
 }
 
-/**
- * Get all-time event points for user
- * @param {number|string} robloxId 
- * @returns {Promise<number>}
- */
 async function getAllTimeEventPoints(robloxId) {
-    const rid = toId(robloxId);
-    const res = await pool.query(
-        `SELECT eventpoints FROM ${ALL_TIME_EVENT_POINTS_TABLE} WHERE robloxid = $1`,
-        [rid]
-    );
-    return res.rows[0] ? Number(res.rows[0].eventpoints) : 0;
+    const row = await prisma.allTimeEventPoints.findUnique({
+        where: { robloxId: toBigInt(robloxId) },
+        select: { eventPoints: true }
+    });
+    return row ? Number(row.eventPoints) : 0;
 }
 
-/**
- * Set all-time event points for user
- * @param {number|string} robloxId 
- * @param {number} points 
- * @returns {Promise<void>}
- */
 async function setAllTimeEventPoints(robloxId, points) {
     await assertEventEpWriteUnlocked();
-    const rid = toId(robloxId);
-    await pool.query(
-        `INSERT INTO ${ALL_TIME_EVENT_POINTS_TABLE} (robloxid, eventpoints)
-       VALUES ($1, $2)
-       ON CONFLICT (robloxid) DO UPDATE SET eventpoints = EXCLUDED.eventpoints`,
-        [rid, Number(points)]
-    );
+    const rid = toBigInt(robloxId);
+    await prisma.allTimeEventPoints.upsert({
+        where: { robloxId: rid },
+        create: { robloxId: rid, eventPoints: Number(points) },
+        update: { eventPoints: Number(points) }
+    });
 }
 
-/**
- * Batch get all-time event points
- * @param {string[]} robloxIds 
- * @returns {Promise<{robloxId: string, eventPoints: number}[]>}
- */
 async function getAllTimeEventPointsBatch(robloxIds) {
     if (!robloxIds.length) return [];
-    const res = await pool.query(
-        `SELECT robloxid, eventpoints FROM ${ALL_TIME_EVENT_POINTS_TABLE} WHERE robloxid = ANY($1)`,
-        [robloxIds]
-    );
-    const map = new Map(res.rows.map(r => [String(r.robloxid), Number(r.eventpoints)]));
-    return robloxIds.map(id => ({
+    const rows = await prisma.allTimeEventPoints.findMany({
+        where: { robloxId: { in: robloxIds.map(toBigInt) } },
+        select: { robloxId: true, eventPoints: true }
+    });
+    const map = new Map(rows.map((row) => [String(row.robloxId), Number(row.eventPoints)]));
+    return robloxIds.map((id) => ({
         robloxId: id,
-        eventPoints: map.get(id) || 0
+        eventPoints: map.get(String(id)) || 0
     }));
 }
 
-/**
- * Get all users and their all-time points
- * @returns {Promise<{robloxId: string, eventPoints: number}[]>}
- */
 async function getAllUsersAllTimeEventPoints() {
-    const res = await pool.query(
-        `SELECT robloxid, eventpoints FROM ${ALL_TIME_EVENT_POINTS_TABLE}`
-    );
-    return res.rows.map(row => ({
-        robloxId: String(row.robloxid),
-        eventPoints: Number(row.eventpoints)
+    const rows = await prisma.allTimeEventPoints.findMany({
+        select: { robloxId: true, eventPoints: true }
+    });
+    return rows.map((row) => ({
+        robloxId: String(row.robloxId),
+        eventPoints: Number(row.eventPoints)
     }));
 }
 
-/**
- * Get users who participated in weekly events
- * @returns {Promise<string[]>} List of Roblox IDs
- */
 async function getUsersWithWeeklyEvents() {
-    const res = await pool.query(
-        `SELECT robloxid FROM ${WEEKLY_EVENTS_INDEX_TABLE} WHERE array_length(events, 1) > 0`
-    );
-    return res.rows.map(r => String(r.robloxid));
+    const rows = await prisma.$queryRaw`
+        SELECT robloxid FROM weekly_events_index WHERE array_length(events, 1) > 0
+    `;
+    return rows.map((row) => String(row.robloxid));
 }
 
-/**
- * Batch get current event points
- * @param {string[]} robloxIds 
- * @returns {Promise<{robloxId: string, eventPoints: number}[]>}
- */
 async function getCurrentEventPointsBatch(robloxIds) {
     if (!robloxIds.length) return [];
-    const res = await pool.query(
-        `SELECT robloxid, eventpoints FROM ${EVENT_POINTS_TABLE} WHERE robloxid = ANY($1)`,
-        [robloxIds]
-    );
-    const map = new Map(res.rows.map(r => [String(r.robloxid), Number(r.eventpoints)]));
-    return robloxIds.map(robloxId => ({
+    const rows = await prisma.eventPoints.findMany({
+        where: { robloxId: { in: robloxIds.map(toBigInt) } },
+        select: { robloxId: true, eventPoints: true }
+    });
+    const map = new Map(rows.map((row) => [String(row.robloxId), Number(row.eventPoints)]));
+    return robloxIds.map((robloxId) => ({
         robloxId,
-        eventPoints: map.get(robloxId) || 0
+        eventPoints: map.get(String(robloxId)) || 0
     }));
 }
 
-/**
- * Batch get weekly user event IDs
- * @param {string[]} robloxIds 
- * @returns {Promise<{robloxId: string, events: string[]}[]>}
- */
 async function getWeeklyUserEventsBatch(robloxIds) {
     if (!robloxIds.length) return [];
-    const res = await pool.query(
-        `SELECT robloxid, events FROM ${WEEKLY_EVENTS_INDEX_TABLE} WHERE robloxid = ANY($1)`,
-        [robloxIds]
-    );
-    const map = new Map(res.rows.map(r => [String(r.robloxid), r.events]));
-    return robloxIds.map(robloxId => ({
+    const rows = await prisma.weeklyEventIndex.findMany({
+        where: { robloxId: { in: robloxIds.map(toBigInt) } },
+        select: { robloxId: true, events: true }
+    });
+    const map = new Map(rows.map((row) => [String(row.robloxId), row.events.map(String)]));
+    return robloxIds.map((robloxId) => ({
         robloxId,
-        events: map.get(robloxId) || []
+        events: map.get(String(robloxId)) || []
     }));
 }
 
-/**
- * Batch get all-time user event IDs
- * @param {string[]} robloxIds 
- * @returns {Promise<{robloxId: string, events: string[]}[]>}
- */
 async function getAllTimeUserEventsBatch(robloxIds) {
     if (!robloxIds.length) return [];
-    const res = await pool.query(
-        `SELECT robloxid, events FROM ${ALL_TIME_EVENTS_INDEX_TABLE} WHERE robloxid = ANY($1)`,
-        [robloxIds]
-    );
-    const map = new Map(res.rows.map(r => [String(r.robloxid), r.events]));
-    return robloxIds.map(robloxId => ({
+    const rows = await prisma.allTimeEventIndex.findMany({
+        where: { robloxId: { in: robloxIds.map(toBigInt) } },
+        select: { robloxId: true, events: true }
+    });
+    const map = new Map(rows.map((row) => [String(row.robloxId), row.events.map(String)]));
+    return robloxIds.map((robloxId) => ({
         robloxId,
-        events: map.get(robloxId) || []
+        events: map.get(String(robloxId)) || []
     }));
 }
 
-/**
- * Batch get weekly events
- * @param {string[]} eventIds 
- * @returns {Promise<import('../types').Event[]>}
- */
 async function getWeeklyEventsBatch(eventIds) {
     if (!eventIds.length) return [];
-    const res = await pool.query(
-        `SELECT eventid, type, message, host FROM ${WEEKLY_EVENTS_TABLE} WHERE eventid = ANY($1)`,
-        [eventIds]
-    );
-    const map = new Map(res.rows.map(r => [String(r.eventid), r]));
-    return eventIds.map(id => {
-        const d = map.get(id) || {};
+    const rows = await prisma.weeklyEvent.findMany({
+        where: { eventId: { in: eventIds.map(String) } },
+        select: { eventId: true, type: true, message: true, host: true }
+    });
+    const map = new Map(rows.map((row) => [String(row.eventId), row]));
+    return eventIds.map((id) => {
+        const d = map.get(String(id)) || {};
         return {
             eventId: id,
             type: d.type || null,
@@ -742,20 +542,15 @@ async function getWeeklyEventsBatch(eventIds) {
     });
 }
 
-/**
- * Batch get all-time events
- * @param {string[]} eventIds 
- * @returns {Promise<import('../types').Event[]>}
- */
 async function getAllTimeEventsBatch(eventIds) {
     if (!eventIds.length) return [];
-    const res = await pool.query(
-        `SELECT eventid, type, message, host, timestamp FROM ${ALL_TIME_EVENTS_TABLE} WHERE eventid = ANY($1)`,
-        [eventIds]
-    );
-    const map = new Map(res.rows.map(r => [String(r.eventid), r]));
-    return eventIds.map(id => {
-        const d = map.get(id) || {};
+    const rows = await prisma.allTimeEvent.findMany({
+        where: { eventId: { in: eventIds.map(String) } },
+        select: { eventId: true, type: true, message: true, host: true, timestamp: true }
+    });
+    const map = new Map(rows.map((row) => [String(row.eventId), row]));
+    return eventIds.map((id) => {
+        const d = map.get(String(id)) || {};
         return {
             eventId: id,
             type: d.type || null,
@@ -768,7 +563,7 @@ async function getAllTimeEventsBatch(eventIds) {
 
 async function resetAllEventPoints() {
     await assertEventEpWriteUnlocked();
-    return pool.query(`DELETE FROM ${EVENT_POINTS_TABLE}`);
+    return prisma.eventPoints.deleteMany();
 }
 
 module.exports = {
@@ -809,5 +604,5 @@ module.exports = {
     getWeeklyEventsBatch,
     getAllTimeEventsBatch,
     resetAllEventPoints,
-    _eventDataWithUsernames // Export for admin module
+    _eventDataWithUsernames
 };

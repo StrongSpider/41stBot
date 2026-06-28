@@ -154,7 +154,7 @@ function getScheduledReviewerAction(date = new Date()) {
 
     const runKey = `${parts.year}-${parts.month}-${parts.day}`
 
-    if (parts.hour === 16 && parts.minute === 0) {
+    if (parts.hour === 22 && parts.minute === 0) {
         return {
             action: 'list',
             stateKey: REVIEWER_LIST_STATE_KEY,
@@ -162,7 +162,7 @@ function getScheduledReviewerAction(date = new Date()) {
         }
     }
 
-    if (parts.hour === 16 && parts.minute === 1) {
+    if (parts.hour === 22 && parts.minute === 1) {
         return {
             action: 'reset',
             stateKey: REVIEWER_RESET_STATE_KEY,

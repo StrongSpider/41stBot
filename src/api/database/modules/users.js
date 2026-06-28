@@ -1,308 +1,271 @@
 'use strict';
 
-const { pool } = require('../connection');
-const { toId, normalizeBadges, normalizeAssets } = require('../utils');
-const {
-    ROBLOX_IDS_TABLE,
-    INACTIVITY_TABLE,
-    BADGES_TABLE,
-    ASSETS_TABLE,
-    OFFICER_LABELS_TABLE
-} = require('../constants');
+const { Prisma } = require('@prisma/client');
+const { prisma } = require('../connection');
+const { toId, toBigInt, normalizeBadges, normalizeAssets } = require('../utils');
 
-// Roblox ID Management
+const UNLINKED_DISCORD_ID_PREFIX = '__unlinked__:';
 
-/**
- * Get Roblox ID from Discord ID
- * @param {string} discordId 
- * @returns {Promise<number|null>} Roblox ID or null
- */
+function isUnlinkedDiscordId(discordId) {
+    return String(discordId || '').startsWith(UNLINKED_DISCORD_ID_PREFIX);
+}
+
+function unlinkedDiscordId(discordId, robloxId) {
+    return `${UNLINKED_DISCORD_ID_PREFIX}${toId(robloxId)}:${toId(discordId)}`;
+}
+
+function normalizePrismaConflict(error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const conflict = new Error('That Roblox account is already linked to another Discord user.');
+        conflict.cause = error;
+        return conflict;
+    }
+    return error;
+}
 
 async function getRobloxIdByDiscord(discordId) {
-    const res = await pool.query(
-        `SELECT robloxid FROM ${ROBLOX_IDS_TABLE} WHERE discordid = $1`,
-        [toId(discordId)]
-    );
-    return res.rows[0] ? Number(res.rows[0].robloxid) : null;
+    const row = await prisma.robloxLink.findUnique({
+        where: { discordId: toId(discordId) },
+        select: { robloxId: true }
+    });
+    return row ? Number(row.robloxId) : null;
 }
 
-/**
- * Get Discord ID from Roblox ID
- * @param {number|string} robloxId 
- * @returns {Promise<string|null>} Discord ID or null
- */
 async function getDiscordIdByRoblox(robloxId) {
-    const res = await pool.query(
-        `SELECT discordid FROM ${ROBLOX_IDS_TABLE} WHERE robloxid = $1`,
-        [toId(robloxId)]
-    );
-    return res.rows[0] ? String(res.rows[0].discordid) : null;
+    const row = await prisma.robloxLink.findUnique({
+        where: { robloxId: toBigInt(robloxId) },
+        select: { discordId: true }
+    });
+    if (!row || isUnlinkedDiscordId(row.discordId)) return null;
+    return String(row.discordId);
 }
 
-/**
- * Link a Discord ID to a Roblox ID
- * @param {string} discordId 
- * @param {number|string} robloxId 
- * @returns {Promise<void>}
- */
 async function upsertRobloxId(discordId, robloxId) {
+    const did = toId(discordId);
+    const rid = toBigInt(robloxId);
+
     try {
-        await pool.query(
-            `INSERT INTO ${ROBLOX_IDS_TABLE} (discordid, robloxid)
-         VALUES ($1, $2)
-         ON CONFLICT (discordid) DO UPDATE SET robloxid = EXCLUDED.robloxid`,
-            [toId(discordId), toId(robloxId)]
-        );
+        await prisma.$transaction(async (tx) => {
+            const rows = await tx.robloxLink.findMany({
+                where: {
+                    OR: [
+                        { discordId: did },
+                        { robloxId: rid }
+                    ]
+                }
+            });
+
+            const discordRow = rows.find((row) => String(row.discordId) === did);
+            const targetRow = rows.find((row) => row.robloxId === rid);
+
+            if (targetRow && !isUnlinkedDiscordId(targetRow.discordId) && String(targetRow.discordId) !== did) {
+                throw new Error('That Roblox account is already linked to another Discord user.');
+            }
+
+            if (discordRow && discordRow.robloxId !== rid) {
+                await tx.robloxLink.update({
+                    where: { discordId: did },
+                    data: { discordId: unlinkedDiscordId(did, discordRow.robloxId) }
+                });
+            }
+
+            if (targetRow) {
+                if (String(targetRow.discordId) !== did) {
+                    await tx.robloxLink.update({
+                        where: { robloxId: rid },
+                        data: { discordId: did }
+                    });
+                }
+            } else if (!discordRow || discordRow.robloxId !== rid) {
+                await tx.robloxLink.create({
+                    data: { discordId: did, robloxId: rid }
+                });
+            }
+        });
     } catch (error) {
-        if (error && error.code === '23505' && error.constraint === 'robloxids_robloxid_unique') {
-            const conflict = new Error('That Roblox account is already linked to another Discord user.');
-            conflict.cause = error;
-            throw conflict;
-        }
-        throw error;
+        throw normalizePrismaConflict(error);
     }
 }
 
-/**
- * Delete a link by Discord ID
- * @param {string} discordId 
- * @returns {Promise<void>}
- */
 async function deleteDiscordId(discordId) {
-    await pool.query(
-        `DELETE FROM ${ROBLOX_IDS_TABLE} WHERE discordid = $1`,
-        [toId(discordId)]
-    );
+    const did = toId(discordId);
+    await prisma.$transaction(async (tx) => {
+        const existing = await tx.robloxLink.findUnique({
+            where: { discordId: did },
+            select: { robloxId: true }
+        });
+
+        if (!existing) return;
+
+        await tx.robloxLink.update({
+            where: { discordId: did },
+            data: { discordId: unlinkedDiscordId(did, existing.robloxId) }
+        });
+    });
 }
 
-/**
- * Get all linked users
- * @returns {Promise<import('../types').User[]>}
- */
 async function getAllUsers() {
-    const res = await pool.query(
-        `SELECT robloxid, discordid FROM ${ROBLOX_IDS_TABLE}`
-    );
-    return res.rows.map(r => ({
-        robloxId: r.robloxid ? String(r.robloxid) : null,
-        discordId: r.discordid ? String(r.discordid) : null
+    const rows = await prisma.robloxLink.findMany({
+        where: { NOT: { discordId: { startsWith: UNLINKED_DISCORD_ID_PREFIX } } },
+        select: { robloxId: true, discordId: true }
+    });
+
+    return rows.map((row) => ({
+        robloxId: row.robloxId ? String(row.robloxId) : null,
+        discordId: row.discordId ? String(row.discordId) : null
     }));
 }
 
-/**
- * Batch get Discord IDs for multiple Roblox IDs
- * @param {string[]} robloxIds 
- * @returns {Promise<import('../types').User[]>}
- */
 async function getDiscordIdsBatch(robloxIds) {
     if (!robloxIds.length) return [];
-    const res = await pool.query(
-        `SELECT robloxid, discordid FROM ${ROBLOX_IDS_TABLE} WHERE robloxid = ANY($1)`,
-        [robloxIds]
-    );
-    const map = new Map(res.rows.map(r => [String(r.robloxid), String(r.discordid)]));
-    return robloxIds.map(rid => ({
+
+    const rows = await prisma.robloxLink.findMany({
+        where: {
+            robloxId: { in: robloxIds.map(toBigInt) },
+            NOT: { discordId: { startsWith: UNLINKED_DISCORD_ID_PREFIX } }
+        },
+        select: { robloxId: true, discordId: true }
+    });
+
+    const map = new Map(rows.map((row) => [String(row.robloxId), String(row.discordId)]));
+    return robloxIds.map((rid) => ({
         robloxId: rid,
         discordId: map.get(String(rid)) || null
     }));
 }
 
-/**
- * Get a random Roblox ID from the database, optionally filtering out ones labeled by officer
- * @param {string} [officerDiscordId] Exclude users labeled by this officer
- * @returns {Promise<number|null>}
- */
 async function getRandomUser(officerDiscordId) {
-    // Use ASSETS_TABLE instead of ROBLOX_IDS_TABLE as per user request to target inventory database
-    let query = `SELECT robloxid FROM ${ASSETS_TABLE}`;
-    const params = [];
+    const rows = officerDiscordId
+        ? await prisma.$queryRaw`
+            SELECT robloxid FROM user_assets
+            WHERE robloxid NOT IN (
+                SELECT target_roblox_id FROM officer_labels WHERE officer_discord_id = ${String(officerDiscordId)}
+            )
+            ORDER BY RANDOM()
+            LIMIT 1
+        `
+        : await prisma.$queryRaw`
+            SELECT robloxid FROM user_assets
+            ORDER BY RANDOM()
+            LIMIT 1
+        `;
 
-    if (officerDiscordId) {
-        query += ` WHERE robloxid::numeric NOT IN (SELECT target_roblox_id FROM ${OFFICER_LABELS_TABLE} WHERE officer_discord_id = $1)`;
-        params.push(String(officerDiscordId));
-    }
-
-    query += ` ORDER BY RANDOM() LIMIT 1`;
-
-    const res = await pool.query(query, params);
-    return res.rows[0] ? Number(res.rows[0].robloxid) : null;
+    return rows[0] ? Number(rows[0].robloxid) : null;
 }
 
-// Inactivity
-
-/**
- * Get inactivity notice for a user
- * @param {string} discordId 
- * @returns {Promise<import('../types').InactivityNotice|null>}
- */
 async function getInactivity(discordId) {
-    const res = await pool.query(
-        `SELECT date, reason FROM ${INACTIVITY_TABLE} WHERE discordid = $1`,
-        [toId(discordId)]
-    );
-    if (!res.rows.length) return null;
+    const row = await prisma.inactivity.findUnique({
+        where: { discordId: toId(discordId) }
+    });
+    if (!row) return null;
     return {
         discordId: toId(discordId),
-        date: res.rows[0].date ? Number(res.rows[0].date) : 0,
-        reason: res.rows[0].reason || 'NO REASON PROVIDED'
+        date: row.date ? Number(row.date) : 0,
+        reason: row.reason || 'NO REASON PROVIDED'
     };
 }
 
-/**
- * Get all inactivity notices
- * @returns {Promise<import('../types').InactivityNotice[]|null>}
- */
 async function getAllInactivities() {
-    const res = await pool.query(`SELECT * FROM ${INACTIVITY_TABLE}`);
-    if (!res.rows.length) return null;
-    return res.rows.map(r => ({
-        discordId: String(r.discordid),
-        date: r.date ? Number(r.date) : 0,
-        reason: r.reason || 'NO REASON PROVIDED'
+    const rows = await prisma.inactivity.findMany();
+    if (!rows.length) return null;
+    return rows.map((row) => ({
+        discordId: String(row.discordId),
+        date: row.date ? Number(row.date) : 0,
+        reason: row.reason || 'NO REASON PROVIDED'
     }));
 }
 
-/**
- * Set or update inactivity notice
- * @param {string} discordId 
- * @param {number} date 
- * @param {string} reason 
- * @returns {Promise<void>}
- */
 async function setInactivity(discordId, date, reason) {
-    await pool.query(
-        `INSERT INTO ${INACTIVITY_TABLE} (discordid, date, reason)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (discordid) DO UPDATE SET date = EXCLUDED.date, reason = EXCLUDED.reason`,
-        [toId(discordId), Number(date), reason]
-    );
+    await prisma.inactivity.upsert({
+        where: { discordId: toId(discordId) },
+        create: {
+            discordId: toId(discordId),
+            date: toBigInt(date),
+            reason
+        },
+        update: {
+            date: toBigInt(date),
+            reason
+        }
+    });
 }
 
-/**
- * Delete inactivity notice
- * @param {string} discordId 
- * @returns {Promise<void>}
- */
 async function deleteInactivity(discordId) {
-    await pool.query(
-        `DELETE FROM ${INACTIVITY_TABLE} WHERE discordid = $1`,
-        [toId(discordId)]
-    );
+    await prisma.inactivity.deleteMany({
+        where: { discordId: toId(discordId) }
+    });
 }
 
-// Badges
-
-/**
- * Get cached badges for user
- * @param {number|string} robloxId 
- * @returns {Promise<import('../types').BadgeData[]>}
- */
 async function getUserBadges(robloxId) {
-    const res = await pool.query(
-        `SELECT data FROM ${BADGES_TABLE} WHERE robloxid = $1`,
-        [toId(robloxId)]
-    );
-    const row = res.rows[0];
+    const row = await prisma.userBadgeCache.findUnique({
+        where: { robloxId: toBigInt(robloxId) }
+    });
     return normalizeBadges(row && row.data);
 }
 
-/**
- * Set cached badges for user (overwrites)
- * @param {number|string} robloxId 
- * @param {import('../types').BadgeData[]} badges 
- * @returns {Promise<void>}
- */
 async function setUserBadges(robloxId, badges) {
     const cleaned = normalizeBadges(badges);
-    await pool.query(
-        `INSERT INTO ${BADGES_TABLE} (robloxid, data)
-     VALUES ($1, $2)
-     ON CONFLICT (robloxid) DO UPDATE SET data = EXCLUDED.data`,
-        [toId(robloxId), JSON.stringify(cleaned)]
-    );
+    await prisma.userBadgeCache.upsert({
+        where: { robloxId: toBigInt(robloxId) },
+        create: { robloxId: toBigInt(robloxId), data: cleaned },
+        update: { data: cleaned }
+    });
 }
 
-/**
- * Append badges to user cache
- * @param {number|string} robloxId 
- * @param {import('../types').BadgeData[]} badges 
- * @returns {Promise<void>}
- */
 async function appendUserBadges(robloxId, badges) {
     const cleaned = normalizeBadges(badges);
     if (!cleaned.length) return;
-    await pool.query(
-        `INSERT INTO ${BADGES_TABLE} (robloxid, data)
-     VALUES ($1, $2)
-     ON CONFLICT (robloxid) DO UPDATE
-       SET data = ${BADGES_TABLE}.data || EXCLUDED.data`,
-        [toId(robloxId), JSON.stringify(cleaned)]
-    );
+
+    await prisma.$transaction(async (tx) => {
+        const rid = toBigInt(robloxId);
+        const existing = await tx.userBadgeCache.findUnique({ where: { robloxId: rid } });
+        const nextData = normalizeBadges(existing && existing.data).concat(cleaned);
+        await tx.userBadgeCache.upsert({
+            where: { robloxId: rid },
+            create: { robloxId: rid, data: nextData },
+            update: { data: nextData }
+        });
+    });
 }
 
-/**
- * Get all cached badge data
- * @returns {Promise<{robloxId: number, badges: import('../types').BadgeData[]}[]>}
- */
 async function getAllUserBadgesData() {
-    const res = await pool.query(
-        `SELECT robloxid, data FROM ${BADGES_TABLE}`
-    );
-    return res.rows.map(r => ({
-        robloxId: Number(r.robloxid),
-        badges: normalizeBadges(r.data)
+    const rows = await prisma.userBadgeCache.findMany();
+    return rows.map((row) => ({
+        robloxId: Number(row.robloxId),
+        badges: normalizeBadges(row.data)
     }));
 }
 
-
-// Assets
-
-/**
- * Get cached assets for user
- * @param {number|string} robloxId 
- * @returns {Promise<import('../types').AssetData[]>}
- */
 async function getUserAssets(robloxId) {
-    const res = await pool.query(
-        `SELECT data FROM ${ASSETS_TABLE} WHERE robloxid = $1`,
-        [toId(robloxId)]
-    );
-    const row = res.rows[0];
+    const row = await prisma.userAssetCache.findUnique({
+        where: { robloxId: toBigInt(robloxId) }
+    });
     return normalizeAssets(row && row.data);
 }
 
-/**
- * Set cached assets for user (overwrite)
- * @param {number|string} robloxId 
- * @param {import('../types').AssetData[]} assets 
- * @returns {Promise<void>}
- */
 async function setUserAssets(robloxId, assets) {
     const cleaned = normalizeAssets(assets);
-    await pool.query(
-        `INSERT INTO ${ASSETS_TABLE} (robloxid, data)
-     VALUES ($1, $2)
-     ON CONFLICT (robloxid) DO UPDATE SET data = EXCLUDED.data`,
-        [toId(robloxId), JSON.stringify(cleaned)]
-    );
+    await prisma.userAssetCache.upsert({
+        where: { robloxId: toBigInt(robloxId) },
+        create: { robloxId: toBigInt(robloxId), data: cleaned },
+        update: { data: cleaned }
+    });
 }
 
-/**
- * Append tokens to user cache
- * @param {number|string} robloxId 
- * @param {import('../types').AssetData[]} assets 
- * @returns {Promise<void>}
- */
 async function appendUserAssets(robloxId, assets) {
     const cleaned = normalizeAssets(assets);
     if (!cleaned.length) return;
-    await pool.query(
-        `INSERT INTO ${ASSETS_TABLE} (robloxid, data)
-     VALUES ($1, $2)
-     ON CONFLICT (robloxid) DO UPDATE
-       SET data = ${ASSETS_TABLE}.data || EXCLUDED.data`,
-        [toId(robloxId), JSON.stringify(cleaned)]
-    );
+
+    await prisma.$transaction(async (tx) => {
+        const rid = toBigInt(robloxId);
+        const existing = await tx.userAssetCache.findUnique({ where: { robloxId: rid } });
+        const nextData = normalizeAssets(existing && existing.data).concat(cleaned);
+        await tx.userAssetCache.upsert({
+            where: { robloxId: rid },
+            create: { robloxId: rid, data: nextData },
+            update: { data: nextData }
+        });
+    });
 }
 
 module.exports = {
