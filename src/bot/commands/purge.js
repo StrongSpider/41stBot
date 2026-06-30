@@ -145,6 +145,40 @@ async function retry(fn, { tries = 3, baseDelay = 750, label = 'op', runId = 'na
     throw lastErr
 }
 
+async function fetchRobloxUsernameForPurge(robloxId, memberId, runId) {
+    try {
+        return await roblox.getUsernameFromId(robloxId)
+    } catch (e) {
+        const err = errToObj(e)
+        const message = String(err.message || '').toLowerCase()
+        const label = `roblox.getUsernameFromId robloxId=${robloxId} memberId=${memberId}`
+
+        if (message.includes('user not found')) {
+            logger.warn(`[ROBLOX_LOOKUP_MISS] runId=${runId} label=${label} ${JSON.stringify(err)}`)
+        } else {
+            logger.error(`[ROBLOX_LOOKUP_FAIL] runId=${runId} label=${label} ${JSON.stringify(err)}`)
+        }
+
+        return null
+    }
+}
+
+function discordFallbackNameFor(member) {
+    const candidates = [
+        { source: 'Discord nickname', value: member.nickname },
+        { source: 'Discord display name', value: member.user.displayName },
+        { source: 'Discord username', value: member.user.username }
+    ]
+    const picked = candidates.find(candidate => candidate.value)
+    const rawName = picked?.value || 'Unknown'
+    const name = String(rawName).replace(/\[IN\]/g, '').replace(/\s+/g, '')
+
+    return {
+        name: name || 'Unknown',
+        source: picked?.source || 'Discord username'
+    }
+}
+
 function msToHuman(ms) {
     const s = Math.ceil(ms / 1000)
     const m = Math.floor(s / 60)
@@ -236,6 +270,8 @@ module.exports = {
             const KICK_REASON = config.GENERAL.PURGE_KICK_REASON || 'Failed quota'
             const EXEMPT_ROLE_IDS = [config.DISCORD.ROLES.EXEMPT].filter(Boolean)
             const PURGE_DEFCON_ROLE_ID = config.DISCORD.ROLES.PURGE_DEFCON
+            const RECRUIT_ROLE_ID = config.DISCORD.ROLES.RECRUIT
+            const BYPASS_USER_IDS = Array.isArray(config.GENERAL.BYPASS_USER_IDS) ? config.GENERAL.BYPASS_USER_IDS : []
             const SL_PLUS_ROLE_IDS = config.DISCORD.ROLES.RANK ? Object.keys(config.DISCORD.ROLES.RANK).filter(id => id !== '704881591272472596') : []
 
             const UNIT_ROLES = []
@@ -299,22 +335,23 @@ module.exports = {
                 i += 1
                 if (member.user.bot) continue
 
-                let fallbackName = member.nickname || member.user.displayName || member.user.username
-                fallbackName = String(fallbackName || 'Unknown').replace(/\[IN\]/g, '').replace(/\s+/g, '')
-
-                let name = fallbackName
+                const fallbackName = discordFallbackNameFor(member)
+                let name = fallbackName.name
 
                 const robloxId = await guard(`db.getRobloxIdByDiscord memberId=${member.id}`, () => database.getRobloxIdByDiscord(member.user.id), null, runId)
 
                 if (robloxId) {
-                    const fetchedName = await guard(
-                        `roblox.getUsernameFromId robloxId=${robloxId} memberId=${member.id}`,
-                        () => retry(() => roblox.getUsernameFromId(robloxId), { tries: 3, baseDelay: 750, label: `roblox.getUsernameFromId(${robloxId})`, runId }),
-                        null,
-                        runId
-                    )
+                    const fetchedName = await fetchRobloxUsernameForPurge(robloxId, member.id, runId)
                     if (fetchedName) name = fetchedName
-                    else robloxLookupFailCount += 1
+                    else {
+                        robloxLookupFailCount += 1
+                        await safeSend(
+                            interaction.channel,
+                            `Roblox username lookup failed for <@${member.id}> (Roblox ID \`${robloxId}\`). Using ${fallbackName.source} \`${fallbackName.name}\` for purge prompts.`,
+                            'roblox_lookup_fallback_notice',
+                            runId
+                        )
+                    }
                 }
 
                 const roles = member.roles.cache.map(r => r.id)
@@ -335,6 +372,24 @@ module.exports = {
 
                 const company = firstCompanyFor(member, companyRoleMap)
                 const onPurge = report?.purge
+                const hasExemptRole = EXEMPT_ROLE_IDS.some(rid => member.roles.cache.has(rid))
+                const isBypassUser = BYPASS_USER_IDS.includes(member.id) || BYPASS_USER_IDS.includes(member.user.id)
+                const isExemptForPurge = report.status === 'EXEMPT' || hasExemptRole || isBypassUser
+                const isRecruit = Boolean(RECRUIT_ROLE_ID && member.roles.cache.has(RECRUIT_ROLE_ID))
+
+                if (isRecruit && !isExemptForPurge) {
+                    kickList.push({
+                        memberId: member.id,
+                        member,
+                        robloxName: report.username || name,
+                        onPurge,
+                        company: 'Recruit',
+                        purge: onPurge,
+                        quotas: report.quotas || [],
+                        status: 'RECRUIT_PURGE'
+                    })
+                    continue
+                }
 
                 if (report.metPurgeQuotas) {
                     passedCount.total += 1
@@ -459,7 +514,7 @@ module.exports = {
             if (kickList.length) {
                 await safeSend(
                     interaction.channel,
-                    `${TEST_MODE ? 'TEST MODE: No Discord roles will be changed and no confirmations will be awaited.\n\n' : ''}# Starting kicks for ${kickList.length} Troopers on purge defcon.\nFor each user:\n- Run the slash command shown below.\n- Send any message in this channel to move to the next user.\n- Type \`skip\` to skip that user.\n\nTimeout: 5 minutes per user.`,
+                    `${TEST_MODE ? 'TEST MODE: No Discord roles will be changed and no confirmations will be awaited.\n\n' : ''}# Starting kicks for ${kickList.length} users.\nFor each user:\n- Run the slash command shown below.\n- Send any message in this channel to move to the next user.\n- Type \`skip\` to skip that user.\n\nTimeout: 5 minutes per user.`,
                     'kicks_intro',
                     runId
                 )
@@ -471,7 +526,7 @@ module.exports = {
 
                 const isSL = SL_PLUS_ROLE_IDS.length ? k.member.roles.cache.some(r => SL_PLUS_ROLE_IDS.includes(r.id)) : false
                 const cmd = managegroupKickCmd(GROUP_NAME, k.robloxName, KICK_REASON)
-                const preface = `<@${k.memberId}> Kick **${k.robloxName}** [Trooper]${isSL ? ' - <:warning:1297618648810393630> Heads up: SL+' : ''}.\nRun this slash command and also kick them from Discord, then send anything in this channel to continue. Type \`skip\` to skip:`
+                const preface = `<@${k.memberId}> Kick **${k.robloxName}** [${k.company || 'Trooper'}]${isSL ? ' - <:warning:1297618648810393630> Heads up: SL+' : ''}.\nRun this slash command and also kick them from Discord, then send anything in this channel to continue. Type \`skip\` to skip:`
                 const block = '```' + cmd + '```'
 
                 await safeSend(interaction.channel, `${preface}\n${block}`, `kick_prompt_${kIdx}`, runId)
