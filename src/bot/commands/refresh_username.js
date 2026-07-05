@@ -1,6 +1,6 @@
 const { SlashCommandBuilder } = require('discord.js');
 const database = require('../../api/database');
-const noblox = require('noblox.js');
+const { refreshUsernameFromId } = require('../../api/roblox.js');
 
 const LoggerClass = require('../../api/logger.js')
 const logger = new LoggerClass('RefreshUsername', 'BOT')
@@ -29,15 +29,14 @@ module.exports = {
                 });
             }
 
-            // 2. Fetch current username from Roblox
-            const newUsername = await noblox.getUsernameFromId(robloxId);
-
-            // 3. Get old cache data for comparison
+            // 2. Get old cache data for comparison
             const cached = await database.getUserById(robloxId);
             const oldUsername = cached ? cached.username : 'Unknown/Uncached';
 
-            // 4. Update cache
-            await database.upsertUser(robloxId, newUsername);
+            // 3. Fetch current username from Roblox and update cache
+            const newUsername = await refreshUsernameFromId(robloxId);
+
+            // 4. Cache was updated by the explicit refresh call above
             logger.info(`Manual username refresh for ${robloxId}: ${oldUsername} -> ${newUsername} (by ${interaction.user.tag})`);
 
             // 5. Reply

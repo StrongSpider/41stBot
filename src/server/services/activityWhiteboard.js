@@ -79,10 +79,16 @@ function normalizePoint(point) {
     const y = Number(point.y);
     if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
     if (x < 0 || x > 1 || y < 0 || y > 1) return null;
-    return {
+    const normalized = {
         x: Math.round(x * 10_000) / 10_000,
         y: Math.round(y * 10_000) / 10_000
     };
+    if (point.pressure !== undefined) {
+        const pressure = Number(point.pressure);
+        if (!Number.isFinite(pressure)) return null;
+        normalized.pressure = Math.round(Math.min(1, Math.max(0.18, pressure)) * 10_000) / 10_000;
+    }
+    return normalized;
 }
 
 function normalizeStroke(message, client) {

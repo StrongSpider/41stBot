@@ -55,7 +55,7 @@ describe('Roblox Cache', () => {
         expect(uname).toBe('CachedUser')
     })
 
-    test('getUsernameFromId: should refresh from API if cache expired', async () => {
+    test('getUsernameFromId: should keep cached value even if old', async () => {
         const oldDate = new Date()
         oldDate.setDate(oldDate.getDate() - 8) // 8 days old
 
@@ -69,6 +69,17 @@ describe('Roblox Cache', () => {
         const uname = await roblox.getUsernameFromId(123)
 
         expect(db.getUserById).toHaveBeenCalledWith(123)
+        expect(noblox.getUsernameFromId).not.toHaveBeenCalled()
+        expect(db.upsertUser).not.toHaveBeenCalled()
+        expect(uname).toBe('OldUser')
+    })
+
+    test('refreshUsernameFromId: should fetch from API and update DB', async () => {
+        noblox.getUsernameFromId.mockResolvedValue('NewUser')
+        db.upsertUser.mockResolvedValue()
+
+        const uname = await roblox.refreshUsernameFromId(123)
+
         expect(noblox.getUsernameFromId).toHaveBeenCalledWith(123)
         expect(db.upsertUser).toHaveBeenCalledWith(123, 'NewUser')
         expect(uname).toBe('NewUser')

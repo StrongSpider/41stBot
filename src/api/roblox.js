@@ -8,12 +8,32 @@ const logger = new LoggerClass('Roblox', 'API')
 // DB cache
 const database = require('./database')
 
-const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
+function normalizeUsername(value) {
+  const uname = String(value || '').trim()
+  if (!uname || uname.toLowerCase() === 'null') {
+    throw new Error('User not found')
+  }
+  return uname
+}
+
+async function fetchUsernameFromApi(idNum) {
+  const uname = normalizeUsername(await noblox.getUsernameFromId(idNum))
+  logger.info('Fetched username from API: ' + uname + ' (' + idNum + ')')
+  return uname
+}
+
+async function writeUsernameCache(idNum, username) {
+  try {
+    await database.upsertUser(idNum, username)
+  } catch (err) {
+    logger.error('DB write error (upsertUser): ' + err.message)
+  }
+}
 
 /**
  * Get a Roblox username from a numeric user id
- * Uses DB cache, then the Roblox API. On a miss, the
- * result is written back to DB.
+ * Uses the DB cache when present. Missing users are fetched once and
+ * written to DB, but existing cached usernames are not refreshed here.
  * @param {number|string} id Roblox user id
  * @returns {Promise<string>} username
  */
@@ -24,32 +44,34 @@ const getUsernameFromId = async function (id) {
   // Check DB
   try {
     const cached = await database.getUserById(idNum)
-    if (cached) {
-      if (Date.now() - new Date(cached.updatedAt).getTime() < CACHE_TTL_MS) {
-        return cached.username
-      }
-    }
+    if (cached) return cached.username
   } catch (err) {
     logger.error('DB read error (getUsernameFromId): ' + err.message)
   }
 
   // API fallback
   try {
-    const unameRaw = await noblox.getUsernameFromId(idNum)
-    const uname = String(unameRaw || '').trim()
-    if (!uname || uname.toLowerCase() === 'null') {
-      throw new Error('User not found')
-    }
+    const uname = await fetchUsernameFromApi(idNum)
+    await writeUsernameCache(idNum, uname)
+    return uname
+  } catch {
+    throw new Error('User not found')
+  }
+}
 
-    logger.info('Fetched username from API: ' + uname + ' (' + idNum + ')')
+/**
+ * Explicitly refresh a Roblox username from the API and update DB.
+ * Use this from manual refresh flows and the Roblox updater only.
+ * @param {number|string} id Roblox user id
+ * @returns {Promise<string>} username
+ */
+const refreshUsernameFromId = async function (id) {
+  const idNum = Number(id)
+  if (!Number.isFinite(idNum) || idNum <= 0) throw new Error('Invalid Roblox user id')
 
-    // Update DB (only if values are valid)
-    try {
-      await database.upsertUser(idNum, uname)
-    } catch (err) {
-      logger.error('DB write error (upsertUser): ' + err.message)
-    }
-
+  try {
+    const uname = await fetchUsernameFromApi(idNum)
+    await writeUsernameCache(idNum, uname)
     return uname
   } catch {
     throw new Error('User not found')
@@ -58,8 +80,8 @@ const getUsernameFromId = async function (id) {
 
 /**
  * Get a Roblox user id from a username
- * Uses DB cache, then the Roblox API. On a miss, the
- * result is written back to DB.
+ * Uses the DB cache when present. Missing users are fetched once and
+ * written to DB, but existing cached usernames are not refreshed here.
  * @param {string} username Roblox username
  * @returns {Promise<number>} numeric user id
  */
@@ -70,11 +92,7 @@ const getIdFromUsername = async function (username) {
   // Check DB
   try {
     const cached = await database.getUserByUsername(uname)
-    if (cached) {
-      if (Date.now() - new Date(cached.updatedAt).getTime() < CACHE_TTL_MS) {
-        return cached.robloxId
-      }
-    }
+    if (cached) return cached.robloxId
   } catch (err) {
     logger.error('DB read error (getIdFromUsername): ' + err.message)
   }
@@ -107,5 +125,6 @@ const getIdFromUsername = async function (username) {
 
 module.exports = {
   getUsernameFromId,
+  refreshUsernameFromId,
   getIdFromUsername,
 }

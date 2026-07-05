@@ -55,7 +55,7 @@ describe('activity whiteboard service', () => {
             tool: 'pen',
             color: '#111827',
             size: 12,
-            points: [{ x: 0.1, y: 0.2 }, { x: 0.3, y: 0.4 }]
+            points: [{ x: 0.1, y: 0.2, pressure: 0.4 }, { x: 0.3, y: 0.4, pressure: 0.9 }]
         }, {
             id: 'client-1',
             userId: 'user-1',
@@ -70,6 +70,10 @@ describe('activity whiteboard service', () => {
             color: '#111827',
             size: 12
         });
+        expect(result.stroke.points).toEqual([
+            { x: 0.1, y: 0.2, pressure: 0.4 },
+            { x: 0.3, y: 0.4, pressure: 0.9 }
+        ]);
     });
 
     test('broadcasts strokes to other participants and cleans up empty sessions', async () => {

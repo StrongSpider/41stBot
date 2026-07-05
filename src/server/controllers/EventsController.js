@@ -3,6 +3,33 @@ const roblox = require('../../api/roblox.js');
 const webhook = require('../../api/webhook.js');
 const Logger = require('../../api/logger.js');
 
+function robloxIdLabel(id) {
+    return `Roblox ID ${id}`;
+}
+
+async function buildRobloxUsernameMap(events) {
+    const userIds = new Set();
+    events.forEach(ev => {
+        if (ev.host && ev.host !== -1) userIds.add(ev.host);
+        if (ev.supervisor && ev.supervisor !== -1) userIds.add(ev.supervisor);
+    });
+
+    const userMap = {};
+    await Promise.all(Array.from(userIds).map(async (id) => {
+        try {
+            userMap[id] = await roblox.getUsernameFromId(id);
+        } catch (e) {
+            userMap[id] = robloxIdLabel(id);
+        }
+    }));
+    return userMap;
+}
+
+function resolveEventUser(id, userMap) {
+    if (id === -1) return null;
+    return userMap[id] || robloxIdLabel(id);
+}
+
 function lockErrorResponse(err) {
     if (!database.isEventEpLockError(err)) return null;
     return {
@@ -23,25 +50,12 @@ const EventsController = {
     getAllTime: async (req, res) => {
         try {
             const events = await database.listAllTimeEvents();
-            const userIds = new Set();
-            events.forEach(ev => {
-                if (ev.host && ev.host !== -1) userIds.add(ev.host);
-                if (ev.supervisor && ev.supervisor !== -1) userIds.add(ev.supervisor);
-            });
-
-            const userMap = {};
-            await Promise.all(Array.from(userIds).map(async (id) => {
-                try {
-                    userMap[id] = await roblox.getUsernameFromId(id);
-                } catch (e) {
-                    userMap[id] = 'Unknown';
-                }
-            }));
+            const userMap = await buildRobloxUsernameMap(events);
 
             const resolvedEvents = events.map(ev => ({
                 ...ev,
-                host: ev.host === -1 ? 'No User' : (userMap[ev.host] || 'Unknown'),
-                supervisor: ev.supervisor === -1 ? 'No User' : (userMap[ev.supervisor] || 'Unknown')
+                host: resolveEventUser(ev.host, userMap),
+                supervisor: resolveEventUser(ev.supervisor, userMap)
             }));
 
             res.json(resolvedEvents);
@@ -54,25 +68,12 @@ const EventsController = {
     getWeekly: async (req, res) => {
         try {
             const events = await database.listWeeklyEvents();
-            const userIds = new Set();
-            events.forEach(ev => {
-                if (ev.host && ev.host !== -1) userIds.add(ev.host);
-                if (ev.supervisor && ev.supervisor !== -1) userIds.add(ev.supervisor);
-            });
-
-            const userMap = {};
-            await Promise.all(Array.from(userIds).map(async (id) => {
-                try {
-                    userMap[id] = await roblox.getUsernameFromId(id);
-                } catch (e) {
-                    userMap[id] = 'Unknown';
-                }
-            }));
+            const userMap = await buildRobloxUsernameMap(events);
 
             const resolvedEvents = events.map(ev => ({
                 ...ev,
-                host: ev.host === -1 ? 'No User' : (userMap[ev.host] || 'Unknown'),
-                supervisor: ev.supervisor === -1 ? 'No User' : (userMap[ev.supervisor] || 'Unknown')
+                host: resolveEventUser(ev.host, userMap),
+                supervisor: resolveEventUser(ev.supervisor, userMap)
             }));
 
             res.json(resolvedEvents);

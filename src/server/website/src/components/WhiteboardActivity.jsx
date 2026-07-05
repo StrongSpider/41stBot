@@ -3,8 +3,12 @@ import {
     Brush,
     Circle,
     Eraser,
+    Minus,
+    Plus,
     RotateCcw,
-    Trash2
+    Trash2,
+    Wifi,
+    WifiOff
 } from 'lucide-react';
 import { useDiscordActivity } from '@/context/DiscordActivityContext';
 
@@ -16,6 +20,10 @@ const BOARD_LABELS = {
 };
 const COLORS = ['#111827', '#ef4444', '#f59e0b', '#10b981', '#2563eb', '#7c3aed'];
 const HTTP_POLL_MS = 200;
+const CURSOR_SEND_MS = 40;
+const INTERPOLATION_STEP = 0.0045;
+const MIN_POINT_DISTANCE = 0.0012;
+const MAX_CLIENT_POINTS = 900;
 const EMPTY_BOARDS = BOARD_IDS.reduce((boards, boardId) => {
     boards[boardId] = [];
     return boards;
@@ -60,35 +68,102 @@ function normalizePointer(event, canvas) {
     const rect = canvas.getBoundingClientRect();
     const x = (event.clientX - rect.left) / rect.width;
     const y = (event.clientY - rect.top) / rect.height;
+    const rawPressure = Number.isFinite(event.pressure) && event.pressure > 0 ? event.pressure : 0.55;
     return {
         point: {
             x: Math.min(1, Math.max(0, x)),
-            y: Math.min(1, Math.max(0, y))
+            y: Math.min(1, Math.max(0, y)),
+            pressure: Math.min(1, Math.max(0.18, rawPressure))
         },
         inBounds: x >= 0 && x <= 1 && y >= 0 && y <= 1
+    };
+}
+
+function getStrokePoint(point, width, height) {
+    return {
+        x: point.x * width,
+        y: point.y * height,
+        pressure: Number.isFinite(point.pressure) ? point.pressure : 0.55
+    };
+}
+
+function interpolatePoints(start, end) {
+    const distance = Math.hypot(end.x - start.x, end.y - start.y);
+    if (distance < MIN_POINT_DISTANCE) return [];
+
+    const segmentCount = Math.max(1, Math.ceil(distance / INTERPOLATION_STEP));
+    const points = [];
+    for (let index = 1; index <= segmentCount; index += 1) {
+        const amount = index / segmentCount;
+        points.push({
+            x: start.x + (end.x - start.x) * amount,
+            y: start.y + (end.y - start.y) * amount,
+            pressure: (start.pressure || 0.55) + ((end.pressure || 0.55) - (start.pressure || 0.55)) * amount
+        });
+    }
+    return points;
+}
+
+function compactPoints(points) {
+    if (points.length <= MAX_CLIENT_POINTS) return points;
+
+    const compacted = [points[0]];
+    const stride = Math.ceil((points.length - 2) / (MAX_CLIENT_POINTS - 2));
+    for (let index = 1; index < points.length - 1; index += stride) {
+        compacted.push(points[index]);
+    }
+    compacted.push(points[points.length - 1]);
+    return compacted.slice(0, MAX_CLIENT_POINTS);
+}
+
+function appendInterpolatedPoints(stroke, rawPoint) {
+    const lastPoint = stroke.points[stroke.points.length - 1];
+    const nextPoints = interpolatePoints(lastPoint, rawPoint);
+    if (nextPoints.length === 0) return stroke;
+
+    return {
+        ...stroke,
+        points: compactPoints([...stroke.points, ...nextPoints])
     };
 }
 
 function drawStroke(ctx, stroke, width, height) {
     if (!stroke.points?.length) return;
 
+    const points = stroke.points.map(point => getStrokePoint(point, width, height));
+    const averagePressure = points.reduce((total, point) => total + point.pressure, 0) / points.length;
+
     ctx.save();
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.lineWidth = stroke.size;
+    ctx.lineWidth = Math.max(1, stroke.size * (0.72 + averagePressure * 0.36));
     ctx.globalCompositeOperation = stroke.tool === 'eraser' ? 'destination-out' : 'source-over';
     ctx.strokeStyle = stroke.color;
 
-    const [firstPoint, ...rest] = stroke.points;
-    ctx.beginPath();
-    ctx.moveTo(firstPoint.x * width, firstPoint.y * height);
+    if (points.length === 1) {
+        ctx.beginPath();
+        ctx.arc(points[0].x, points[0].y, ctx.lineWidth / 2, 0, Math.PI * 2);
+        ctx.fillStyle = stroke.color;
+        ctx.fill();
+        ctx.restore();
+        return;
+    }
 
-    if (rest.length === 0) {
-        ctx.lineTo(firstPoint.x * width + 0.01, firstPoint.y * height + 0.01);
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+
+    if (points.length === 2) {
+        ctx.lineTo(points[1].x, points[1].y);
     } else {
-        for (const point of rest) {
-            ctx.lineTo(point.x * width, point.y * height);
+        for (let index = 1; index < points.length - 1; index += 1) {
+            const current = points[index];
+            const next = points[index + 1];
+            const midX = (current.x + next.x) / 2;
+            const midY = (current.y + next.y) / 2;
+            ctx.quadraticCurveTo(current.x, current.y, midX, midY);
         }
+        const last = points[points.length - 1];
+        ctx.lineTo(last.x, last.y);
     }
 
     ctx.stroke();
@@ -176,16 +251,19 @@ export default function WhiteboardActivity() {
     const colorRef = useRef(COLORS[0]);
     const brushSizeRef = useRef(8);
     const drawingRef = useRef(null);
+    const previewStrokeRef = useRef(null);
+    const cursorSentAtRef = useRef(0);
+    const redrawFrameRef = useRef(null);
 
     const [boards, setBoards] = useState(() => cloneEmptyBoards());
     const [activeBoard, setActiveBoard] = useState('board-1');
     const [tool, setTool] = useState('pen');
     const [color, setColor] = useState(COLORS[0]);
     const [brushSize, setBrushSize] = useState(8);
-    const [, setParticipants] = useState([]);
+    const [participants, setParticipants] = useState([]);
     const [cursors, setCursors] = useState([]);
-    const [, setConnectionState] = useState('connecting');
-    const [, setStatusText] = useState('Connecting');
+    const [connectionState, setConnectionState] = useState('connecting');
+    const [statusText, setStatusText] = useState('Connecting');
     const [previewStroke, setPreviewStroke] = useState(null);
     const [clearNotice, setClearNotice] = useState(null);
 
@@ -194,9 +272,22 @@ export default function WhiteboardActivity() {
     const username = useMemo(() => getDisplayName(activityUser), [activityUser]);
     const userColor = useMemo(() => COLORS[Math.abs(userId.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)) % COLORS.length], [userId]);
 
+    const setCurrentPreviewStroke = useCallback(stroke => {
+        previewStrokeRef.current = stroke;
+        setPreviewStroke(stroke);
+    }, []);
+
+    const redrawNow = useCallback(() => {
+        drawBoard(canvasRef.current, boardsRef.current[activeBoardRef.current] || [], drawingRef.current || previewStrokeRef.current);
+    }, []);
+
     const redraw = useCallback(() => {
-        drawBoard(canvasRef.current, boardsRef.current[activeBoardRef.current] || [], drawingRef.current || previewStroke);
-    }, [previewStroke]);
+        if (redrawFrameRef.current) return;
+        redrawFrameRef.current = window.requestAnimationFrame(() => {
+            redrawFrameRef.current = null;
+            redrawNow();
+        });
+    }, [redrawNow]);
 
     const updateBoards = useCallback(updater => {
         setBoards(previousBoards => {
@@ -246,6 +337,12 @@ export default function WhiteboardActivity() {
         redraw();
     }, [activeBoard, redraw]);
 
+    useEffect(() => () => {
+        if (redrawFrameRef.current) {
+            window.cancelAnimationFrame(redrawFrameRef.current);
+        }
+    }, []);
+
     useEffect(() => {
         if (!clearNotice) return undefined;
         const timer = window.setTimeout(() => setClearNotice(null), 2600);
@@ -273,6 +370,17 @@ export default function WhiteboardActivity() {
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, [redraw]);
+
+    useEffect(() => {
+        const handleKeyDown = event => {
+            if (event.key !== 'Escape' || !drawingRef.current) return;
+            drawingRef.current = null;
+            setCurrentPreviewStroke(null);
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [setCurrentPreviewStroke]);
 
     useEffect(() => {
         let reconnectTimer = null;
@@ -440,38 +548,52 @@ export default function WhiteboardActivity() {
         };
 
         drawingRef.current = stroke;
-        setPreviewStroke(stroke);
+        setCurrentPreviewStroke(stroke);
     };
 
     const movePointer = event => {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        const pointer = normalizePointer(event, canvas);
-        if (!pointer.inBounds) {
+        const sourceEvents = typeof event.getCoalescedEvents === 'function' ? event.getCoalescedEvents() : [event];
+        let latestPoint = null;
+        let latestInBounds = true;
+
+        for (const sourceEvent of sourceEvents) {
+            const pointer = normalizePointer(sourceEvent, canvas);
+            latestInBounds = pointer.inBounds;
+            if (!pointer.inBounds) continue;
+            latestPoint = pointer.point;
+
+            if (drawingRef.current) {
+                const nextStroke = appendInterpolatedPoints(drawingRef.current, pointer.point);
+                if (nextStroke !== drawingRef.current) {
+                    drawingRef.current = nextStroke;
+                }
+            }
+        }
+
+        if (!latestInBounds) {
             if (drawingRef.current) finishStroke(event);
             return;
         }
 
-        const { point } = pointer;
-        sendMessage({
-            type: 'cursor',
-            boardId: activeBoardRef.current,
-            color: userColor,
-            point
-        });
+        if (!latestPoint) return;
 
-        if (!drawingRef.current) return;
+        const now = Date.now();
+        if (now - cursorSentAtRef.current >= CURSOR_SEND_MS) {
+            cursorSentAtRef.current = now;
+            sendMessage({
+                type: 'cursor',
+                boardId: activeBoardRef.current,
+                color: userColor,
+                point: latestPoint
+            });
+        }
 
-        const previousPoint = drawingRef.current.points[drawingRef.current.points.length - 1];
-        const distance = Math.hypot(point.x - previousPoint.x, point.y - previousPoint.y);
-        if (distance < 0.002) return;
-
-        drawingRef.current = {
-            ...drawingRef.current,
-            points: [...drawingRef.current.points, point]
-        };
-        setPreviewStroke(drawingRef.current);
+        if (drawingRef.current) {
+            setCurrentPreviewStroke(drawingRef.current);
+        }
     };
 
     const finishStroke = event => {
@@ -483,9 +605,12 @@ export default function WhiteboardActivity() {
             }
         }
 
-        const stroke = drawingRef.current;
+        const stroke = drawingRef.current ? {
+            ...drawingRef.current,
+            points: compactPoints(drawingRef.current.points)
+        } : null;
         drawingRef.current = null;
-        setPreviewStroke(null);
+        setCurrentPreviewStroke(null);
         if (!stroke) return;
 
         updateBoards(previousBoards => ({
@@ -500,19 +625,24 @@ export default function WhiteboardActivity() {
     };
 
     const undoOwnStroke = () => {
+        const board = boardsRef.current[activeBoard] || [];
+        if (!board.some(stroke => stroke.userId === userId)) return;
+
         updateBoards(previousBoards => {
-            const board = previousBoards[activeBoard] || [];
-            const index = board.findLastIndex(stroke => stroke.userId === userId);
+            const activeBoardStrokes = previousBoards[activeBoard] || [];
+            const index = activeBoardStrokes.findLastIndex(stroke => stroke.userId === userId);
             if (index === -1) return previousBoards;
             return {
                 ...previousBoards,
-                [activeBoard]: board.filter((_, strokeIndex) => strokeIndex !== index)
+                [activeBoard]: activeBoardStrokes.filter((_, strokeIndex) => strokeIndex !== index)
             };
         });
         sendMessage({ type: 'undo', boardId: activeBoard });
     };
 
     const clearBoard = () => {
+        if ((boardsRef.current[activeBoard] || []).length === 0) return;
+
         updateBoards(previousBoards => ({
             ...previousBoards,
             [activeBoard]: []
@@ -521,6 +651,15 @@ export default function WhiteboardActivity() {
         sendMessage({ type: 'clear', boardId: activeBoard });
     };
 
+    const adjustBrushSize = amount => {
+        setBrushSize(previousSize => Math.min(36, Math.max(2, previousSize + amount)));
+    };
+
+    const activeStrokes = boards[activeBoard] || [];
+    const activeStrokeCount = activeStrokes.length;
+    const canUndo = activeStrokes.some(stroke => stroke.userId === userId);
+    const canClear = activeStrokeCount > 0;
+    const isConnected = connectionState === 'connected';
     const activeCursors = cursors.filter(cursor => cursor.boardId === activeBoard && cursor.userId !== userId);
 
     return (
@@ -532,12 +671,18 @@ export default function WhiteboardActivity() {
                             key={boardId}
                             type="button"
                             onClick={() => setActiveBoard(boardId)}
-                            className={`rounded-md px-3 py-2 text-sm font-semibold transition ${activeBoard === boardId
+                            className={`flex h-10 items-center gap-2 rounded-md px-3 text-sm font-semibold transition ${activeBoard === boardId
                                 ? 'bg-sky-600 text-white'
                                 : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
                             }`}
                         >
-                            {BOARD_LABELS[boardId]}
+                            <span>{BOARD_LABELS[boardId]}</span>
+                            <span className={`min-w-5 rounded-full px-1.5 py-0.5 text-center text-[0.65rem] leading-none ${activeBoard === boardId
+                                ? 'bg-white/20 text-white'
+                                : 'bg-slate-100 text-slate-500'
+                            }`}>
+                                {(boards[boardId] || []).length}
+                            </span>
                         </button>
                     ))}
                 </div>
@@ -590,8 +735,17 @@ export default function WhiteboardActivity() {
                         ))}
                     </div>
 
-                    <label className="flex h-10 min-w-[150px] items-center gap-2 rounded-md px-2">
+                    <div className="flex h-10 min-w-[190px] items-center gap-2 rounded-md px-2">
                         <Circle className="size-3.5 text-slate-500" />
+                        <button
+                            type="button"
+                            onClick={() => adjustBrushSize(-2)}
+                            className="grid h-8 w-8 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                            aria-label="Decrease brush size"
+                            title="Decrease brush size"
+                        >
+                            <Minus className="size-4" />
+                        </button>
                         <input
                             type="range"
                             min="2"
@@ -601,14 +755,24 @@ export default function WhiteboardActivity() {
                             className="w-full accent-sky-600"
                             aria-label="Brush size"
                         />
+                        <button
+                            type="button"
+                            onClick={() => adjustBrushSize(2)}
+                            className="grid h-8 w-8 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                            aria-label="Increase brush size"
+                            title="Increase brush size"
+                        >
+                            <Plus className="size-4" />
+                        </button>
                         <span className="w-7 text-right text-xs font-semibold text-slate-600">{brushSize}</span>
-                    </label>
+                    </div>
 
                     <div className="flex items-center gap-1">
                         <button
                             type="button"
                             onClick={undoOwnStroke}
-                            className="grid h-10 w-10 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                            disabled={!canUndo}
+                            className="grid h-10 w-10 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-slate-600"
                             aria-label="Undo"
                             title="Undo"
                         >
@@ -617,13 +781,26 @@ export default function WhiteboardActivity() {
                         <button
                             type="button"
                             onClick={clearBoard}
-                            className="grid h-10 w-10 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                            disabled={!canClear}
+                            className="grid h-10 w-10 place-items-center rounded-md text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-slate-600"
                             aria-label="Clear board"
                             title="Clear board"
                         >
                             <Trash2 className="size-4" />
                         </button>
                     </div>
+                </div>
+
+                <div className="ml-auto flex h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white/92 px-3 text-sm font-semibold text-slate-700 shadow-lg backdrop-blur">
+                    {isConnected ? (
+                        <Wifi className="size-4 text-emerald-600" />
+                    ) : (
+                        <WifiOff className="size-4 text-amber-600" />
+                    )}
+                    <span>{statusText}</span>
+                    <span className="h-4 w-px bg-slate-200" />
+                    <span>{participants.length}</span>
+                    <span className="text-slate-400">online</span>
                 </div>
             </div>
 

@@ -49,6 +49,49 @@ describe('GET /api/all-time', () => {
         expect(res.body[0]).toHaveProperty('host', 'TestUser');
     });
 
+    it('should use a Roblox ID label instead of Unknown when username lookup fails', async () => {
+        const mockEvents = [
+            {
+                eventId: 'missing-user',
+                host: 111,
+                supervisor: 222,
+                type: 'Raid',
+                timestamp: new Date().toISOString(),
+            },
+        ];
+
+        mockListAllTimeEvents.mockResolvedValue(mockEvents);
+        mockGetUsernameFromId.mockRejectedValue(new Error('User not found'));
+
+        const res = await request(app).get('/api/all-time');
+
+        expect(res.status).toBe(200);
+        expect(res.body[0]).toHaveProperty('host', 'Roblox ID 111');
+        expect(res.body[0]).toHaveProperty('supervisor', 'Roblox ID 222');
+        expect(JSON.stringify(res.body)).not.toContain('Unknown');
+    });
+
+    it('should return null for event user fields stored as -1', async () => {
+        const mockEvents = [
+            {
+                eventId: 'no-user',
+                host: -1,
+                supervisor: -1,
+                type: 'Raid',
+                timestamp: new Date().toISOString(),
+            },
+        ];
+
+        mockListAllTimeEvents.mockResolvedValue(mockEvents);
+
+        const res = await request(app).get('/api/all-time');
+
+        expect(res.status).toBe(200);
+        expect(res.body[0]).toHaveProperty('host', null);
+        expect(res.body[0]).toHaveProperty('supervisor', null);
+        expect(mockGetUsernameFromId).not.toHaveBeenCalled();
+    });
+
     it('should handle database errors gracefully', async () => {
         allowLoggerErrors('getAllTime error: Error: DB Error');
 

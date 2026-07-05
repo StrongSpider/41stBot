@@ -1,6 +1,6 @@
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
 const { getRobloxIdByDiscord } = require('../api/database');
-const { getUsernameFromId } = require('noblox.js');
+const { refreshUsernameFromId } = require('../api/roblox.js');
 const Logger = require('../api/logger.js');
 const config = require('../../config.json');
 const { TOKEN: BOT_TOKEN } = config.DISCORD.BOT;
@@ -43,7 +43,7 @@ const RequestLoop = async function () {
             let username;
             try {
                 await new Promise(resolve => setTimeout(resolve, 2000));
-                username = await getUsernameFromId(rid);
+                username = await refreshUsernameFromId(rid);
             } catch (err) {
                 //logger.warn(`Could not resolve username for RobloxID ${rid}:`, err.message);
                 continue;
