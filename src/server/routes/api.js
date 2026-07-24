@@ -8,6 +8,7 @@ const QuotasController = require('../controllers/QuotasController.js');
 const AuthController = require('../controllers/AuthController.js');
 const DiscordController = require('../controllers/DiscordController.js');
 const RobloxAuthController = require('../controllers/RobloxAuthController.js');
+const CeremonyController = require('../controllers/CeremonyController.js');
 
 // === Auth Routes ===
 router.get('/auth/callback', AuthController.discordCallback);
@@ -45,5 +46,8 @@ router.post('/quota/check', ensureAuth, QuotasController.checkQuotaBatch);
 // === Discord Routes ===
 router.get('/discord/role/:id', DiscordController.getRole);
 router.get('/discord/roles', DiscordController.getRoles);
+
+// === Ceremony Routes ===
+router.post('/ceremony/log', CeremonyController.sendLog);
 
 module.exports = router;
