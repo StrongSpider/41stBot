@@ -70,6 +70,15 @@ module.exports = async function counterRaidLog(message) {
             return
         }
 
+        const lockState = await database.getEventEpLock()
+        if (lockState && lockState.enabled) {
+            try {
+                await message.member?.send('Your message in <#' + DISCORD_CHANNEL_IDS.COUNTER_RAID_LOGS + '> cannot be posted while the tracker is locked. Here was your message:\n```' + message.content + '```')
+            } catch { }
+            try { await message.delete() } catch { }
+            return
+        }
+
         const lines = String(message.content || '').split('\n')
         const attendeesLine = findLine(lines, 'attendees:')
         const hostLine = findLine(lines, 'host:')
