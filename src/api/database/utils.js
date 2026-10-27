@@ -58,27 +58,7 @@ function normalizeEventCaps(raw) {
     return [];
 }
 
-function normalizeJsonArray(raw) {
-    if (raw == null) return [];
-    if (Array.isArray(raw)) return raw;
-    if (typeof raw === 'string') {
-        try {
-            const parsed = JSON.parse(raw);
-            return Array.isArray(parsed) ? parsed : [];
-        } catch {
-            return [];
-        }
-    }
-    return [];
-}
 
-function normalizeBadges(raw) {
-    return normalizeJsonArray(raw);
-}
-
-function normalizeAssets(raw) {
-    return normalizeJsonArray(raw);
-}
 
 /**
  * Normalize and sanity-check a candidate event_type string.
@@ -111,7 +91,5 @@ module.exports = {
     toBigInt,
     toNumOrNull,
     normalizeEventCaps,
-    normalizeBadges,
-    normalizeAssets,
     assertSafeEventType
 };

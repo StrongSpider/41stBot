@@ -3,17 +3,17 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
 }
 
 model EventType {
-  type String @id @db.Text
+  type String @id @db.VarChar(191)
 
   @@map("event_types")
 }
 
 model RobloxLink {
-  discordId String @id @map("discordid") @db.Text
+  discordId String @id @map("discordid") @db.VarChar(191)
   robloxId  BigInt @unique @map("robloxid")
 
   weeklyHostedEvents        WeeklyEvent[]       @relation("WeeklyEventHost")
@@ -29,7 +29,7 @@ model RobloxLink {
 }
 
 model Inactivity {
-  discordId String @id @map("discordid") @db.Text
+  discordId String @id @map("discordid") @db.VarChar(191)
   date      BigInt
   reason    String @db.Text
 
@@ -37,13 +37,13 @@ model Inactivity {
 }
 
 model WeeklyEvent {
-  eventId    String   @id @default(dbgenerated("gen_random_uuid()")) @map("eventid") @db.Uuid
-  attendees  BigInt[] @default([])
+  eventId    String   @id @default(uuid()) @map("eventid") @db.Char(36)
+  attendees  Json     @default("[]")
   host       BigInt
   supervisor BigInt
-  timestamp  DateTime @db.Timestamptz(6)
-  type       String?  @db.Text
-  message    String?  @db.Text
+  timestamp  DateTime @db.DateTime(6)
+  type       String?  @db.VarChar(191)
+  message    String?  @unique @db.VarChar(512)
 
   hostLink       RobloxLink @relation("WeeklyEventHost", fields: [host], references: [robloxId], onDelete: Restrict, onUpdate: Cascade)
   supervisorLink RobloxLink @relation("WeeklyEventSupervisor", fields: [supervisor], references: [robloxId], onDelete: Restrict, onUpdate: Cascade)
@@ -56,13 +56,13 @@ model WeeklyEvent {
 }
 
 model AllTimeEvent {
-  eventId    String   @id @map("eventid") @db.Uuid
-  attendees  BigInt[] @default([])
+  eventId    String   @id @map("eventid") @db.Char(36)
+  attendees  Json     @default("[]")
   host       BigInt
   supervisor BigInt
-  timestamp  DateTime @db.Timestamptz(6)
-  type       String?  @db.Text
-  message    String?  @db.Text
+  timestamp  DateTime @db.DateTime(6)
+  type       String?  @db.VarChar(191)
+  message    String?  @unique @db.VarChar(512)
 
   hostLink       RobloxLink @relation("AllTimeEventHost", fields: [host], references: [robloxId], onDelete: Restrict, onUpdate: Cascade)
   supervisorLink RobloxLink @relation("AllTimeEventSupervisor", fields: [supervisor], references: [robloxId], onDelete: Restrict, onUpdate: Cascade)
@@ -76,7 +76,7 @@ model AllTimeEvent {
 
 model WeeklyEventIndex {
   robloxId BigInt   @id @map("robloxid")
-  events   String[] @default([]) @db.Uuid
+  events   Json     @default("[]")
 
   robloxLink RobloxLink @relation(fields: [robloxId], references: [robloxId], onDelete: Cascade, onUpdate: Cascade)
 
@@ -85,7 +85,7 @@ model WeeklyEventIndex {
 
 model AllTimeEventIndex {
   robloxId BigInt   @id @map("robloxid")
-  events   String[] @default([]) @db.Uuid
+  events   Json     @default("[]")
 
   robloxLink RobloxLink @relation(fields: [robloxId], references: [robloxId], onDelete: Cascade, onUpdate: Cascade)
 
@@ -111,11 +111,11 @@ model AllTimeEventPoints {
 }
 
 model RoleQuota {
-  roleId     String  @id @map("roleid") @db.Text
+  roleId     String  @id @map("roleid") @db.VarChar(191)
   quotaEP    Int     @default(0) @map("quotaep")
   eventCaps  Json    @default("[]") @map("eventcaps")
-  overwrites String? @default("") @db.Text
-  exclusive  String? @default("") @db.Text
+  overwrites String? @default(dbgenerated("('')")) @db.Text
+  exclusive  String? @default(dbgenerated("('')")) @db.Text
   purges     Boolean @default(false)
 
   @@map("role_quotas")
@@ -124,56 +124,32 @@ model RoleQuota {
 model RobloxUserCache {
   robloxId  BigInt   @id @map("robloxid")
   username  String   @db.Text
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.DateTime(6)
 
   @@index([updatedAt], map: "roblox_user_cache_updated_at_idx")
   @@map("roblox_user_cache")
 }
 
 model BotState {
-  key       String   @id @db.Text
+  key       String   @id @db.VarChar(191)
   value     Json
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.DateTime(6)
 
   @@map("bot_state")
 }
 
 model MinorOfficerLogsWeekly {
-  discordId   String   @id @map("discordid") @db.Text
+  discordId   String   @id @map("discordid") @db.VarChar(191)
   reviewCount Int      @default(0) @map("review_count")
-  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.DateTime(6)
 
   @@map("minor_officer_logs_weekly")
 }
 
 model MinorOfficerLogsAllTime {
-  discordId   String   @id @map("discordid") @db.Text
+  discordId   String   @id @map("discordid") @db.VarChar(191)
   reviewCount Int      @default(0) @map("review_count")
-  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.DateTime(6)
 
   @@map("minor_officer_logs_all_time")
-}
-
-model UserBadgeCache {
-  robloxId BigInt @id @map("robloxid")
-  data     Json   @default("[]")
-
-  @@map("user_badges")
-}
-
-model UserAssetCache {
-  robloxId BigInt @id @map("robloxid")
-  data     Json   @default("[]")
-
-  @@map("user_assets")
-}
-
-model OfficerLabel {
-  id               Int    @id @default(autoincrement())
-  officerDiscordId String @map("officer_discord_id") @db.Text
-  targetRobloxId   BigInt @map("target_roblox_id")
-
-  @@unique([officerDiscordId, targetRobloxId], map: "officer_labels_officer_discord_id_target_roblox_id_key")
-  @@index([targetRobloxId], map: "officer_labels_target_roblox_id_idx")
-  @@map("officer_labels")
 }

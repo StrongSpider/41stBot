@@ -14,15 +14,15 @@ function databaseUrlFromConfig(): string | undefined {
   if (!existsSync(configPath)) return undefined;
 
   const config = JSON.parse(readFileSync(configPath, "utf8"));
-  const postgres = config.POSTGRES || {};
-  const user = encode(postgres.USER);
-  const password = encode(postgres.PASSWORD);
-  const host = postgres.HOST || "localhost";
-  const port = postgres.PORT || 5432;
-  const database = encode(postgres.DATABASE);
+  const mysql = config.MYSQL || {};
+  const user = encode(mysql.USER);
+  const password = encode(mysql.PASSWORD);
+  const host = mysql.HOST || "localhost";
+  const port = mysql.PORT || 3306;
+  const database = encode(mysql.DATABASE);
 
   if (!user || !database) return undefined;
-  return `postgresql://${user}:${password}@${host}:${port}/${database}?schema=public`;
+  return `mysql://${user}:${password}@${host}:${port}/${database}`;
 }
 
 export default defineConfig({

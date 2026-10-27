@@ -29,7 +29,7 @@ function mapEvent(row) {
 
 function mapEventUpdate(updates) {
     const data = {};
-    if (updates.attendees !== undefined) data.attendees = updates.attendees.map((id) => toBigInt(id));
+    if (updates.attendees !== undefined) data.attendees = updates.attendees.map((id) => String(toBigInt(id)));
     if (updates.host !== undefined) data.host = toBigInt(updates.host);
     if (updates.supervisor !== undefined) data.supervisor = toBigInt(updates.supervisor);
     if (updates.timestamp !== undefined) data.timestamp = new Date(ensureTimestamp(updates.timestamp));
@@ -213,7 +213,7 @@ function indexedUsersForEvent(event) {
 
 async function createWeeklyEvent(data) {
     await assertEventEpWriteUnlocked();
-    const attendees = (data.attendees || []).map(toBigInt);
+    const attendees = (data.attendees || []).map((id) => String(toBigInt(id)));
     const host = toBigInt(data.host);
     const supervisor = toBigInt(data.supervisor);
     const timestamp = new Date(ensureTimestamp(data.timestamp));
@@ -480,7 +480,7 @@ async function getAllUsersAllTimeEventPoints() {
 
 async function getUsersWithWeeklyEvents() {
     const rows = await prisma.$queryRaw`
-        SELECT robloxid FROM weekly_events_index WHERE array_length(events, 1) > 0
+        SELECT robloxid FROM weekly_events_index WHERE JSON_LENGTH(events) > 0
     `;
     return rows.map((row) => String(row.robloxid));
 }

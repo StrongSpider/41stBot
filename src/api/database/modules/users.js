@@ -2,7 +2,7 @@
 
 const { Prisma } = require('@prisma/client');
 const { prisma } = require('../connection');
-const { toId, toBigInt, normalizeBadges, normalizeAssets } = require('../utils');
+const { toId, toBigInt } = require('../utils');
 
 const UNLINKED_DISCORD_ID_PREFIX = '__unlinked__:';
 
@@ -134,25 +134,6 @@ async function getDiscordIdsBatch(robloxIds) {
     }));
 }
 
-async function getRandomUser(officerDiscordId) {
-    const rows = officerDiscordId
-        ? await prisma.$queryRaw`
-            SELECT robloxid FROM user_assets
-            WHERE robloxid NOT IN (
-                SELECT target_roblox_id FROM officer_labels WHERE officer_discord_id = ${String(officerDiscordId)}
-            )
-            ORDER BY RANDOM()
-            LIMIT 1
-        `
-        : await prisma.$queryRaw`
-            SELECT robloxid FROM user_assets
-            ORDER BY RANDOM()
-            LIMIT 1
-        `;
-
-    return rows[0] ? Number(rows[0].robloxid) : null;
-}
-
 async function getInactivity(discordId) {
     const row = await prisma.inactivity.findUnique({
         where: { discordId: toId(discordId) }
@@ -196,78 +177,6 @@ async function deleteInactivity(discordId) {
     });
 }
 
-async function getUserBadges(robloxId) {
-    const row = await prisma.userBadgeCache.findUnique({
-        where: { robloxId: toBigInt(robloxId) }
-    });
-    return normalizeBadges(row && row.data);
-}
-
-async function setUserBadges(robloxId, badges) {
-    const cleaned = normalizeBadges(badges);
-    await prisma.userBadgeCache.upsert({
-        where: { robloxId: toBigInt(robloxId) },
-        create: { robloxId: toBigInt(robloxId), data: cleaned },
-        update: { data: cleaned }
-    });
-}
-
-async function appendUserBadges(robloxId, badges) {
-    const cleaned = normalizeBadges(badges);
-    if (!cleaned.length) return;
-
-    await prisma.$transaction(async (tx) => {
-        const rid = toBigInt(robloxId);
-        const existing = await tx.userBadgeCache.findUnique({ where: { robloxId: rid } });
-        const nextData = normalizeBadges(existing && existing.data).concat(cleaned);
-        await tx.userBadgeCache.upsert({
-            where: { robloxId: rid },
-            create: { robloxId: rid, data: nextData },
-            update: { data: nextData }
-        });
-    });
-}
-
-async function getAllUserBadgesData() {
-    const rows = await prisma.userBadgeCache.findMany();
-    return rows.map((row) => ({
-        robloxId: Number(row.robloxId),
-        badges: normalizeBadges(row.data)
-    }));
-}
-
-async function getUserAssets(robloxId) {
-    const row = await prisma.userAssetCache.findUnique({
-        where: { robloxId: toBigInt(robloxId) }
-    });
-    return normalizeAssets(row && row.data);
-}
-
-async function setUserAssets(robloxId, assets) {
-    const cleaned = normalizeAssets(assets);
-    await prisma.userAssetCache.upsert({
-        where: { robloxId: toBigInt(robloxId) },
-        create: { robloxId: toBigInt(robloxId), data: cleaned },
-        update: { data: cleaned }
-    });
-}
-
-async function appendUserAssets(robloxId, assets) {
-    const cleaned = normalizeAssets(assets);
-    if (!cleaned.length) return;
-
-    await prisma.$transaction(async (tx) => {
-        const rid = toBigInt(robloxId);
-        const existing = await tx.userAssetCache.findUnique({ where: { robloxId: rid } });
-        const nextData = normalizeAssets(existing && existing.data).concat(cleaned);
-        await tx.userAssetCache.upsert({
-            where: { robloxId: rid },
-            create: { robloxId: rid, data: nextData },
-            update: { data: nextData }
-        });
-    });
-}
-
 module.exports = {
     getRobloxIdByDiscord,
     getDiscordIdByRoblox,
@@ -275,16 +184,8 @@ module.exports = {
     deleteDiscordId,
     getAllUsers,
     getDiscordIdsBatch,
-    getRandomUser,
     getInactivity,
     getAllInactivities,
     setInactivity,
-    deleteInactivity,
-    getUserBadges,
-    setUserBadges,
-    appendUserBadges,
-    getAllUserBadgesData,
-    getUserAssets,
-    setUserAssets,
-    appendUserAssets
+    deleteInactivity
 };

@@ -157,8 +157,17 @@
     "USER": "",
     "PASSWORD": "",
     "HOST": "",
-    "PORT": 0,
+    "PORT": 5432,
     "DATABASE": ""
+  },
+  "MYSQL": {
+    "USER": "",
+    "PASSWORD": "",
+    "HOST": "",
+    "PORT": 0,
+    "DATABASE": "",
+    "ALLOW_PUBLIC_KEY_RETRIEVAL": false,
+    "CONNECT_TIMEOUT": 30000
   },
   "ROBLOX": {
     "GROUP_ID": 5810035,

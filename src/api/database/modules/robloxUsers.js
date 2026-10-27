@@ -23,8 +23,7 @@ async function getUserByUsername(username) {
     const row = await prisma.robloxUserCache.findFirst({
         where: {
             username: {
-                equals: String(username),
-                mode: 'insensitive'
+                equals: String(username)
             }
         }
     });
