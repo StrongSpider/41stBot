@@ -47,8 +47,8 @@ Ctrl+C stops all services. Any preparation failure prevents service startup.`);
         }
     }
 
-    npm(['ci', '--include=dev'], 'Installing application dependencies...');
-    npm(['--prefix', 'src/server/website', 'ci', '--include=dev'], 'Installing portal dependencies...');
+    //npm(['ci', '--include=dev'], 'Installing application dependencies...');
+    //npm(['--prefix', 'src/server/website', 'ci', '--include=dev'], 'Installing portal dependencies...');
     process.env.NODE_ENV = 'production';
     fs.mkdirSync(path.join('src', 'cache'), { recursive: true });
     npm(['run', 'prisma:generate'], 'Generating Prisma client...');
