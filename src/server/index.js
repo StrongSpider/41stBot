@@ -39,7 +39,8 @@ app.use('/api/activity/whiteboard', whiteboard.router);
 app.use(require('./routes/index.js'));
 
 
-// React app setup
+// Optional React frontend; API and auth routes above are always registered.
+if (process.env.PORTAL_ENABLED !== 'false') {
 if (process.env.NODE_ENV === 'development') {
     (async () => {
         const { createServer } = await import('vite');
@@ -78,7 +79,11 @@ if (process.env.NODE_ENV === 'development') {
     });
 }
 
+} else {
+    app.use((req, res) => res.status(404).json({ error: 'Not found' }));
+}
 
-server.listen(PORTAL_PORT, PORTAL_HOST, () => {
-    Logger.info(`App listening on port ${PORTAL_PORT}.`);
+const listenPort = Number(process.env.SERVER_PORT || process.env.PORT || PORTAL_PORT);
+server.listen(listenPort, process.env.HOST || '0.0.0.0', () => {
+    Logger.info(`API listening on port ${listenPort}.`);
 });

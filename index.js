@@ -12,8 +12,8 @@ async function main() {
     if (args.length === 1 && ['--help', '-h'].includes(args[0])) {
         console.log(`Usage: node index.js
 
-Install dependencies, generate Prisma, deploy database migrations, build the
-portal, register Discord commands, and run the bot and web server.
+Install dependencies, generate Prisma, deploy database migrations,
+register Discord commands, and run the bot and web server.
 Requires Node.js 24+, npm, a configured config.json, and an existing MySQL database.
 Ctrl+C stops all services. Any preparation failure prevents service startup.`);
         return;
@@ -33,11 +33,11 @@ Ctrl+C stops all services. Any preparation failure prevents service startup.`);
     const missing = ['TOKEN', 'CLIENT_ID', 'GUILD_ID'].filter(key => !config?.DISCORD?.BOT?.[key]);
     if (missing.length) throw new Error(`Fill in config.json DISCORD.BOT: ${missing.join(', ')}`);
 
-    function npm(args, message) {
+    function npm(args, message, env = {}) {
         console.log(message);
         const result = spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', args, {
             stdio: 'inherit',
-            env: process.env,
+            env: { ...process.env, ...env },
             shell: process.platform === 'win32',
         });
         if (result.error) throw new Error(`Could not run npm: ${result.error.message}`);
@@ -47,13 +47,19 @@ Ctrl+C stops all services. Any preparation failure prevents service startup.`);
         }
     }
 
-    //npm(['ci', '--include=dev'], 'Installing application dependencies...');
-    //npm(['--prefix', 'src/server/website', 'ci', '--include=dev'], 'Installing portal dependencies...');
+    const installEnv = { NODE_OPTIONS: '--max-old-space-size=128' };
+    const ready = path.join('node_modules', '.hosting-install-ready');
+    if (!fs.existsSync(ready)) {
+        if (fs.existsSync('node_modules')) fs.renameSync('node_modules', 'node_modules.incomplete-' + Date.now());
+        npm(['ci', '--include=dev', '--no-audit', '--no-fund', '--maxsockets=1'], 'Installing locked application dependencies...', installEnv);
+        fs.writeFileSync(ready, 'Installed from package-lock.json');
+    }
     process.env.NODE_ENV = 'production';
     fs.mkdirSync(path.join('src', 'cache'), { recursive: true });
     npm(['run', 'prisma:generate'], 'Generating Prisma client...');
     npm(['run', 'prisma:migrate'], 'Applying database migrations...');
-    npm(['run', 'build'], 'Building portal...');
+    process.env.PORTAL_ENABLED = 'false';
+    console.log('Portal frontend disabled; starting bot and API only.');
     npm(['run', 'deploy'], 'Deploying Discord commands...');
 
     console.log('Starting bot and server. Press Ctrl+C to stop both.');

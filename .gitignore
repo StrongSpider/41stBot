@@ -18,3 +18,5 @@ src/tests/scripts
 
 graphify-out
 package-lock.json
+# Track the root lockfile for reproducible hosting installs.
+!/package-lock.json
