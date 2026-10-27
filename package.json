@@ -37,7 +37,6 @@
     "express-session": "^1.18.1",
     "https-proxy-agent": "^7.0.6",
     "mariadb": "^3.5.4",
-    "noblox.js": "^6.2.0",
     "pg": "^8.23.1",
     "querystring": "^0.2.1",
     "ws": "^8.21.0"

@@ -1,7 +1,7 @@
 'use strict'
 
 const { SlashCommandBuilder, MessageFlags } = require('discord.js')
-const { getRankInGroup, getUsernameFromId } = require('noblox.js')
+const { getRankInGroup, getUsernameFromId } = require('../../api/robloxClient.js')
 
 // Roblox group ids
 const GROUP_MAIN_ID = 5810035

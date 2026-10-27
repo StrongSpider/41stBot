@@ -9,13 +9,13 @@ jest.mock('../api/database', () => {
 })
 
 // 2. Mock other dependencies
-jest.mock('noblox.js')
+jest.mock('../api/robloxClient')
 jest.mock('../api/logger')
 
 // 3. Import dependencies
 const roblox = require('../api/roblox')
 const db = require('../api/database')
-const noblox = require('noblox.js')
+const robloxClient = require('../api/robloxClient')
 
 describe('Roblox Cache', () => {
     beforeEach(() => {
@@ -30,13 +30,13 @@ describe('Roblox Cache', () => {
         }
 
         db.getUserById.mockResolvedValue(null)
-        noblox.getUsernameFromId.mockResolvedValue('TestUser')
+        robloxClient.getUsernameFromId.mockResolvedValue('TestUser')
         db.upsertUser.mockResolvedValue()
 
         const uname = await roblox.getUsernameFromId(123)
 
         expect(db.getUserById).toHaveBeenCalledWith(123)
-        expect(noblox.getUsernameFromId).toHaveBeenCalledWith(123)
+        expect(robloxClient.getUsernameFromId).toHaveBeenCalledWith(123)
         expect(db.upsertUser).toHaveBeenCalledWith(123, 'TestUser')
         expect(uname).toBe('TestUser')
     })
@@ -51,7 +51,7 @@ describe('Roblox Cache', () => {
         const uname = await roblox.getUsernameFromId(123)
 
         expect(db.getUserById).toHaveBeenCalledWith(123)
-        expect(noblox.getUsernameFromId).not.toHaveBeenCalled()
+        expect(robloxClient.getUsernameFromId).not.toHaveBeenCalled()
         expect(uname).toBe('CachedUser')
     })
 
@@ -64,23 +64,23 @@ describe('Roblox Cache', () => {
             username: 'OldUser',
             updatedAt: oldDate
         })
-        noblox.getUsernameFromId.mockResolvedValue('NewUser')
+        robloxClient.getUsernameFromId.mockResolvedValue('NewUser')
 
         const uname = await roblox.getUsernameFromId(123)
 
         expect(db.getUserById).toHaveBeenCalledWith(123)
-        expect(noblox.getUsernameFromId).not.toHaveBeenCalled()
+        expect(robloxClient.getUsernameFromId).not.toHaveBeenCalled()
         expect(db.upsertUser).not.toHaveBeenCalled()
         expect(uname).toBe('OldUser')
     })
 
     test('refreshUsernameFromId: should fetch from API and update DB', async () => {
-        noblox.getUsernameFromId.mockResolvedValue('NewUser')
+        robloxClient.getUsernameFromId.mockResolvedValue('NewUser')
         db.upsertUser.mockResolvedValue()
 
         const uname = await roblox.refreshUsernameFromId(123)
 
-        expect(noblox.getUsernameFromId).toHaveBeenCalledWith(123)
+        expect(robloxClient.getUsernameFromId).toHaveBeenCalledWith(123)
         expect(db.upsertUser).toHaveBeenCalledWith(123, 'NewUser')
         expect(uname).toBe('NewUser')
     })

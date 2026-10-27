@@ -1,6 +1,6 @@
 'use strict'
 
-const noblox = require('noblox.js')
+const robloxClient = require('./robloxClient')
 
 const LoggerClass = require('./logger.js')
 const logger = new LoggerClass('Roblox', 'API')
@@ -17,7 +17,7 @@ function normalizeUsername(value) {
 }
 
 async function fetchUsernameFromApi(idNum) {
-  const uname = normalizeUsername(await noblox.getUsernameFromId(idNum))
+  const uname = normalizeUsername(await robloxClient.getUsernameFromId(idNum))
   logger.info('Fetched username from API: ' + uname + ' (' + idNum + ')')
   return uname
 }
@@ -99,7 +99,7 @@ const getIdFromUsername = async function (username) {
 
   // API fallback
   try {
-    const idRaw = await noblox.getIdFromUsername(uname)
+    const idRaw = await robloxClient.getIdFromUsername(uname)
     const idNum = Number(idRaw)
 
     // Critical fix: do not upsert null/invalid IDs

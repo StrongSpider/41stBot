@@ -4,7 +4,7 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const config = require('../../../config.json')
 const { EMBED_COLOR } = config.GENERAL
 const { DEVELOPER_USER_ID: DEVELOPER_DISCORD_USER_ID } = config.DISCORD.BOT
-const { getIdFromUsername } = require('noblox.js')
+const { getIdFromUsername } = require('../../api/robloxClient.js')
 const database = require('../../api/database')
 const { hasDeveloperOrAdminOverride } = require('../utils/interactionPermissions.js')
 

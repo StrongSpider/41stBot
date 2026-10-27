@@ -2,8 +2,7 @@
 
 const { WebhookClient, EmbedBuilder } = require('discord.js')
 const Logger = require('../api/logger.js')
-const noblox = require('noblox.js')
-const cookieManager = require('../api/cookieManager.js')
+const robloxClient = require('../api/robloxClient.js')
 
 const config = require('../../config.json')
 const { GROUP_ID: ROBLOX_GROUP_ID, GROUP_GUARDING_RANKS: ROBLOX_GROUP_GUARDING_RANKS, PLACE_ID: ROBLOX_PLACE_ID } = config.ROBLOX
@@ -63,9 +62,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
  */
 async function getHeadshotUrl(userid) {
   try {
-    const thumbs = await noblox.getPlayerThumbnail(userid, 420, 'png', false, 'headshot')
-    const first = Array.isArray(thumbs) ? thumbs[0] : null
-    return first && first.imageUrl ? first.imageUrl : undefined
+    return await robloxClient.getHeadshotUrl(userid)
   } catch {
     return undefined
   }
@@ -165,7 +162,7 @@ async function runChecks() {
   const userIds = VIP_USERS.map(u => u.userid)
   let presences
   try {
-    presences = await noblox.getPresences(userIds)
+    presences = await robloxClient.getPresences(userIds)
   } catch (e) {
     logger.error('getPresences failed:', e && e.message ? e.message : String(e))
     return
@@ -202,35 +199,15 @@ async function runChecks() {
 
 /**
  * Program entry point
- *  - Authenticates to Roblox
  *  - Loads VIP list
  *  - Enters polling loop
  */
 async function main() {
-  // Initialize noblox with current cookie from manager
-  await noblox.setCookie(cookieManager.getCookie())
-  let lastCookieSync = Date.now()
-
   try {
     await preloadVIPs()
     let lastVipRefresh = Date.now()
 
     while (true) {
-      // Periodic cookie sync (check if Set-Cookie header updated the cookie)
-      // Periodically refresh noblox's cookie in case it was updated via Set-Cookie headers
-      if (Date.now() - lastCookieSync > 10 * 60 * 1000) { // Every 10 minutes
-        try {
-          const currentCookie = cookieManager.getCookie()
-          if (currentCookie) {
-            await noblox.setCookie(currentCookie)
-            lastCookieSync = Date.now()
-            logger.debug('Synced cookie with noblox.js')
-          }
-        } catch (e) {
-          logger.warn('Failed to sync cookie with noblox:', e && e.message ? e.message : String(e))
-        }
-      }
-
       // Periodic VIP list refresh
       if (Date.now() - lastVipRefresh > MINUTES_BETWEEN_VIP_REFRESH * 60 * 1000) {
         try {
