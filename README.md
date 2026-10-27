@@ -25,6 +25,27 @@ Additional docs:
 
 ## Quick Install
 
+For a complete production startup, run from the repository root:
+
+```bash
+node index.js
+# Or: npm run start:all
+```
+
+This installs root and portal dependencies, generates the Prisma client, applies
+database migrations, builds the portal, registers Discord commands, then runs the
+bot and server together. Preparation stops on
+any failure. Ctrl+C stops all services; if one service exits, the others stop too.
+Keep this command running in a terminal or under your process supervisor.
+
+Configure `config.json` and create the target MySQL database first. If config is
+missing, the script copies the template and exits so you can fill it in. For an
+existing database that requires baselining, follow step 4 below before running it.
+Each invocation reinstalls dependencies and reapplies pending migrations and
+Discord command registration. Run it with existing application processes stopped
+to avoid duplicate workers and port conflicts. Database migrations can change or
+remove existing tables; review pending migrations before running against live data.
+
 ### 1. Install dependencies
 
 From the repo root:

@@ -43,5 +43,6 @@ const rest = new REST().setToken(BOT_TOKEN);
 
     } catch (error) {
         logger.error(error);
+        process.exitCode = 1;
     }
 })();

@@ -4,6 +4,7 @@
   "description": "",
   "main": "",
   "scripts": {
+    "start:all": "node index.js",
     "deploy": "node src/bot/deploy.js",
     "bot": "node src/bot/index.js",
     "server": "node src/server/index.js",
