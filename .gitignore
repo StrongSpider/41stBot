@@ -17,3 +17,4 @@ src/tests/scripts
 *.d.ts
 
 graphify-out
+package-lock.json
